@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>方案 A · 卡片桌 — 词鹿英语配对</title>
+<style>
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  :root{
+    --bg:#F4F3FB; --line:#E7E5F2; --card:#fff;
+    --primary:#5A50E0; --primary-deep:#463CBE; --primary-50:#EEEDFE;
+    --text:#211E3B; --text-2:#6E6B8A; --text-3:#9B98B5;
+    --ok:#1D9E75; --ok-50:#E5F6EF; --bad:#E24B4A; --bad-50:#FCECEC;
+    --flame:#EF9F27; --amber-50:#FDF2DC;
+  }
+  html,body{margin:0;height:100%}
+  body{
+    font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:#E7E4F3; display:grid; place-items:center; padding:20px; color:var(--text);
+  }
+  /* 桌面预览用的手机框 */
+  .frame{
+    width:390px; height:844px; border-radius:44px; overflow:hidden; position:relative;
+    background:var(--bg); box-shadow:0 26px 60px rgba(40,32,90,.28), 0 0 0 10px #15132A, 0 0 0 11px #34314F;
+    display:flex; flex-direction:column;
+  }
+
+  /* ---------- 顶栏 ---------- */
+  /* 顶栏与底部提示压在纸片层之上：纸片可以从它们「身后」飞过，HUD 始终清晰 */
+  .top{padding:20px 20px 0; flex:none; position:relative; z-index:7}
+  .row1{display:flex; align-items:center; gap:10px}
+  .x{width:34px; height:34px; flex:none; border:1px solid var(--line); background:#fff; border-radius:50%;
+     font-size:16px; line-height:1; color:var(--text-2); cursor:pointer}
+  .x:active{transform:scale(.94)}
+  .titlebox{flex:1; min-width:0}
+  .titlebox b{font-size:15px; letter-spacing:.2px}
+  .titlebox span{display:block; font-size:10.5px; color:var(--text-3); margin-top:2px}
+  .timer{
+    display:flex; align-items:center; gap:5px; flex:none;
+    font-size:12px; font-weight:700; color:var(--text-2); font-variant-numeric:tabular-nums;
+    background:#fff; border:1px solid var(--line); border-radius:999px; padding:6px 11px;
+  }
+  .timer svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round}
+
+  /* 进度：一条细轨 + 右侧计数 + 连击 */
+  .progline{display:flex; align-items:center; gap:10px; margin-top:14px}
+  .track{flex:1; height:7px; background:#E3E0F4; border-radius:99px; overflow:hidden}
+  .track i{display:block; height:100%; width:0; border-radius:99px;
+    background:linear-gradient(90deg,#6F62EA,#5A50E0); transition:width .42s cubic-bezier(.2,.9,.2,1)}
+  .count{font-size:12px; font-weight:700; color:var(--text-2); font-variant-numeric:tabular-nums; flex:none}
+  .count b{color:var(--primary); font-size:14px}
+  .combo{
+    display:flex; align-items:center; gap:3px; font-size:11.5px; font-weight:800; color:#B26A0B;
+    background:var(--amber-50); border-radius:999px; padding:4px 9px; flex:none;
+    opacity:0; transform:scale(.8); transition:.22s;
+  }
+  .combo.on{opacity:1; transform:none}
+
+  /* ---------- 列头 ---------- */
+  .cols{display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:16px 20px 8px; flex:none;
+    position:relative; z-index:7}
+  .cols span{font-size:10px; font-weight:700; letter-spacing:1.4px; color:var(--text-3); text-transform:uppercase}
+  .cols span:last-child{text-align:right}
+
+  /* ---------- 卡桌 ---------- */
+  .desk{
+    flex:1; min-height:0; margin:0 20px 8px; padding:4px 0 0; position:relative;
+    display:grid; grid-template-columns:1fr 1fr; grid-template-rows:repeat(5,1fr);
+    gap:9px 10px; align-content:center;
+  }
+  /* 中缝虚线，暗示“左边英文 · 右边中文” */
+  .desk::before{
+    content:""; position:absolute; left:50%; top:6px; bottom:6px; width:1px; transform:translateX(-.5px);
+    background:repeating-linear-gradient(180deg,#CFC9EE 0 5px,transparent 5px 11px);
+  }
+  .card{
+    position:relative; min-width:0; min-height:0;
+    background:var(--card); border:1.5px solid var(--line); border-radius:15px;
+    padding:8px 9px; cursor:pointer; overflow:hidden;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+    /* 卡牌“厚度”：底部一道实阴影 + 一层柔光 */
+    box-shadow:0 2.5px 0 #E4E0F4, 0 8px 16px rgba(70,60,190,.06);
+    transition:transform .16s cubic-bezier(.2,1.2,.4,1), box-shadow .16s, border-color .14s,
+      background .14s, opacity .12s;
+  }
+  .card .m{
+    font-size:16.5px; font-weight:650; letter-spacing:.1px; line-height:1.15;
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .card .s{
+    font-size:10.5px; font-weight:400; opacity:.52; margin-top:3px; width:100%; min-width:0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .card .s.ph{font-family:"Lucida Sans Unicode",Georgia,serif; font-size:11.5px; letter-spacing:.2px}
+  .card:active{transform:translateY(1px); box-shadow:0 1px 0 #E4E0F4}
+  /* 选中：抬起来 */
+  .card.sel{
+    border-color:var(--primary); background:var(--primary-50); color:var(--primary-deep);
+    transform:translateY(-3px);
+    box-shadow:0 4.5px 0 #CFC8FA, 0 14px 22px rgba(90,80,224,.22);
+  }
+  .card.ok{
+    background:var(--ok-50); border-color:var(--ok); color:#0F6E56;
+    /* 绿色柔光：让“答对了”这件事有存在感，值得多看两眼 */
+    box-shadow:0 2.5px 0 #BFE6D6, 0 0 0 3px rgba(29,158,117,.14), 0 7px 20px rgba(29,158,117,.22);
+  }
+  .card.ok::after{
+    content:""; position:absolute; inset:0; border-radius:14px;
+    background:radial-gradient(circle at 50% 42%, rgba(29,158,117,.16), transparent 66%);
+    animation:fadeout .9s ease forwards;
+  }
+  @keyframes fadeout{from{opacity:1}to{opacity:0}}
+
+  /* 配对成功：先蹦一下（跳到最高点时才炸纸片） */
+  .card.hop{animation:hop .4s cubic-bezier(.26,1.3,.42,1); z-index:4}
+  @keyframes hop{
+    0%{transform:translateY(0) scale(1)}
+    34%{transform:translateY(-18px) scale(1.06)}
+    60%{transform:translateY(3px) scale(.976)}
+    80%{transform:translateY(-3px) scale(1.008)}
+    100%{transform:translateY(0) scale(1)}
+  }
+
+  /* 配对失败：上下颠，不是左右晃 */
+  .card.bad{
+    background:var(--bad-50); border-color:var(--bad); color:#A32D2D; animation:shake .42s;
+  }
+  @keyframes shake{
+    0%,100%{transform:translateY(0)}
+    16%{transform:translateY(-8px)}
+    34%{transform:translateY(7px)}
+    52%{transform:translateY(-5px)}
+    70%{transform:translateY(4px)}
+    86%{transform:translateY(-2px)}
+  }
+  /* 配错时会“连坐”作废的另外两张（同一个词的另一半）：安静变灰，绝不跟着抖。
+     用实底浅灰而不是整体降透明，免得桌面中缝的虚线透过卡片 */
+  .card.void{
+    background:#F6F5FB; border:1.5px dashed #D9D5EE; color:#B4B1C8;
+    box-shadow:none; pointer-events:none;
+    transition:background .3s ease, border-color .3s ease, color .3s ease, box-shadow .3s ease;
+  }
+  .card.void .s{opacity:.35}
+  /* 起爆后卡片慢慢化掉（0.8s），纸片飞的时候字还看得清，不一刀切没 */
+  .card.blasting{
+    opacity:.12; transform:scale(.965);
+    transition:opacity .8s ease-out, transform .8s ease-out;
+  }
+  .card.gone{opacity:0; transform:scale(.94); transition:opacity .3s ease, transform .3s ease}
+  .card.blank{
+    background:transparent; border:1.5px dashed #DEDAF0; box-shadow:none; cursor:default; pointer-events:none;
+  }
+  .card.pop{animation:popin .34s cubic-bezier(.2,1.35,.4,1) backwards}
+  @keyframes popin{from{opacity:0; transform:scale(.86) translateY(6px)}to{opacity:1; transform:none}}
+  /* 配错补位用“淡入”而不是“弹入”：没有缩放和位移，就不会觉得桌子在抽 */
+  .card.fade{animation:fadein .3s ease both}
+  @keyframes fadein{from{opacity:0}to{opacity:1}}
+
+  /* ---------- 纸屑爆炸层：canvas 粒子，盖在棋盘上、不挡点击 ----------
+     参考 tooldeer_com/engmatch 的做法：实心色块、重力 + 左右摆动、飘 3 秒左右 */
+  .fx{position:absolute; inset:0; z-index:6; pointer-events:none; width:100%; height:100%}
+
+  /* ---------- 底部提示 ---------- */
+  .foot{
+    flex:none; padding:6px 20px 26px; text-align:center; min-height:46px;
+    display:flex; align-items:center; justify-content:center; position:relative; z-index:7;
+  }
+  .ftxt{
+    font-size:11.5px; color:var(--text-3); transition:.18s; line-height:1.5;
+  }
+  .ftxt.ok{color:var(--ok); font-weight:700}
+  .ftxt.bad{color:var(--bad); font-weight:700}
+  .ftxt em{font-style:normal; color:var(--primary); font-weight:700}
+
+  /* ---------- 结算 ---------- */
+  .sheet{
+    position:absolute; inset:0; background:var(--bg); z-index:9; display:none;
+    flex-direction:column; align-items:center; padding:96px 26px 34px; text-align:center;
+  }
+  .sheet.show{display:flex; animation:rise .32s ease}
+  @keyframes rise{from{opacity:0; transform:translateY(18px)}to{opacity:1; transform:none}}
+  .medal{font-size:58px; animation:pop .55s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes pop{from{opacity:0; transform:scale(.3)}to{opacity:1; transform:none}}
+  .sheet h2{font-size:21px; margin:16px 0 0}
+  .sheet .sub{font-size:12.5px; color:var(--text-2); margin-top:7px}
+  .stats{display:flex; gap:9px; width:100%; margin:26px 0 12px}
+  .stat{flex:1; background:#fff; border:1px solid var(--line); border-radius:14px; padding:13px 4px}
+  .stat b{font-size:19px; font-variant-numeric:tabular-nums}
+  .stat span{display:block; font-size:10px; color:var(--text-3); margin-top:3px}
+  .note{font-size:11.5px; color:var(--text-2); line-height:1.6; background:#fff;
+    border:1px solid var(--line); border-radius:13px; padding:12px 14px; width:100%; text-align:left}
+  .go{
+    margin-top:auto; width:100%; border:none; border-radius:15px; padding:15px 0;
+    background:var(--primary); color:#fff; font-size:14.5px; font-weight:700; font-family:inherit;
+    box-shadow:0 10px 22px rgba(90,80,224,.3); cursor:pointer;
+  }
+  .go:active{transform:scale(.985)}
+  .ghost{margin-top:10px; width:100%; border:none; background:none; color:var(--text-3);
+    font-size:12.5px; font-family:inherit; padding:8px; cursor:pointer}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001s !important; transition-duration:.001s !important}
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="top">
+    <div class="row1">
+      <button class="x" onclick="quit()">✕</button>
+      <div class="titlebox">
+        <b id="lvName">U3 学习关</b>
+        <span id="lvSub">A1 · 5 对 5 配对</span>
+      </div>
+      <div class="timer">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9.5V13l2.5 1.8M9 2h6"/></svg>
+        <span id="clock">0:00</span>
+      </div>
+    </div>
+    <div class="progline">
+      <div class="track"><i id="bar"></i></div>
+      <div class="count"><b id="doneN">0</b> / <span id="totalN">20</span></div>
+      <div class="combo" id="combo">🔥 <span id="comboN">3</span></div>
+    </div>
+  </div>
+
+  <div class="cols"><span>English</span><span>中文</span></div>
+  <div class="desk" id="desk"></div>
+  <div class="foot"><p class="ftxt" id="ftxt">先点左边英文，再点右边对应的中文</p></div>
+
+  <!-- 纸屑爆炸层 -->
+  <canvas class="fx" id="fx"></canvas>
+
+  <div class="sheet" id="sheet">
+    <div class="medal">🏆</div>
+    <h2>本关完成</h2>
+    <p class="sub" id="doneSub">用时 1 分 42 秒 · U3 学习关</p>
+    <div class="stats">
+      <div class="stat"><b id="dRight">20</b><span>配对正确</span></div>
+      <div class="stat"><b id="dAcc">85%</b><span>一次选对率</span></div>
+      <div class="stat"><b id="dCombo">6</b><span>最高连击</span></div>
+    </div>
+    <div class="note" id="dNote">🦌 3 个词配错过（date、card、horse），本关内已反复重现直到配对正确</div>
+    <button class="go" id="dNext" onclick="goNext()">下一关 · U4</button>
+    <button class="ghost" onclick="location.reload()">回到首页</button>
+  </div>
+</div>
+
+<script>
+/* ================= 数据 ================= */
+const WORDS = [
+  {en:"address",zh:"地址",detail:"n.地址, 演讲, 称呼",ph:"[ˈædres]"},
+  {en:"birthday",zh:"生日",detail:"n.生日",ph:"[ˈbɜːrθdeɪ]"},
+  {en:"call",zh:"打电话",detail:"v.称呼, 打电话, 电话召唤",ph:"[kɑːl]"},
+  {en:"card",zh:"卡片",detail:"n.卡片纸, 贺卡, 明信片, 名片",ph:"[kɑːrd]"},
+  {en:"date",zh:"日期",detail:"n.日期, 时期, 约会",ph:"[deɪt]"},
+  {en:"friend",zh:"朋友",detail:"n.朋友, 好友, 支持者",ph:"[frend]"},
+  {en:"girl",zh:"女孩",detail:"n.女孩, 女儿, 年轻女子",ph:"[ɡɜːrl]"},
+  {en:"hometown",zh:"家乡",detail:"n. 故乡, 家乡",ph:"[ˈhoʊmtaʊn]"},
+  {en:"introduce",zh:"介绍",detail:"v.介绍, 引入, 推出",ph:"[ˌɪntrəˈduːs]"},
+  {en:"name",zh:"名字",detail:"n.名字, 名声, 名人",ph:"[neɪm]"},
+  {en:"number",zh:"数字",detail:"n.数字, 编号, 号码, 数量",ph:"[ˈnʌmbər]"},
+  {en:"phone",zh:"电话",detail:"n.电话, 听筒",ph:"[foʊn]"},
+  {en:"photo",zh:"照片",detail:"n.照片",ph:"[ˈfoʊtoʊ]"},
+  {en:"cat",zh:"猫",detail:"n.猫, 猫科动物",ph:"[kæt]"},
+  {en:"dog",zh:"狗",detail:"n.狗, 公狗, 赛狗",ph:"[dɑːɡ]"},
+  {en:"bird",zh:"鸟",detail:"n.鸟, 怪人",ph:"[bɜːrd]"},
+  {en:"fish",zh:"鱼",detail:"n.鱼, 鱼肉",ph:"[fɪʃ]"},
+  {en:"horse",zh:"马",detail:"n.马, 赛马, 鞍马",ph:"[hɔːrs]"},
+  {en:"bear",zh:"熊",detail:"n.熊, 忍受",ph:"[ber]"},
+  {en:"butterfly",zh:"蝴蝶",detail:"n.蝴蝶",ph:"[ˈbʌtərflaɪ]"}
+];
+const PAIRS = 5;
+const TOTAL = WORDS.length;
+
+/* ================= 动效时间轴（毫秒，从「点下第二张卡」开始算） =================
+   0           点下第二张
+   → 220       判定：变绿 + 蹦一下（hop 400ms）
+   → 900       起爆：纸片炸开、卡片开始 0.8s 慢速化掉
+                  （hop 早已落地，绿卡完整停留 ~680ms，够再看一眼词形）
+   → 1600      卡片彻底隐去
+   → 1770      补位、解锁
+   注意：每一步都比上一版慢一倍左右，答对后不是“啪一下没了”，
+   而是“变绿 → 停住让你确认 → 炸开 → 纸片慢慢飘落 → 换新卡”。 */
+const T = { judge:220, burst:680, gone:700, wipe:170 };
+
+/* ================= 音效 ================= */
+let AC = null;
+function ac(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
+function tone(f, d, type, gain, delay){
+  const c = ac(); if(!c) return;
+  const t0 = c.currentTime + (delay||0);
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type || 'sine'; o.frequency.value = f;
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(gain || .05, t0 + .012);
+  g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+  o.connect(g); g.connect(c.destination);
+  o.start(t0); o.stop(t0 + d + .02);
+}
+const sfx = {
+  tick(){ tone(680,.05,'triangle',.025); },
+  ok(){ tone(880,.1,'sine',.055); tone(1320,.14,'sine',.04,.07); },
+  /* 纸片炸开：一串短促高频“唰” */
+  paper(){ [1250,1620,1980,2340].forEach((f,i)=>tone(f,.06,'triangle',.018,i*.038)); },
+  bad(){ tone(180,.18,'sawtooth',.045); },
+  win(){ [523,659,784,1047].forEach((f,i)=>tone(f,.26,'sine',.05,i*.11)); }
+};
+function vib(p){ if(navigator.vibrate) try{ navigator.vibrate(p); }catch(e){} }
+
+/* ================= 状态 ================= */
+let S = null;
+const $ = id => document.getElementById(id);
+
+/* 固定种子随机数：只在演示深链里用，保证逐帧截图是同一副牌 */
+function seedRnd(seed){
+  let a = seed >>> 0;
+  Math.random = function(){
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle(a){ const b = a.slice(); for(let i=b.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [b[i],b[j]]=[b[j],b[i]]; } return b; }
+
+/* 释义缩略：丢掉与主释义重复的义项，最多保留 2 条 */
+function brief(w){
+  const d = w.detail || ''; if(!d) return '';
+  const segs = [];
+  for(const chunk of d.replace(/\s+([a-z]{1,8}\.)/gi, '|$1').split('|')){
+    let cur = null;
+    for(let p of chunk.split(/,\s*|，\s*/)){
+      p = p.trim(); if(!p) continue;
+      const m = p.match(/^([a-z]{1,8}\.)\s*(.*)$/i);
+      if(m) cur = m[1].toLowerCase();
+      segs.push({pos: cur, sense: m ? m[2] : p});
+    }
+  }
+  const zh = (w.zh || '').trim();
+  const keep = segs.filter(s => {
+    if(!s.sense) return false;
+    const core = s.sense.replace(/[的地得]$/, '');
+    return !(zh && (zh.includes(s.sense) || core === zh));
+  });
+  if(!keep.length) return '';
+  const picks = keep.slice(0, 2);
+  const same = picks.every(p => p.pos === picks[0].pos);
+  let out = same ? (picks[0].pos || '') + picks.map(p => p.sense).join('，')
+                 : picks.map(p => (p.pos || '') + p.sense).join('，');
+  if(keep.length > 2) out += '…';
+  return out;
+}
+
+function start(){
+  S = {
+    queue: shuffle(WORDS), retry: [], done: 0, total: TOTAL,
+    combo: 0, maxCombo: 0, firstTry: 0, wrong: new Map(),
+    enSlots: [], zhSlots: [], sel: {en:null, zh:null}, lock: false,
+    t0: Date.now(), over: false
+  };
+  $('totalN').textContent = TOTAL;
+  build(); tickClock();
+}
+
+function tickClock(){
+  setInterval(() => {
+    if(!S || S.over) return;
+    const s = Math.floor((Date.now() - S.t0)/1000);
+    $('clock').textContent = Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+  }, 500);
+}
+
+function blank(){
+  const b = document.createElement('button');
+  b.className = 'card blank';
+  return b;
+}
+
+function build(){
+  const desk = $('desk');
+  desk.innerHTML = '';
+  S.enSlots = []; S.zhSlots = [];
+  for(let i = 0; i < PAIRS; i++){
+    const e = {w:null, el:blank()}, z = {w:null, el:blank()};
+    S.enSlots.push(e); S.zhSlots.push(z);
+    /* 行优先：第 i 行 = 左英文 + 右中文 */
+    desk.appendChild(e.el); desk.appendChild(z.el);
+  }
+  const first = [];
+  for(let i = 0; i < PAIRS; i++){ const w = S.queue.shift(); if(w) first.push(w); }
+  shuffle(first).forEach((w,i)=>paint(S.enSlots[i], w, 'en'));
+  shuffle(first).forEach((w,i)=>paint(S.zhSlots[i], w, 'zh'));
+  updateHud();
+}
+
+function paint(slot, w, side, quiet){
+  slot.w = w;
+  const el = slot.el;
+  const anim = quiet ? 'fade' : 'pop';
+  el.className = 'card ' + anim;
+  el.style.animationDelay = '';          /* 清掉上一次补位留下的错峰延迟 */
+  el.dataset.en = w.en;
+  el.dataset.side = side;
+  el.innerHTML = '';
+  const m = document.createElement('span'); m.className = 'm';
+  const s = document.createElement('span');
+  if(side === 'zh'){
+    m.textContent = w.zh;
+    s.className = 's'; s.textContent = brief(w);
+  } else {
+    m.textContent = w.en;
+    s.className = 's ph'; s.textContent = w.ph || '';
+  }
+  el.appendChild(m);
+  if(s.textContent) el.appendChild(s);
+  el.onclick = () => tap(el);
+  /* 留足“错峰延迟 + 动画时长”再摘类，免得配错补位时动画被中途掐断 */
+  setTimeout(()=>el.classList.remove(anim), 620);
+  return el;
+}
+
+function wipe(slot){
+  slot.w = null;
+  slot.el.className = 'card blank';
+  slot.el.dataset.en = ''; slot.el.dataset.side = '';
+  slot.el.innerHTML = ''; slot.el.onclick = null;
+}
+
+function nextWord(){
+  const i = S.retry.findIndex(r => r.delay <= 0);
+  if(i >= 0) return S.retry.splice(i,1)[0].w;
+  if(S.queue.length) return S.queue.shift();
+  if(S.retry.length) return S.retry.shift().w;
+  return null;
+}
+
+function refill(quiet){
+  let guard = 0, k = 0;
+  while(guard++ < PAIRS * 2){
+    const ei = S.enSlots.findIndex(s => !s.w);
+    const zi = S.zhSlots.findIndex(s => !s.w);
+    if(ei < 0 || zi < 0) break;
+    const w = nextWord(); if(!w) break;
+    const a = paint(S.enSlots[ei], w, 'en', quiet);
+    const b = paint(S.zhSlots[zi], w, 'zh', quiet);
+    /* 配错后会有 4 张同时补位，错峰 80ms 逐个浮现，不做“整桌一起抽” */
+    if(quiet){
+      a.style.animationDelay = (k * 80) + 'ms';
+      b.style.animationDelay = (k * 80 + 40) + 'ms';
+    }
+    k++;
+  }
+}
+
+function updateHud(){
+  $('bar').style.width = (S.done / S.total * 100) + '%';
+  $('doneN').textContent = S.done;
+  $('combo').classList.toggle('on', S.combo >= 2);
+  $('comboN').textContent = S.combo;
+}
+
+function tap(el){
+  if(!S || S.lock || !el.dataset.en) return;
+  const side = el.dataset.side;
+  if(S.sel[side] === el){ el.classList.remove('sel'); S.sel[side] = null; return; }
+  if(S.sel[side]) S.sel[side].classList.remove('sel');
+  S.sel[side] = el; el.classList.add('sel');
+  sfx.tick();
+  $('ftxt').className = 'ftxt';
+  $('ftxt').innerHTML = side === 'en' ? '已选 <em>' + el.dataset.en + '</em>，请点右侧对应中文' : '已选中文，请点左侧对应的英文';
+  if(S.sel.en && S.sel.zh) judge();
+}
+
+function judge(){
+  S.lock = true;
+  const enEl = S.sel.en, zhEl = S.sel.zh;
+  const enSlot = S.enSlots.find(s => s.el === enEl);
+  const zhSlot = S.zhSlots.find(s => s.el === zhEl);
+  const w1 = enSlot.w, w2 = zhSlot.w;
+  const ok = !!w1 && !!w2 && w1.en === w2.en;
+
+  setTimeout(() => {
+    if(ok){
+      S.done++; S.combo++; S.maxCombo = Math.max(S.maxCombo, S.combo);
+      if(!S.wrong.has(w1.en)) S.firstTry++;
+      [enEl, zhEl].forEach(el => el.classList.remove('sel'));
+      enEl.classList.add('ok','hop'); zhEl.classList.add('ok','hop');
+      sfx.ok(); vib(26);
+      $('ftxt').className = 'ftxt ok';
+      $('ftxt').innerHTML = (S.combo >= 2 ? '连对 ' + S.combo + ' 对 · ' : '✓ ') + w1.en + ' = ' + w1.zh;
+      S.retry.forEach(r => r.delay--);
+      /* 绿卡先安静停一会儿让人确认词形，再起爆 */
+      setTimeout(() => {
+        if(window.__freeze) return;
+        enEl.classList.add('blasting'); zhEl.classList.add('blasting');
+        burstPair(enEl, zhEl);
+        sfx.paper(); vib(16);
+      }, T.burst);
+      /* 纸片飞完，卡片淡出，新卡从下方顶上来补位 */
+      setTimeout(() => {
+        if(window.__freeze) return;          /* 截图演示用：冻结当前帧 */
+        enEl.classList.add('gone'); zhEl.classList.add('gone');
+        setTimeout(() => {
+          wipe(enSlot); wipe(zhSlot); refill(); updateHud();
+          S.sel = {en:null, zh:null}; S.lock = false; checkEnd();
+        }, T.wipe);
+      }, T.burst + T.gone);
+    } else {
+      S.combo = 0;
+      [w1,w2].forEach(w => w && S.wrong.set(w.en, (S.wrong.get(w.en)||0)+1));
+      [enEl, zhEl].forEach(el => el.classList.remove('sel'));
+      enEl.classList.add('bad'); zhEl.classList.add('bad');
+      /* 这两个词的另一半也要一起作废（否则桌上会留下配不上对的孤卡），
+         但它们只是“安静地变灰”，不抖、不弹 —— 动的永远只有用户点的那两张 */
+      [w1,w2].forEach(w => {
+        if(!w) return;
+        [S.enSlots.find(s => s.w === w), S.zhSlots.find(s => s.w === w)].forEach(s => {
+          if(s && s.el !== enEl && s.el !== zhEl) s.el.classList.add('void');
+        });
+      });
+      sfx.bad(); vib([40,60,40]);
+      $('ftxt').className = 'ftxt bad';
+      $('ftxt').textContent = '配错了 · 这两个词隔两三个词后会再出现，直到配对正确';
+      setTimeout(() => {
+        if(window.__freeze) return;          /* 截图演示用：冻结当前帧 */
+        /* 2 对一起作废：同一帧换牌，靠“错峰淡入”代替“4 张一起弹” */
+        [w1,w2].forEach(w => {
+          if(!w) return;
+          const es = S.enSlots.find(s => s.w === w); if(es) wipe(es);
+          const zs = S.zhSlots.find(s => s.w === w); if(zs) wipe(zs);
+        });
+        if(w1) S.retry.push({w:w1, delay:2});
+        if(w2) S.retry.push({w:w2, delay:2});
+        refill(true); updateHud();
+        S.sel = {en:null, zh:null}; S.lock = false; checkEnd();
+      }, 900);
+    }
+    updateHud();
+  }, T.judge);
+}
+
+/* ---------- 纸屑爆炸：Canvas 粒子 ----------
+   参考 tooldeer_com/views/home/tools/e/engmatch.html 的 fireConfetti：
+   实心色块（无阴影、无描边）+ 每帧重力 + 左右摆动 + 旋转，飘 3 秒左右才淡完；
+   炸点取两张卡中心的中点，一次爆发，而不是左右各炸一团。 */
+const CF_COLORS = ['#16A34A','#34D399','#0EA5A4','#5A50E0','#8B7CF6',
+                   '#F59E0B','#FBBF24','#EF4444','#FFFFFF','#CDEBDE'];
+const CF_GRAVITY = .062;        /* 每帧竖直加速度（px / frame²） */
+const CF_STEP = 1000 / 60;      /* 固定物理步长，慢设备也不会飘得更快 */
+
+const fxcvs = $('fx');
+const fxc = fxcvs.getContext('2d');
+let fxdpr = 1, parts = [], rafId = 0, accT = 0, prevT = 0;
+
+function sizeFx(){
+  const r = fxcvs.getBoundingClientRect();
+  fxdpr = Math.min(2, window.devicePixelRatio || 1);
+  fxcvs.width = Math.max(1, Math.round(r.width * fxdpr));
+  fxcvs.height = Math.max(1, Math.round(r.height * fxdpr));
+  fxc.setTransform(fxdpr, 0, 0, fxdpr, 0, 0);
+  if(parts.length) drawParts();     /* 改尺寸会清空画布，重绘一次免得粒子凭空消失 */
+}
+sizeFx();
+window.addEventListener('resize', sizeFx);
+
+function spawnPaper(cx, cy, n, boost){
+  for(let i = 0; i < n; i++){
+    const ang = Math.random() * Math.PI * 2;
+    const spd = (2.2 + Math.random() * 5.4) * (boost || 1);
+    /* 四成细纸条、六成小方块 */
+    const strip = Math.random() < .4;
+    parts.push({
+      x: cx + (Math.random() - .5) * 14,
+      y: cy + (Math.random() - .5) * 14,
+      w: strip ? 3 + Math.random() * 2.2 : 5.5 + Math.random() * 5.5,
+      h: strip ? 12 + Math.random() * 7 : 7 + Math.random() * 7,
+      rot: Math.random() * Math.PI * 2,
+      vr: (Math.random() - .5) * .34,        /* 自转角速度 */
+      vx: Math.cos(ang) * spd,
+      vy: Math.sin(ang) * spd - 1.8,         /* 整体偏上，像被“顶”起来 */
+      ph: Math.random() * Math.PI * 2,       /* 摆动相位，避免整片同步 */
+      sway: .3 + Math.random() * .5,
+      color: CF_COLORS[(Math.random() * CF_COLORS.length) | 0],
+      life: 0,
+      max: 165 + Math.round(Math.random() * 85)   /* 2.7 ~ 4.2 秒 */
+    });
+  }
+}
+
+function stepParts(){
+  for(const p of parts){
+    p.life++;
+    p.vy += CF_GRAVITY;
+    p.vx *= .993;
+    p.x += p.vx + Math.sin(p.life * .055 + p.ph) * p.sway;   /* 左右飘 */
+    p.y += p.vy;
+    p.rot += p.vr;
+  }
+  parts = parts.filter(p => p.life < p.max);
+}
+
+function drawParts(){
+  const w = fxcvs.width / fxdpr, h = fxcvs.height / fxdpr;
+  fxc.clearRect(0, 0, w, h);
+  for(const p of parts){
+    const k = p.life / p.max;
+    /* 前 60% 保持实心，最后 40% 才淡掉，飘落时才看得清 */
+    fxc.save();
+    fxc.translate(p.x, p.y);
+    fxc.rotate(p.rot);
+    fxc.globalAlpha = k < .6 ? 1 : Math.max(0, 1 - (k - .6) / .4);
+    fxc.fillStyle = p.color;
+    fxc.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    fxc.restore();
+  }
+}
+
+function fxLoop(ts){
+  if(!prevT) prevT = ts;
+  let dt = ts - prevT; prevT = ts;
+  if(dt > 120) dt = 120;
+  accT += dt;
+  while(accT >= CF_STEP){ stepParts(); accT -= CF_STEP; }
+  drawParts();
+  if(parts.length) rafId = requestAnimationFrame(fxLoop);
+  else { rafId = 0; prevT = 0; accT = 0; }
+}
+
+/* frames 有值时只把物理推进到那一帧并停住（截图演示用），不启动循环。
+   英文列和中文列是各自打乱的，配对的两张卡常常不在同一行，所以不取“中点单点爆发”，
+   而是沿两卡连线布 3 个爆发点（两张卡各自碎掉 + 中间一道纸屑带），
+   既保证“卡真的碎了”，又接得上参考工具那种漫天纸屑的感觉。 */
+function burstPair(a, b, frames){
+  const host = fxcvs.getBoundingClientRect();
+  const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+  const ax = ra.left + ra.width / 2 - host.left, ay = ra.top + ra.height / 2 - host.top;
+  const bx = rb.left + rb.width / 2 - host.left, by = rb.top + rb.height / 2 - host.top;
+  const mx = (ax + bx) / 2, my = (ay + by) / 2;
+
+  spawnPaper(ax, ay, 16, 1);
+  spawnPaper(mx, my, 14, 1.25);
+  spawnPaper(bx, by, 16, 1);
+
+  if(frames !== undefined){
+    const n = Math.max(0, Math.round(frames));
+    for(let i = 0; i < n; i++) stepParts();
+    drawParts();
+    return;
+  }
+  if(!rafId){ prevT = 0; accT = 0; rafId = requestAnimationFrame(fxLoop); }
+}
+
+function checkEnd(){
+  const empty = S.enSlots.every(s => !s.w) && S.zhSlots.every(s => !s.w);
+  if(empty && !S.queue.length && !S.retry.length) setTimeout(finish, 460);
+}
+
+function finish(){
+  if(!S || S.over) return;
+  S.over = true;
+  const sec = Math.floor((Date.now() - S.t0)/1000);
+  $('dRight').textContent = S.total;
+  $('dAcc').textContent = Math.round(S.firstTry / S.total * 100) + '%';
+  $('dCombo').textContent = S.maxCombo;
+  $('doneSub').textContent = '用时 ' + (sec >= 60 ? Math.floor(sec/60) + ' 分 ' + (sec%60) + ' 秒' : sec + ' 秒') + ' · U3 学习关';
+  const wr = [...S.wrong.keys()];
+  $('dNote').textContent = wr.length
+    ? '🦌 ' + wr.length + ' 个词配错过（' + wr.slice(0,6).join('、') + (wr.length>6?'…':'') + '），本关内已反复重现直到配对正确'
+    : '🦌 一次全对，直接满星通关';
+  $('sheet').classList.add('show');
+  sfx.win(); vib([40,60,40,60,120]);
+}
+
+function quit(){ if(S){ S.over = true; } location.reload(); }
+function goNext(){ $('sheet').classList.remove('show'); start(); }
+
+/* ================= 演示态：便于截图评审 ================= */
+if(location.hash === '#autow'){
+  /* 无头回归用：自动点一对错的卡，分两段断言写进 title（固定种子，逐帧截图牌面一致） */
+  seedRnd(33);
+  start();
+  const q = sel => document.querySelectorAll(sel).length;
+  setTimeout(() => {
+    const es = S.enSlots.find(s => s.w);
+    const zs = es && S.zhSlots.find(s => s.w && s.w.en !== es.w.en);
+    if(!es || !zs) { document.title = 'AUTOW no-pair'; return; }
+    tap(es.el); tap(zs.el);
+    /* 抖动期：应该只有 2 张 bad，外加 2 张安静的 void */
+    setTimeout(() => {
+      document.title = 'AUTOW bad=' + q('.card.bad') + ' void=' + q('.card.void');
+      /* 补位后：4 张新卡到位，无空白、无残留态、已解锁 */
+      setTimeout(() => {
+        document.title += ' | final en=' + q('#desk .card[data-side="en"]')
+          + ' zh=' + q('#desk .card[data-side="zh"]')
+          + ' blank=' + q('#desk .card.blank')
+          + ' bad=' + q('.card.bad') + ' void=' + q('.card.void')
+          + ' lock=' + (S.lock ? 1 : 0);
+      }, 1400);
+    }, 700);
+  }, 200);
+} else if(location.hash === '#auto'){
+  /* 无头回归用：自动点一对正确的卡，跑完整个时间轴后把断言写进 title */
+  start();
+  setTimeout(() => {
+    const es = S.enSlots.find(s => s.w);
+    const zs = es && S.zhSlots.find(s => s.w && s.w.en === es.w.en);
+    if(!es || !zs) { document.title = 'AUTO no-pair'; return; }
+    tap(es.el); tap(zs.el);
+    setTimeout(() => {
+      const q = sel => document.querySelectorAll(sel).length;
+      document.title = 'AUTO done=' + S.done
+        + ' en=' + q('#desk .card[data-side="en"]')
+        + ' zh=' + q('#desk .card[data-side="zh"]')
+        + ' blank=' + q('#desk .card.blank')
+        + ' lock=' + (S.lock ? 1 : 0);
+    }, 2100);
+  }, 200);
+} else if(location.hash === '#done'){
+  start();
+  setTimeout(() => {
+    /* 直接铺一个“答完”的结算态 */
+    S.done = S.total; S.firstTry = S.total - 3; S.maxCombo = 6;
+    S.wrong = new Map([['date',2],['card',1],['horse',1]]);
+    S.t0 = Date.now() - 102000;
+    S.enSlots.forEach(s=>wipe(s)); S.zhSlots.forEach(s=>wipe(s));
+    S.queue = []; S.retry = [];
+    updateHud(); finish();
+  }, 120);
+} else if(location.hash === '#mid'){
+  start();
+  setTimeout(() => {
+    /* 进行中：12 对完成、有连击、有一张卡选中 */
+    S.t0 = Date.now() - 74000;
+    S.done = 12; S.combo = 3; S.maxCombo = 3;
+    S.queue = shuffle(WORDS).slice(0, 8);
+    S.enSlots.forEach(s=>wipe(s)); S.zhSlots.forEach(s=>wipe(s));
+    refill(); updateHud();
+    const t = S.enSlots.find(s => s.w);
+    if(t) t.el.classList.add('sel');
+    S.sel.en = t.el;
+    $('ftxt').innerHTML = '已选 <em>' + t.w.en + '</em>，请点右侧对应中文';
+  }, 140);
+} else if(/^#(burst|wrong)(:\d+)?$/.test(location.hash)){
+  /* 动效演示：`#burst:900` = 正确配对后第 900ms 的画面（900 已过起爆点）；
+     `#burst:600` = 刚变绿、还没炸的“确认停留”帧；`#wrong:80` = 配错抖动。
+     直接铺静态帧（负延迟 + 暂停），逐帧截图不会互相打架 */
+  const hm = location.hash.match(/^#(burst|wrong)(?::(\d+))?$/);
+  const wrong = hm[1] === 'wrong';
+  const FT = hm[2] ? +hm[2] : (wrong ? 80 : 1000);
+  seedRnd(wrong ? 21 : 11);          /* 固定随机数：每帧都是同一副牌 */
+  start();
+  setTimeout(() => {
+    S.t0 = Date.now() - 74000;
+    S.done = 12; S.combo = wrong ? 0 : 4; S.maxCombo = 4;
+    S.queue = shuffle(WORDS).slice(0, 8);
+    S.enSlots.forEach(s=>wipe(s)); S.zhSlots.forEach(s=>wipe(s));
+    refill(); updateHud();
+
+    const es = S.enSlots.find(s => s.w); if(!es) return;
+    const zs = wrong
+      ? S.zhSlots.find(s => s.w && s.w.en !== es.w.en)
+      : S.zhSlots.find(s => s.w && s.w.en === es.w.en);
+    if(!zs) return;
+    demoFx(es.el, zs.el, FT, wrong, es.w);
+    S.lock = true;
+  }, 140);
+
+  function demoFx(enEl, zhEl, ft, bad, w){
+    const pair = [enEl, zhEl];
+    pair.forEach(el => el.classList.remove('sel'));
+    if(bad){
+      pair.forEach(el => {
+        el.classList.add('bad');
+        el.style.animationDelay = (-ft) + 'ms';
+        el.style.animationPlayState = 'paused';
+      });
+      $('ftxt').className = 'ftxt bad';
+      $('ftxt').textContent = '配错了 · 这两个词隔两三个词后会再出现，直到配对正确';
+      return;
+    }
+    pair.forEach(el => {
+      el.classList.add('ok', 'hop');
+      /* hop 全程 400ms，超过就停在落地那一帧 */
+      el.style.animationDelay = (-Math.min(ft, 399)) + 'ms';
+      el.style.animationPlayState = 'paused';
+    });
+    $('ftxt').className = 'ftxt ok';
+    $('ftxt').innerHTML = (S.combo >= 2 ? '连对 ' + S.combo + ' 对 · ' : '✓ ') +
+      (w ? w.en + ' = ' + w.zh : '');
+    if(ft > T.burst){
+      /* 起爆后卡片按 0.8s 慢慢化掉，静态帧直接算出当时的透明度；到 T.gone 就彻底没了 */
+      const k = Math.min(1, (ft - T.burst) / 800);
+      const fade = k >= 1 ? 0 : 1 - k * .88;
+      pair.forEach(el => { el.style.opacity = fade.toFixed(2); });
+      /* 粒子物理推进到同一时刻并停帧（不走 rAF，逐帧截图才稳定） */
+      burstPair(enEl, zhEl, (ft - T.burst) / CF_STEP);
+    }
+  }
+} else {
+  start();
+}
+</script>
+</body>
+</html>

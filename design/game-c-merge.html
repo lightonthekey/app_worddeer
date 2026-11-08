@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>方案 C · 消消乐混排 — 词鹿英语配对</title>
+<style>
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  :root{
+    --violet:#6C5CE7; --violet-deep:#4B41C8;
+    --ink:#211E3B; --ink-2:#6E6B8A;
+    --en:#FFFFFF; --zh:#E4F5EE;
+    --flame:#FFB13D;
+  }
+  html,body{margin:0;height:100%}
+  body{
+    font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:#E7E4F3; display:grid; place-items:center; padding:20px; color:var(--ink);
+  }
+  .frame{
+    width:390px; height:844px; border-radius:44px; overflow:hidden; position:relative;
+    background:linear-gradient(168deg,#7A6BF0 0%,#6355E4 38%,#4B41C8 100%);
+    box-shadow:0 26px 60px rgba(40,32,90,.32), 0 0 0 10px #15132A, 0 0 0 11px #34314F;
+    display:flex; flex-direction:column;
+  }
+  /* 背景光斑 */
+  .frame::before,.frame::after{
+    content:""; position:absolute; border-radius:50%; pointer-events:none;
+  }
+  .frame::before{width:280px;height:280px; right:-90px; top:-60px;
+    background:radial-gradient(circle,rgba(255,255,255,.16),transparent 68%)}
+  .frame::after{width:320px;height:320px; left:-120px; bottom:-80px;
+    background:radial-gradient(circle,rgba(120,255,225,.12),transparent 70%)}
+
+  /* ---------- HUD ---------- */
+  .hud{position:relative; padding:22px 18px 0; flex:none; z-index:2}
+  .hrow{display:flex; align-items:center; gap:10px; color:#fff}
+  .x{width:32px;height:32px;flex:none;border-radius:50%;border:1px solid rgba(255,255,255,.28);
+    background:rgba(255,255,255,.12); color:#fff; font-size:15px; line-height:1; cursor:pointer}
+  .x:active{transform:scale(.94)}
+  .hrow .t{flex:1; min-width:0}
+  .hrow .t b{font-size:15.5px; font-weight:700; letter-spacing:.2px}
+  .hrow .t span{display:block; font-size:10.5px; opacity:.62; margin-top:2px}
+  .clock{font-size:11.5px; font-variant-numeric:tabular-nums; opacity:.72; letter-spacing:.5px}
+
+  .meter{
+    margin-top:14px; background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.2);
+    border-radius:16px; padding:12px 14px; backdrop-filter:blur(8px);
+    display:flex; align-items:center; gap:12px;
+  }
+  .meter .num{display:flex; align-items:baseline; gap:2px; color:#fff; flex:none}
+  .meter .num b{font-size:21px; font-weight:800; letter-spacing:-.5px; font-variant-numeric:tabular-nums}
+  .meter .num span{font-size:11px; opacity:.6}
+  .meter .track{flex:1; height:8px; border-radius:99px; background:rgba(255,255,255,.2); overflow:hidden}
+  .meter .track i{display:block; height:100%; width:0; border-radius:99px;
+    background:linear-gradient(90deg,#FFE29A,#FFB13D); transition:width .45s cubic-bezier(.2,.9,.2,1)}
+  .fire{
+    display:flex; align-items:center; gap:3px; flex:none; color:#3B2A05;
+    background:#FFD98A; border-radius:999px; padding:4px 9px; font-size:11.5px; font-weight:800;
+    opacity:0; transform:scale(.7); transition:.22s;
+  }
+  .fire.on{opacity:1; transform:none}
+
+  /* ---------- 棋盘 ---------- */
+  .board{
+    flex:1; min-height:0; position:relative; z-index:2;
+    margin:14px 18px 0; display:grid; grid-template-columns:1fr 1fr;
+    grid-template-rows:repeat(5,1fr); gap:9px;
+  }
+  .cell{
+    position:relative; min-width:0; border:none; border-radius:17px; padding:8px 10px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+    cursor:pointer; font-family:inherit; color:var(--ink);
+    box-shadow:0 4px 0 rgba(48,38,130,.22), 0 10px 20px rgba(40,30,110,.18);
+    transition:transform .15s cubic-bezier(.2,1.2,.4,1), box-shadow .15s, background .14s;
+  }
+  .cell.en{background:var(--en)}
+  .cell.zh{background:var(--zh)}
+  .cell .m{font-size:16.5px; font-weight:680; line-height:1.15; max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .cell.zh .m{font-size:17px; color:#12433A}
+  .cell.zh .s{color:#0E5C4C; opacity:.55}
+  .cell .s{font-size:10.5px; opacity:.45; margin-top:3px; max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .cell .s.ph{font-family:"Lucida Sans Unicode",Georgia,serif; font-size:11px}
+  /* 角落标记：区分英文卡 / 中文卡 */
+  .cell .tag{
+    position:absolute; top:6px; right:8px; font-size:9px; font-weight:800; letter-spacing:.5px;
+    opacity:.4; color:#0E5C4C;
+  }
+  .cell .tag svg{width:11px;height:11px;stroke:#5A50E0;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;display:block;opacity:.85}
+  .cell:active{transform:translateY(3px); box-shadow:0 1px 0 rgba(48,38,130,.22)}
+
+  .cell.sel{
+    background:#FFF3D0; transform:translateY(-3px) scale(1.02);
+    box-shadow:0 6px 0 rgba(48,38,130,.2), 0 0 0 3px #FFD98A, 0 14px 28px rgba(40,30,110,.3);
+  }
+  .cell.ok{
+    background:#D9F7E8; transform:scale(1.06);
+    box-shadow:0 0 0 3px #58D6A0, 0 0 34px rgba(88,214,160,.55);
+  }
+  .cell.bad{background:#FFE0E0; animation:shake .36s; box-shadow:0 0 0 3px #FF8A8A}
+  @keyframes shake{0%,100%{transform:none}20%{transform:translateX(-6px)}50%{transform:translateX(5px)}80%{transform:translateX(-3px)}}
+  .cell.blank{background:rgba(255,255,255,.07); box-shadow:none; cursor:default; pointer-events:none;
+    border:1px dashed rgba(255,255,255,.16)}
+  .cell.gone{animation:vanish .3s ease forwards; pointer-events:none}
+  @keyframes vanish{to{opacity:0; transform:scale(.55) rotate(4deg)}}
+  .cell.drop{animation:drop .32s cubic-bezier(.2,1.1,.4,1)}
+  @keyframes drop{from{opacity:0; transform:translateY(-18px) scale(.92)}to{opacity:1; transform:none}}
+  /* 默认就带一点轻微漂浮，制造“桌上乱牌”的松散感 */
+  .cell.en:nth-child(2n), .cell.zh:nth-child(2n+1){transform:rotate(-.4deg)}
+  .cell.en:nth-child(3n), .cell.zh:nth-child(3n+1){transform:rotate(.5deg)}
+
+  /* 粒子 */
+  .spark{
+    position:absolute; width:6px; height:6px; border-radius:50%; background:#FFE9A8;
+    pointer-events:none; z-index:6; animation:burst .62s ease-out forwards;
+  }
+  @keyframes burst{
+    0%{opacity:1; transform:translate(0,0) scale(1)}
+    100%{opacity:0; transform:translate(var(--dx),var(--dy)) scale(.2)}
+  }
+
+  /* 飘字 */
+  .fly{
+    position:absolute; left:50%; top:42%; transform:translate(-50%,0);
+    background:#fff; color:var(--ink); border-radius:999px; padding:8px 16px;
+    font-size:13px; font-weight:700; white-space:nowrap; z-index:7; pointer-events:none;
+    box-shadow:0 10px 26px rgba(30,20,90,.3); animation:flyup .95s ease forwards;
+  }
+  .fly b{color:var(--violet); font-weight:800}
+  @keyframes flyup{
+    0%{opacity:0; transform:translate(-50%,10px) scale(.9)}
+    22%{opacity:1; transform:translate(-50%,-4px) scale(1)}
+    70%{opacity:1; transform:translate(-50%,-30px) scale(1)}
+    100%{opacity:0; transform:translate(-50%,-54px) scale(.96)}
+  }
+
+  /* ---------- 底部提示 ---------- */
+  .foot{flex:none; padding:12px 20px 26px; text-align:center; z-index:2}
+  .foot p{margin:0; font-size:11.5px; color:rgba(255,255,255,.66); line-height:1.5}
+  .foot p em{font-style:normal; color:#FFD98A; font-weight:700}
+
+  /* ---------- 结算 ---------- */
+  .sheet{
+    position:absolute; inset:0; z-index:9; display:none; flex-direction:column; align-items:center;
+    background:linear-gradient(168deg,#7A6BF0,#4B41C8); padding:92px 24px 32px; text-align:center; color:#fff;
+  }
+  .sheet.show{display:flex; animation:up .3s ease}
+  @keyframes up{from{opacity:0; transform:translateY(20px)}to{opacity:1; transform:none}}
+  .medal{font-size:60px; animation:pop .5s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes pop{from{opacity:0; transform:scale(.3)}to{opacity:1; transform:none}}
+  .sheet h2{font-size:22px; margin:14px 0 0; letter-spacing:.3px}
+  .sheet .sub{font-size:12px; opacity:.62; margin-top:7px}
+  .cards3{display:flex; gap:9px; width:100%; margin:24px 0 12px}
+  .c3{flex:1; background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.2);
+    border-radius:16px; padding:14px 4px; backdrop-filter:blur(8px)}
+  .c3 b{font-size:19px; font-variant-numeric:tabular-nums; display:block}
+  .c3 span{font-size:10px; opacity:.62; margin-top:3px; display:block}
+  .note{font-size:11.5px; line-height:1.6; background:rgba(255,255,255,.11);
+    border:1px solid rgba(255,255,255,.16); border-radius:14px; padding:12px 14px;
+    width:100%; text-align:left; color:rgba(255,255,255,.86)}
+  .go{margin-top:auto; width:100%; border:none; border-radius:15px; padding:15px 0;
+    background:#FFD98A; color:#3B2A05; font-size:14.5px; font-weight:800; font-family:inherit; cursor:pointer;
+    box-shadow:0 12px 26px rgba(20,10,60,.3)}
+  .go:active{transform:scale(.985)}
+  .g2{margin-top:8px; width:100%; border:none; background:none; color:rgba(255,255,255,.55);
+    font-size:12px; font-family:inherit; padding:8px; cursor:pointer}
+
+  @media (prefers-reduced-motion:reduce){ *{animation-duration:.001s !important; transition-duration:.001s !important} }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="hud">
+    <div class="hrow">
+      <button class="x" onclick="quit()">✕</button>
+      <div class="t">
+        <b>U3 学习关</b>
+        <span>A1 · 第 3 关 · 打乱混排</span>
+      </div>
+      <div class="clock" id="clock">0:00</div>
+    </div>
+    <div class="meter">
+      <div class="num"><b id="doneN">0</b><span>/<span id="totalN">20</span> 对</span></div>
+      <div class="track"><i id="bar"></i></div>
+      <div class="fire" id="fire">🔥<span id="fireN">3</span></div>
+    </div>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="foot"><p id="foot">点一张英文卡，再点它的中文 —— 配对成功两张一起消失</p></div>
+
+  <div class="sheet" id="sheet">
+    <div class="medal">🎉</div>
+    <h2>本关清空</h2>
+    <p class="sub" id="doneSub">用时 1 分 42 秒 · U3 学习关</p>
+    <div class="cards3">
+      <div class="c3"><b id="dRight">20</b><span>配对正确</span></div>
+      <div class="c3"><b id="dAcc">85%</b><span>一次选对率</span></div>
+      <div class="c3"><b id="dCombo">6</b><span>最高连击</span></div>
+    </div>
+    <div class="note" id="dNote">🦌 3 个词配错过（date、card、horse），已在本关内反复重现直到配对正确</div>
+    <button class="go" id="dNext" onclick="goNext()">下一关 · U4</button>
+    <button class="g2" onclick="location.reload()">回到首页</button>
+  </div>
+</div>
+
+<script>
+/* ================= 数据 ================= */
+const WORDS = [
+  {en:"address",zh:"地址",detail:"n.地址, 演讲, 称呼",ph:"[ˈædres]"},
+  {en:"birthday",zh:"生日",detail:"n.生日",ph:"[ˈbɜːrθdeɪ]"},
+  {en:"call",zh:"打电话",detail:"v.称呼, 打电话, 电话召唤",ph:"[kɑːl]"},
+  {en:"card",zh:"卡片",detail:"n.卡片纸, 贺卡, 明信片, 名片",ph:"[kɑːrd]"},
+  {en:"date",zh:"日期",detail:"n.日期, 时期, 约会",ph:"[deɪt]"},
+  {en:"friend",zh:"朋友",detail:"n.朋友, 好友, 支持者",ph:"[frend]"},
+  {en:"girl",zh:"女孩",detail:"n.女孩, 女儿, 年轻女子",ph:"[ɡɜːrl]"},
+  {en:"hometown",zh:"家乡",detail:"n. 故乡, 家乡",ph:"[ˈhoʊmtaʊn]"},
+  {en:"introduce",zh:"介绍",detail:"v.介绍, 引入, 推出",ph:"[ˌɪntrəˈduːs]"},
+  {en:"name",zh:"名字",detail:"n.名字, 名声, 名人",ph:"[neɪm]"},
+  {en:"number",zh:"数字",detail:"n.数字, 编号, 号码, 数量",ph:"[ˈnʌmbər]"},
+  {en:"phone",zh:"电话",detail:"n.电话, 听筒",ph:"[foʊn]"},
+  {en:"photo",zh:"照片",detail:"n.照片",ph:"[ˈfoʊtoʊ]"},
+  {en:"cat",zh:"猫",detail:"n.猫, 猫科动物",ph:"[kæt]"},
+  {en:"dog",zh:"狗",detail:"n.狗, 公狗, 赛狗",ph:"[dɑːɡ]"},
+  {en:"bird",zh:"鸟",detail:"n.鸟, 怪人",ph:"[bɜːrd]"},
+  {en:"fish",zh:"鱼",detail:"n.鱼, 鱼肉",ph:"[fɪʃ]"},
+  {en:"horse",zh:"马",detail:"n.马, 赛马, 鞍马",ph:"[hɔːrs]"},
+  {en:"bear",zh:"熊",detail:"n.熊, 忍受",ph:"[ber]"},
+  {en:"butterfly",zh:"蝴蝶",detail:"n.蝴蝶",ph:"[ˈbʌtərflaɪ]"}
+];
+const PAIRS = 5, TOTAL = WORDS.length;
+
+/* ================= 音效 ================= */
+let AC = null;
+function ac(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
+function tone(f,d,type,gain,delay){
+  const c = ac(); if(!c) return;
+  const t0 = c.currentTime + (delay||0);
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type || 'sine'; o.frequency.value = f;
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(gain || .05, t0 + .012);
+  g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+  o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + d + .02);
+}
+const sfx = {
+  tick(){ tone(720,.05,'triangle',.025); },
+  ok(){ tone(880,.09,'sine',.05); tone(1318,.12,'sine',.038,.06); },
+  bad(){ tone(165,.18,'square',.035); },
+  win(){ [523,659,784,1047].forEach((f,i)=>tone(f,.25,'sine',.045,i*.1)); }
+};
+function vib(p){ if(navigator.vibrate) try{ navigator.vibrate(p); }catch(e){} }
+
+/* ================= 状态 ================= */
+const $ = id => document.getElementById(id);
+let S = null;
+
+function shuffle(a){ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [b[i],b[j]]=[b[j],b[i]]; } return b; }
+
+function brief(w){
+  const d = w.detail || ''; if(!d) return '';
+  const segs = [];
+  for(const chunk of d.replace(/\s+([a-z]{1,8}\.)/gi, '|$1').split('|')){
+    let cur = null;
+    for(let p of chunk.split(/,\s*|，\s*/)){
+      p = p.trim(); if(!p) continue;
+      const m = p.match(/^([a-z]{1,8}\.)\s*(.*)$/i);
+      if(m) cur = m[1].toLowerCase();
+      segs.push({pos:cur, sense: m ? m[2] : p});
+    }
+  }
+  const zh = (w.zh||'').trim();
+  const keep = segs.filter(s => {
+    if(!s.sense) return false;
+    const core = s.sense.replace(/[的地得]$/,'');
+    return !(zh && (zh.includes(s.sense) || core === zh));
+  });
+  if(!keep.length) return '';
+  const picks = keep.slice(0,2);
+  const same = picks.every(p => p.pos === picks[0].pos);
+  let out = same ? (picks[0].pos||'') + picks.map(p=>p.sense).join('，')
+                 : picks.map(p=>(p.pos||'')+p.sense).join('，');
+  if(keep.length > 2) out += '…';
+  return out;
+}
+
+function start(){
+  S = {
+    queue: shuffle(WORDS), retry: [], done: 0, total: TOTAL, combo: 0, maxCombo: 0,
+    firstTry: 0, wrong: new Map(), cells: [], sel: {en:null, zh:null},
+    lock: false, t0: Date.now(), over: false
+  };
+  $('totalN').textContent = TOTAL;
+  build();
+  setInterval(() => {
+    if(!S || S.over) return;
+    const s = Math.floor((Date.now() - S.t0)/1000);
+    $('clock').textContent = Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+  }, 500);
+}
+
+function build(){
+  const board = $('board');
+  board.innerHTML = '';
+  S.cells = [];
+  for(let i = 0; i < PAIRS * 2; i++){
+    const b = document.createElement('button');
+    b.className = 'cell blank';
+    const c = {w:null, side:null, el:b, pos:i};
+    S.cells.push(c);
+    board.appendChild(b);
+  }
+  refill(true);
+  hud();
+}
+
+function paint(cell, w, side){
+  cell.w = w; cell.side = side;
+  const el = cell.el;
+  el.className = 'cell ' + side + ' drop';
+  el.dataset.en = w.en;
+  el.dataset.side = side;
+  el.innerHTML = '';
+  const m = document.createElement('span'); m.className = 'm';
+  m.textContent = side === 'en' ? w.en : w.zh;
+  const s = document.createElement('span'); s.className = 's' + (side === 'en' ? ' ph' : '');
+  s.textContent = side === 'en' ? (w.ph || '') : brief(w);
+  const tag = document.createElement('span'); tag.className = 'tag';
+  tag.innerHTML = side === 'en'
+    ? '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg>'
+    : '中';
+  el.appendChild(tag);
+  el.appendChild(m);
+  if(s.textContent) el.appendChild(s);
+  el.onclick = () => tap(el);
+  setTimeout(()=>el.classList.remove('drop'), 330);
+}
+
+function wipe(cell){
+  cell.w = null; cell.side = null;
+  cell.el.className = 'cell blank';
+  cell.el.dataset.en = ''; cell.el.dataset.side = '';
+  cell.el.innerHTML = ''; cell.el.onclick = null;
+}
+
+function nextWord(){
+  const i = S.retry.findIndex(r => r.delay <= 0);
+  if(i >= 0) return S.retry.splice(i,1)[0].w;
+  if(S.queue.length) return S.queue.shift();
+  if(S.retry.length) return S.retry.shift().w;
+  return null;
+}
+
+/* 混排补位：一次拿一个词，占两个空位（一英一中，位置随机） */
+function refill(silent){
+  let guard = 0;
+  while(guard++ < PAIRS * 2 + 2){
+    const empty = S.cells.filter(c => !c.w);
+    if(empty.length < 2) break;
+    const w = nextWord(); if(!w) break;
+    const a = empty[(Math.random()*empty.length)|0];
+    const b = empty.filter(c => c !== a)[(Math.random()*(empty.length-1))|0];
+    paint(a, w, silent ? (Math.random() < .5 ? 'en' : 'zh') : 'en');
+    paint(b, w, a.side === 'en' ? 'zh' : 'en');
+  }
+}
+
+function hud(){
+  $('bar').style.width = (S.done / S.total * 100) + '%';
+  $('doneN').textContent = S.done;
+  $('fire').classList.toggle('on', S.combo >= 2);
+  $('fireN').textContent = S.combo;
+}
+
+function tap(el){
+  if(!S || S.lock || !el.dataset.en) return;
+  const side = el.dataset.side;
+  const cur = side === 'en' ? S.sel.en : S.sel.zh;
+  if(cur === el){ el.classList.remove('sel'); S.sel[side] = null; return; }
+  if(cur) cur.classList.remove('sel');
+  S.sel[side] = el; el.classList.add('sel');
+  sfx.tick(); vib(8);
+  if(S.sel.en && S.sel.zh) judge();
+}
+
+function cellOf(el){ return S.cells.find(c => c.el === el); }
+
+function judge(){
+  S.lock = true;
+  const enEl = S.sel.en, zhEl = S.sel.zh;
+  const ce = cellOf(enEl), cz = cellOf(zhEl);
+  const w1 = ce.w, w2 = cz.w;
+  const ok = !!w1 && !!w2 && w1.en === w2.en;
+
+  setTimeout(() => {
+    if(ok){
+      S.done++; S.combo++; S.maxCombo = Math.max(S.maxCombo, S.combo);
+      if(!S.wrong.has(w1.en)) S.firstTry++;
+      enEl.classList.add('ok'); zhEl.classList.add('ok');
+      sfx.ok(); vib(26); burst(enEl.offsetLeft + enEl.offsetWidth/2, enEl.offsetTop + enEl.offsetHeight/2);
+      fly(w1);
+      S.retry.forEach(r => r.delay--);
+      setTimeout(() => {
+        enEl.classList.add('gone'); zhEl.classList.add('gone');
+        setTimeout(() => {
+          wipe(ce); wipe(cz); refill(); hud();
+          S.sel = {en:null, zh:null}; S.lock = false; checkEnd();
+        }, 260);
+      }, 260);
+    } else {
+      S.combo = 0;
+      [w1,w2].forEach(w => w && S.wrong.set(w.en, (S.wrong.get(w.en)||0)+1));
+      enEl.classList.add('bad'); zhEl.classList.add('bad');
+      sfx.bad(); vib([50,40,50]);
+      $('foot').innerHTML = '配错了 · 连击清零，这两个词稍后会再出现';
+      setTimeout(() => {
+        [w1,w2].forEach(w => {
+          if(!w) return;
+          S.cells.filter(c => c.w === w).forEach(c => wipe(c));
+        });
+        if(w1) S.retry.push({w:w1, delay:2});
+        if(w2) S.retry.push({w:w2, delay:2});
+        refill(); hud();
+        S.sel = {en:null, zh:null}; S.lock = false; checkEnd();
+      }, 700);
+    }
+    hud();
+  }, 230);
+}
+
+function burst(x, y){
+  const board = $('board');
+  for(let i = 0; i < 8; i++){
+    const d = document.createElement('div');
+    d.className = 'spark';
+    const a = (Math.PI * 2 / 8) * i + Math.random() * .6;
+    const r = 34 + Math.random() * 26;
+    d.style.left = x + 'px'; d.style.top = y + 'px';
+    d.style.setProperty('--dx', (Math.cos(a)*r).toFixed(1) + 'px');
+    d.style.setProperty('--dy', (Math.sin(a)*r).toFixed(1) + 'px');
+    d.style.background = i % 2 ? '#FFD98A' : '#8EF0CB';
+    board.appendChild(d);
+    setTimeout(()=>d.remove(), 680);
+  }
+}
+
+function fly(w){
+  const board = $('board');
+  const d = document.createElement('div');
+  d.className = 'fly';
+  d.innerHTML = '<b>' + w.en + '</b> = ' + w.zh;
+  board.appendChild(d);
+  setTimeout(()=>d.remove(), 980);
+}
+
+function checkEnd(){
+  const empty = S.cells.every(c => !c.w);
+  if(empty && !S.queue.length && !S.retry.length) setTimeout(finish, 460);
+}
+
+function finish(){
+  if(!S || S.over) return;
+  S.over = true;
+  const sec = Math.floor((Date.now() - S.t0)/1000);
+  $('dRight').textContent = S.total;
+  $('dAcc').textContent = Math.round(S.firstTry/S.total*100) + '%';
+  $('dCombo').textContent = S.maxCombo;
+  $('doneSub').textContent = '用时 ' + (sec >= 60 ? Math.floor(sec/60)+' 分 '+(sec%60)+' 秒' : sec+' 秒') + ' · U3 学习关';
+  const wr = [...S.wrong.keys()];
+  $('dNote').textContent = wr.length
+    ? '🦌 ' + wr.length + ' 个词配错过（' + wr.slice(0,6).join('、') + (wr.length>6?'…':'') + '），本关内已反复重现直到配对正确'
+    : '🦌 一次全对，本关没有返工';
+  $('sheet').classList.add('show');
+  sfx.win(); vib([40,60,40,60,120]);
+}
+
+function quit(){ if(S) S.over = true; location.reload(); }
+function goNext(){ $('sheet').classList.remove('show'); $('foot').innerHTML = '点一张英文卡，再点它的中文 —— 配对成功两张一起消失'; start(); }
+
+/* ================= 演示态 ================= */
+function midState(){
+  start();
+  setTimeout(() => {
+    S.t0 = Date.now() - 74000;
+    S.done = 12; S.combo = 3; S.maxCombo = 3;
+    S.queue = shuffle(WORDS).slice(0, 8);
+    S.cells.forEach(c => wipe(c));
+    refill(); hud();
+    const t = S.cells.find(c => c.side === 'en');
+    if(t){ t.el.classList.add('sel'); S.sel.en = t.el; }
+  }, 130);
+}
+
+if(location.hash === '#done'){
+  start();
+  setTimeout(() => {
+    S.done = S.total; S.firstTry = S.total - 3; S.maxCombo = 6;
+    S.wrong = new Map([['date',2],['card',1],['horse',1]]);
+    S.t0 = Date.now() - 102000;
+    S.cells.forEach(c => wipe(c));
+    S.queue = []; S.retry = [];
+    hud(); finish();
+  }, 120);
+} else if(location.hash === '#mid'){
+  midState();
+} else {
+  start();
+}
+</script>
+</body>
+</html>

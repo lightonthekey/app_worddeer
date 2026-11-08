@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>词鹿英语 · 设计 Demo — 首页 &amp; 学习会话</title>
+<style>
+  :root{
+    --bg:#F4F3FB; --card:#FFFFFF; --line:#E7E5F2;
+    --primary:#5A50E0; --primary-deep:#4A41C4; --primary-50:#EEEDFE;
+    --text:#211E3B; --text-2:#6E6B8A; --text-3:#9B98B5;
+    --ok:#1D9E75; --ok-50:#E1F5EE; --bad:#E24B4A; --bad-50:#FCEBEB;
+    --flame:#EF9F27; --amber-50:#FAEEDA;
+    --r-lg:20px; --r-md:14px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:#ECEAF6; color:var(--text); min-height:100vh;
+    display:flex; align-items:center; justify-content:center; gap:36px; padding:28px;
+  }
+  /* ---------- 左侧设计注解 ---------- */
+  .notes{width:300px; align-self:center}
+  .notes h1{font-size:17px; font-weight:600; margin-bottom:4px}
+  .notes .sub{font-size:12.5px; color:var(--text-2); margin-bottom:14px}
+  .note{background:#fff; border:1px solid var(--line); border-radius:var(--r-md); padding:10px 12px; margin-bottom:8px}
+  .note b{font-size:12.5px; font-weight:600; display:flex; align-items:center; gap:6px}
+  .note b i{font-style:normal; font-size:10px; color:#fff; background:var(--primary); border-radius:6px; padding:1px 6px; font-weight:500}
+  .note p{font-size:12px; color:var(--text-2); line-height:1.55; margin-top:3px}
+  @media (max-width:980px){ .notes{display:none} body{padding:12px} }
+
+  /* ---------- 手机壳 ---------- */
+  .phone{
+    width:390px; height:812px; background:#0F0E1D; border-radius:52px; padding:12px;
+    box-shadow:0 30px 70px rgba(35,30,90,.35); position:relative; flex:none;
+  }
+  .phone::after{content:""; position:absolute; top:24px; left:50%; transform:translateX(-50%);
+    width:118px; height:26px; background:#0F0E1D; border-radius:14px; z-index:9}
+  .screen{
+    width:100%; height:100%; background:var(--bg); border-radius:42px; overflow:hidden;
+    position:relative; display:flex; flex-direction:column;
+  }
+  .statusbar{height:44px; flex:none; display:flex; justify-content:space-between; align-items:flex-end;
+    padding:0 26px 4px; font-size:13px; font-weight:600; color:var(--text)}
+  .page{flex:1; overflow-y:auto; padding:6px 20px 96px; scrollbar-width:none}
+  .page::-webkit-scrollbar{display:none}
+  .tabbar{
+    position:absolute; bottom:0; left:0; right:0; height:76px; background:#fff;
+    border-top:1px solid var(--line); display:flex; padding:8px 10px 18px; z-index:5;
+  }
+  .tab{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    font-size:10.5px; color:var(--text-3); cursor:pointer; border:none; background:none}
+  .tab svg{width:23px; height:23px; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round}
+  .tab.on{color:var(--primary); font-weight:600}
+  .tab .dot{position:relative}
+  .tab .dot::after{content:""; position:absolute; top:-1px; right:-3px; width:7px; height:7px;
+    background:var(--bad); border-radius:50%; border:1.5px solid #fff}
+
+  /* ---------- 首页 ---------- */
+  .greet{display:flex; justify-content:space-between; align-items:center; margin:6px 2px 14px}
+  .greet h2{font-size:21px; font-weight:700}
+  .greet p{font-size:12px; color:var(--text-2); margin-top:3px}
+  .streak{
+    display:flex; align-items:center; gap:5px; background:var(--amber-50);
+    border:1px solid #F3DCA9; border-radius:999px; padding:6px 12px 6px 9px;
+    font-weight:700; font-size:14px; color:#B26A0B;
+  }
+  .streak .fire{font-size:15px; animation:flick 1.6s ease-in-out infinite}
+  @media (prefers-reduced-motion: no-preference){
+    @keyframes flick{0%,100%{transform:scale(1) rotate(-2deg)}50%{transform:scale(1.15) rotate(3deg)}}
+  }
+  .hero{
+    background:linear-gradient(135deg,#655CE8,#4A41C4); border-radius:var(--r-lg);
+    padding:20px; color:#fff; display:flex; align-items:center; gap:16px;
+    box-shadow:0 10px 24px rgba(90,80,224,.28);
+  }
+  .ring{width:84px; height:84px; flex:none; position:relative}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .num{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center}
+  .ring .num b{font-size:20px; font-weight:700}
+  .ring .num span{font-size:9.5px; opacity:.75}
+  .hero .info{flex:1; min-width:0}
+  .hero .info h3{font-size:17px; font-weight:700}
+  .hero .info p{font-size:12px; opacity:.85; margin:5px 0 12px; line-height:1.5}
+  .go{
+    width:100%; background:#fff; color:var(--primary-deep); border:none; border-radius:12px;
+    padding:11px 0; font-size:14.5px; font-weight:700; cursor:pointer;
+    transition:transform .12s;
+  }
+  .go:active{transform:scale(.97)}
+  .duo{display:flex; gap:10px; margin:12px 0}
+  .mini{flex:1; background:var(--card); border:1px solid var(--line); border-radius:var(--r-md); padding:12px 14px}
+  .mini b{font-size:19px; font-weight:700}
+  .mini span{display:block; font-size:11px; color:var(--text-2); margin-top:2px}
+  .mini .up{color:var(--ok)}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r-lg); padding:16px; margin-bottom:12px}
+  .card h4{font-size:13.5px; font-weight:600; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center}
+  .card h4 em{font-style:normal; font-size:11px; color:var(--text-3); font-weight:400}
+  .lv{display:flex; align-items:center; gap:10px; margin-bottom:8px}
+  .lv:last-child{margin-bottom:0}
+  .lv b{width:26px; font-size:11.5px; color:var(--text-2); font-weight:600}
+  .lv .bar{flex:1; height:7px; background:var(--primary-50); border-radius:99px; overflow:hidden}
+  .lv .bar i{display:block; height:100%; background:var(--primary); border-radius:99px; transition:width .5s}
+  .lv span{width:34px; text-align:right; font-size:11px; color:var(--text-3)}
+  .chiprow{display:flex; gap:8px; margin:2px 2px 14px}
+  .chip{font-size:11.5px; padding:6px 11px; border-radius:999px; background:#fff; border:1px solid var(--line); color:var(--text-2)}
+  .chip.on{background:var(--primary-50); border-color:#C9C5F5; color:var(--primary-deep); font-weight:600}
+
+  /* ---------- 级别切换（页面首要学习信息） ---------- */
+  .levels{display:flex; gap:6px; margin:0 2px 10px}
+  .lvpill{flex:1; background:#fff; border:1.5px solid var(--line); border-radius:11px;
+    padding:5px 0 15px; text-align:center; cursor:pointer; position:relative; transition:.15s;
+    font-family:inherit}
+  .lvpill b{display:block; font-size:12px; font-weight:700; color:var(--text-2); line-height:1.35}
+  .lvpill em{display:block; font-style:normal; font-size:9px; color:var(--text-3)}
+  .lvpill.on{background:var(--primary); border-color:var(--primary); box-shadow:0 6px 14px rgba(90,80,224,.26)}
+  .lvpill.on b, .lvpill.on em{color:#fff}
+  .lvpill .mb{position:absolute; left:8px; right:8px; bottom:5px; height:3px; border-radius:9px;
+    background:#EDEBF7; overflow:hidden}
+  .lvpill .mb i{display:block; height:100%; background:var(--primary); border-radius:9px; transition:width .4s}
+  .lvpill.on .mb{background:rgba(255,255,255,.34)}
+  .lvpill.on .mb i{background:#fff}
+
+  /* ---------- 今日目标 ---------- */
+  .goal{display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--line);
+    border-radius:12px; padding:8px 12px; margin:0 2px 12px}
+  .goal .gt{font-size:11px; color:var(--text-2); flex:none}
+  .goal .gt b{color:var(--text); font-weight:700; font-variant-numeric:tabular-nums}
+  .goal .gbar{flex:1; height:6px; background:var(--primary-50); border-radius:99px; overflow:hidden}
+  .goal .gbar i{display:block; height:100%; background:var(--primary); border-radius:99px}
+  .goal em{font-style:normal; font-size:10.5px; color:var(--text-3); flex:none}
+
+  /* ---------- 模式切换：小 pill，放在关卡列表上方，不抢焦点 ---------- */
+  .segrow{display:flex; align-items:center; gap:6px; margin:0 2px 10px}
+  .mtab{border:1px solid var(--line); background:#fff; color:var(--text-2); font-family:inherit;
+    font-size:11.5px; font-weight:600; padding:5px 12px; border-radius:999px; cursor:pointer;
+    transition:.15s; line-height:1.3}
+  .mtab.on{background:var(--primary-50); border-color:#C9C5F5; color:var(--primary-deep)}
+  .mtab:active{transform:scale(.96)}
+  .seghint{margin-left:auto; font-size:10.5px; color:var(--text-3); font-variant-numeric:tabular-nums}
+  .panel{display:none}
+  .panel.on{display:block; animation:fade .22s ease}
+  @keyframes fade{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
+  .panelhint{font-size:11.5px; color:var(--text-3); margin:0 2px 11px; line-height:1.5}
+
+  /* ---------- 学习进度卡（独立一张，圆环 + 信息） ---------- */
+  .pcard{background:linear-gradient(135deg,#655CE8,#4A41C4); border-radius:18px; padding:15px 17px;
+    color:#fff; display:flex; align-items:center; gap:14px; position:relative; overflow:hidden;
+    box-shadow:0 10px 22px rgba(90,80,224,.26); margin:0 2px 12px; cursor:pointer}
+  .pcard:active{transform:scale(.985)}
+  .pcard::after{content:""; position:absolute; right:-26px; top:-38px; width:112px; height:112px;
+    border-radius:50%; background:rgba(255,255,255,.09)}
+  .pcard .p-l{flex:1; min-width:0; position:relative; z-index:1}
+  .pcard em{font-style:normal; font-size:10px; letter-spacing:.7px; opacity:.82; font-weight:600}
+  .pcard h3{font-size:18px; font-weight:700; margin:4px 0 5px; letter-spacing:.2px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .pcard p{font-size:11.5px; opacity:.86; line-height:1.45; font-variant-numeric:tabular-nums}
+  .pring{width:58px; height:58px; flex:none; position:relative; z-index:1}
+  .pring b{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700; letter-spacing:-.2px; font-variant-numeric:tabular-nums}
+
+  /* ---------- 关卡树 ---------- */
+  .tree{position:relative; padding:2px 0 8px}
+  .tree::before{content:""; position:absolute; left:26px; top:16px; bottom:34px; width:2px;
+    background:repeating-linear-gradient(180deg,#D9D5F0 0 5px,transparent 5px 11px)}
+  .lvl{position:relative; display:flex; align-items:center; gap:13px; padding:5px 0; cursor:pointer}
+  .lvl .node{
+    width:52px; height:52px; border-radius:50%; flex:none; z-index:1;
+    display:flex; align-items:center; justify-content:center;
+    font-size:15px; font-weight:700; background:#fff; border:2px solid var(--line); color:var(--text-3);
+    transition:.18s;
+  }
+  .lvl .node svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  .lvl.passed .node{background:var(--primary); border-color:var(--primary); color:#fff}
+  .lvl.cur .node{border-color:var(--primary); color:var(--primary-deep); background:#fff;
+    box-shadow:0 0 0 5px rgba(90,80,224,.13)}
+  .lvl.cur .node::after{content:""; position:absolute; width:52px; height:52px; border-radius:50%;
+    border:2px solid rgba(90,80,224,.3); animation:ringpulse 2.2s ease-out infinite}
+  @keyframes ringpulse{0%{transform:scale(1); opacity:.9}100%{transform:scale(1.35); opacity:0}}
+  .lvl.review .node{background:var(--amber-50); border-color:#EFC97E; color:#B26A0B}
+  .lvl.review.passed .node{background:#EF9F27; border-color:#EF9F27; color:#fff}
+  .lvl.lock{opacity:.5; cursor:default}
+  .lvl .inf{flex:1; min-width:0}
+  .lvl .inf b{font-size:13.5px; font-weight:700; display:block}
+  .lvl .inf b em{font-style:normal; font-size:10px; font-weight:600; color:#fff; background:var(--flame);
+    padding:1px 6px; border-radius:6px; margin-left:6px; vertical-align:1px}
+  .lvl .inf span{font-size:11px; color:var(--text-3); display:block; margin-top:2px}
+  .lvl .arrow{font-size:15px; color:var(--text-3); flex:none}
+
+  /* ---------- 主题树 ---------- */
+  .themes{display:grid; grid-template-columns:1fr 1fr; gap:10px; padding-bottom:6px}
+  .tcard{background:#fff; border:1px solid var(--line); border-radius:14px; padding:13px; cursor:pointer;
+    transition:.15s; position:relative}
+  .tcard:active{transform:scale(.97)}
+  .tcard .em{font-size:19px; line-height:1}
+  .tcard b{display:block; font-size:12.5px; margin-top:8px}
+  .tcard span{font-size:10.5px; color:var(--text-3); display:block; margin-top:2px}
+  .tcard .bar{height:5px; background:var(--primary-50); border-radius:99px; margin-top:9px; overflow:hidden}
+  .tcard .bar i{display:block; height:100%; background:var(--primary); width:0}
+  /* 未解锁主题：虚线灰卡 + 金锁，和"进度暂未到达"的灰锁区分开 */
+  .tcard.lock{background:#FBFAFE; border-style:dashed; cursor:default}
+  .tcard.lock:active{transform:none}
+  .tcard.lock .em{filter:grayscale(1); opacity:.4}
+  .tcard.lock b{color:var(--text-3); font-weight:600}
+  .tcard .lk{position:absolute; top:10px; right:10px; width:22px; height:22px; border-radius:50%;
+    background:linear-gradient(135deg,#F7D488,#E0A02A); display:flex; align-items:center; justify-content:center}
+  .tcard .lk svg{width:11px; height:11px; stroke:#fff; fill:none; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round}
+  .tcard .free{position:absolute; top:11px; right:10px; font-size:9px; font-weight:700; color:var(--ok);
+    background:var(--ok-50); border-radius:999px; padding:2px 7px}
+
+  /* ---------- 自由模式 ---------- */
+  .go-solid{width:100%; background:var(--primary); color:#fff; border:none; border-radius:14px;
+    padding:14px 0; font-size:14.5px; font-weight:700; cursor:pointer;
+    box-shadow:0 8px 18px rgba(90,80,224,.26)}
+  .go-solid:active{transform:scale(.98)}
+
+  /* ---------- 学习会话 ---------- */
+  .sess{position:absolute; inset:12px; width:auto; height:auto; border-radius:42px; background:var(--bg); display:none; flex-direction:column; z-index:8}
+  .sess.show{display:flex; animation:slidein .28s ease}
+  @keyframes slidein{from{transform:translateX(40px); opacity:0}to{transform:none; opacity:1}}
+  .shead{padding:52px 20px 10px; flex:none}
+  .shead .row{display:flex; align-items:center; gap:12px}
+  .lvinfo{display:flex; align-items:center; gap:7px; margin-top:10px; font-size:11px; color:var(--text-3)}
+  .lvinfo b{font-size:14px; color:var(--text); font-weight:700}
+  .lvinfo .left{margin-left:auto; font-weight:700; color:var(--text-2); font-variant-numeric:tabular-nums}
+  .xbtn{width:34px; height:34px; border:none; background:#fff; border:1px solid var(--line);
+    border-radius:50%; font-size:17px; color:var(--text); cursor:pointer; flex:none; line-height:1}
+  .pbar{flex:1; height:9px; background:#E2DFF3; border-radius:99px; overflow:hidden}
+  .pbar i{display:block; height:100%; width:0; background:var(--primary); border-radius:99px; transition:width .35s ease}
+  .combo{display:flex; align-items:center; gap:4px; font-size:12.5px; font-weight:700; color:#B26A0B;
+    background:var(--amber-50); border-radius:999px; padding:4px 9px; flex:none; opacity:0; transition:opacity .2s}
+  .combo.on{opacity:1}
+  .sbody{flex:1; padding:8px 20px 24px; display:flex; flex-direction:column; overflow-y:auto}
+  .mode-tag{align-self:flex-start; font-size:11px; font-weight:600; color:var(--ok);
+    background:var(--ok-50); padding:4px 10px; border-radius:999px; margin-bottom:14px}
+  .wcard{background:#fff; border:1px solid var(--line); border-radius:var(--r-lg); text-align:center; padding:30px 20px 24px; margin-bottom:20px}
+  .wcard .word{font-size:38px; font-weight:700; letter-spacing:.5px}
+  .wcard .ph{font-size:14.5px; color:var(--text-2); margin-top:6px; font-family:Georgia,serif}
+  .hint{text-align:center; font-size:12px; color:var(--text-3); margin:-8px 0 4px}
+  .spk{margin-top:14px; width:46px; height:46px; border-radius:50%; border:none; cursor:pointer;
+    background:var(--primary-50); color:var(--primary); display:inline-flex; align-items:center; justify-content:center}
+  .spk svg{width:21px; height:21px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+  .spk.pulse{animation:pp .5s ease}
+  @keyframes pp{0%{transform:scale(1)}40%{transform:scale(1.18)}100%{transform:scale(1)}}
+  .opts{display:grid; grid-template-columns:1fr 1fr; gap:11px; margin-top:auto; padding-bottom:2px}
+  .opt{
+    background:#fff; border:1.5px solid var(--line); border-radius:var(--r-md);
+    padding:15px 10px; font-size:14.5px; font-weight:600; color:var(--text); cursor:pointer;
+    transition:all .14s; line-height:1.35; text-align:center;
+  }
+  .opt:active{transform:scale(.97)}
+  .opt.ok{background:var(--ok-50); border-color:var(--ok); color:#0F6E56}
+  .opt.bad{background:var(--bad-50); border-color:var(--bad); color:#A32D2D; animation:shake .35s}
+  .opt.dim{opacity:.45}
+  @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-6px)}55%{transform:translateX(5px)}80%{transform:translateX(-3px)}}
+  .flash-ok,.flash-bad{position:absolute; inset:0; pointer-events:none; opacity:0; z-index:6}
+  .flash-ok{background:radial-gradient(circle,rgba(29,158,117,.16),transparent 70%)}
+  .flash-bad{background:radial-gradient(circle,rgba(226,75,74,.18),transparent 70%)}
+  .flash-on{animation:fl .5s ease}
+  @keyframes fl{0%{opacity:1}100%{opacity:0}}
+  .fb{min-height:40px; margin-top:16px; display:flex; align-items:center; justify-content:center;
+    font-size:13px; border-radius:12px; opacity:0; transition:opacity .18s}
+  .fb.on{opacity:1}
+  .fb.good{background:var(--ok-50); color:#0F6E56; font-weight:600}
+  .fb.err{background:var(--bad-50); color:#A32D2D; font-weight:600}
+
+  /* ---------- 结算 ---------- */
+  .done{position:absolute; inset:12px; width:auto; height:auto; border-radius:42px; background:var(--bg); display:none; flex-direction:column; align-items:center; z-index:9; padding:70px 26px 40px; text-align:center; overflow:hidden}
+  .done.show{display:flex; animation:slidein .3s ease}
+  .medal{font-size:64px; animation:pop .5s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes pop{from{transform:scale(.3); opacity:0}to{transform:scale(1); opacity:1}}
+  .done h2{font-size:22px; margin-top:14px}
+  .done .sub2{font-size:13px; color:var(--text-2); margin-top:6px}
+  .dstats{display:flex; gap:10px; margin:26px 0 14px; width:100%}
+  .dstat{flex:1; background:#fff; border:1px solid var(--line); border-radius:var(--r-md); padding:14px 6px}
+  .dstat b{font-size:20px; font-weight:700}
+  .dstat span{display:block; font-size:10.5px; color:var(--text-2); margin-top:3px}
+
+  /* ---------- 配对棋盘 ---------- */
+  .diff{display:flex; align-items:center; gap:8px; margin-bottom:14px}
+  .diff .lbl{font-size:11px; color:var(--text-3)}
+  .board{display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:1fr; gap:10px; flex:1;
+    margin:12px 0 2px; max-height:520px; align-content:center}
+  .tile{
+    background:#fff; border:1.5px solid var(--line); border-radius:var(--r-md);
+    min-height:46px; padding:7px 8px; color:var(--text);
+    cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; line-height:1.25; transition:all .15s; user-select:none; overflow:hidden;
+  }
+  /* 卡片两行结构：主词 + 辅助信息（音标 / 释义），辅助行继承主色并降低不透明度 */
+  .tile .m{font-size:17px; font-weight:650; letter-spacing:.1px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .tile .sub{
+    font-size:11px; font-weight:400; opacity:.5; margin-top:3px;
+    width:100%; min-width:0; max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .tile .sub.ph{font-family:"Lucida Sans Unicode",Georgia,serif; letter-spacing:.2px; font-size:12px}
+  .tile .sub.de{font-size:10.5px}
+  .tile:active{transform:scale(.96)}
+  .tile.empty{background:transparent; border-style:dashed; border-color:#DDD9F0; pointer-events:none}
+  .tile.pop{animation:popin .34s cubic-bezier(.2,1.3,.4,1)}
+  @keyframes popin{from{transform:scale(.82); opacity:0}to{transform:none; opacity:1}}
+  .tile.sel{border-color:var(--primary); background:var(--primary-50); color:var(--primary-deep)}
+  .tile.ok{background:var(--ok-50); border-color:var(--ok); color:#0F6E56}
+  .tile.ghost{opacity:.25; border-style:dashed; pointer-events:none; transform:scale(.96)}
+  .tile.bad{background:var(--bad-50); border-color:var(--bad); color:#A32D2D; animation:shake .35s}
+  .board.n6 .tile{min-height:38px; padding:5px 6px}
+  .board.n6 .tile .m{font-size:13.5px}
+  .board.n6 .tile .sub{font-size:9.5px; margin-top:2px}
+  .board.n6 .tile .sub.ph{font-size:10.5px}
+  .board.n6{gap:8px}
+  .combo.timer{background:#fff; border:1px solid var(--line); color:var(--text-2); font-variant-numeric:tabular-nums; opacity:1}
+  .spk-tile svg{width:26px;height:26px;stroke:var(--primary);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .spk-tile{color:var(--primary)}
+
+  /* ---------- 单词查询 ---------- */
+  .look{position:absolute; inset:12px; width:auto; height:auto; border-radius:42px; background:var(--bg); display:none; flex-direction:column; z-index:8; overflow:hidden}
+  .look.show{display:flex; animation:slidein .28s ease}
+  .lhead{padding:52px 20px 12px; flex:none}
+  .search{display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:12px 14px}
+  .search svg{width:18px;height:18px;stroke:var(--text-3);fill:none;stroke-width:2;stroke-linecap:round;flex:none}
+  .search input{border:none;outline:none;flex:1;font-size:15px;background:none;color:var(--text);min-width:0}
+  .lresults{flex:1; overflow-y:auto; padding:14px 20px 24px}
+  .wrow{background:#fff;border:1px solid var(--line);border-radius:var(--r-md);padding:13px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px}
+  .wrow .wi{flex:1;min-width:0}
+  .wrow .we{font-size:16.5px;font-weight:700}
+  .wrow .wp{font-size:12px;color:var(--text-2);font-family:Georgia,serif;margin-top:2px}
+  .wrow .wz{font-size:12.5px;color:var(--text-2);margin-top:4px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .wspk{flex:none;width:38px;height:38px;border-radius:50%;border:none;background:var(--primary-50);color:var(--primary);cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .wspk svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .addw{flex:none;border:1.5px solid #C9C5F5;color:var(--primary-deep);background:var(--primary-50);border-radius:999px;padding:8px 13px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .addw.done{border-color:var(--ok);background:var(--ok-50);color:#0F6E56;pointer-events:none}
+  .lempty{text-align:center;color:var(--text-3);font-size:12.5px;padding:46px 20px;line-height:1.8}
+  .added{width:100%; background:var(--primary-50); border:1px dashed #B4AEF2; color:var(--primary-deep);
+    font-size:12.5px; border-radius:var(--r-md); padding:11px; line-height:1.5; margin-bottom:14px}
+  .dact{width:100%; display:flex; flex-direction:column; gap:10px; margin-top:auto}
+  .btn-p{background:var(--primary); color:#fff; border:none; border-radius:14px; padding:14px; font-size:15px; font-weight:700; cursor:pointer}
+  .btn-g{background:#fff; color:var(--text-2); border:1px solid var(--line); border-radius:14px; padding:13px; font-size:14px; cursor:pointer}
+  .toast{position:absolute; left:50%; bottom:110px; transform:translateX(-50%) translateY(8px);
+    background:#211E3B; color:#fff; font-size:12px; padding:8px 14px; border-radius:999px;
+    opacity:0; transition:all .25s; z-index:20; pointer-events:none; white-space:nowrap}
+  .toast.on{opacity:.94; transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<aside class="notes">
+  <h1>词鹿英语 · 设计 Demo</h1>
+  <div class="sub">关卡树 / 主题树 / 自由练习 — 点进去就能玩</div>
+  <div class="note"><b><i>01</i>一关 50 词</b><p>每关固定 50 个词，关卡树 U1 → U12 递进；U6、U12 是复习关，把前 5 关的 250 个词整个再过一遍。</p></div>
+  <div class="note"><b><i>02</i>5 对 5 + 即时补位</b><p>一屏只有 5 对。配对成功的一对立刻消失，从词池补上新词 —— 屏幕始终满格，不用翻页。</p></div>
+  <div class="note"><b><i>03</i>错词必须配对到位</b><p>配错的词退出棋盘、进重试队列，隔 2~3 次配对后重新出现，直到配对正确才算过关。进度条只认"配对成功"。</p></div>
+  <div class="note"><b><i>04</i>模式是次级导航</b><p>关卡 / 主题 / 自由只是"从哪批词开始"，做成 U1 U2 U3 那一排的小 pill，选中变浅紫，不抢首屏焦点。切换不改玩法。</p></div>
+  <div class="note"><b><i>05</i>级别 + 进度在顶上</b><p>A1–C1 一排卡片既是级别选择，也是进度条（底部 3px）；副行给"已通关 x/12 关 · 已学 n 词"，今日目标单独一行。</p></div>
+  <div class="note"><b><i>06</i>主题按级别解锁</b><p>每个级别免费只开第一个主题，其余为金锁（会员解锁），和关卡树的灰锁（进度未到）严格区分。</p></div>
+  <div class="note"><b><i>07</i>进度收在一张卡里</b><p>关卡模式顶部一张紫色进度卡：继续学习 · 第 3 关 → U3 学习关 → 50 词 · 已学 32 · 剩 18，右侧圆环 32/50，点卡直接进关。下方关卡列表只留关卡名 + 词数 + 状态，不重复塞百分比。主题模式同理。</p></div>
+  <div class="note"><b><i>08</i>卡片要信息完整</b><p>英文卡=单词+音标，中文卡=释义+词性与延伸义。辅助行小 5px、透明度 50%，补信息不抢注意力。</p></div>
+  <div class="note"><b><i>09</i>多巴胺工程</b><p>答对"叮"、答错低鸣、结算号角（Web Audio 合成），配合绿色微光、红色抖动与震动反馈。</p></div>
+  <div class="note"><b><i>10</i>连击 + 计时双压力</b><p>连对 2 对亮 combo 火焰；顶栏计时制造适度紧迫，但不扣分、不强退。</p></div>
+  <div class="note"><b><i>11</i>先玩后注册</b><p>首启零弹窗直达关卡树，账号入口收进「我的」，注册只发生在用户想云同步时。</p></div>
+</aside>
+
+<div class="phone">
+  <div class="screen" id="home">
+
+    <div class="statusbar"><span>9:41</span><span>词鹿英语</span></div>
+
+    <div class="page">
+      <div class="greet">
+        <div><h2 id="greetHi">早上好 👋</h2><p id="greetSub">A1 入门 · 已通关 2 / 12 关 · 已学 100 词</p></div>
+        <div class="streak"><span class="fire">🔥</span>6 天</div>
+      </div>
+
+      <!-- 学习信息：级别选择 -->
+      <div class="levels" id="levels"></div>
+
+      <!-- 学习信息：今日目标 -->
+      <div class="goal">
+        <div class="gt">今日 <b>30/50</b> 词</div>
+        <div class="gbar"><i style="width:60%"></i></div>
+        <em>还差 20 词</em>
+      </div>
+
+      <!-- 模式切换：小 pill，坐在原来 U1 U2 U3 那一排的位置上 -->
+      <div class="segrow" id="modeTabs">
+        <button class="mtab on" data-m="level" onclick="setModeTab('level')">关卡</button>
+        <button class="mtab" data-m="theme" onclick="setModeTab('theme')">主题</button>
+        <button class="mtab" data-m="free" onclick="setModeTab('free')">自由</button>
+        <span class="seghint" id="segHint">U1–U12</span>
+      </div>
+
+      <!-- 关卡模式：学习进度卡 + 关卡树 -->
+      <div class="panel on" id="panel-level">
+        <div id="lvHero"></div>
+        <div class="tree" id="tree"></div>
+        <div class="duo" style="margin-top:8px">
+          <div class="mini"><b id="statDone">48</b><span>已掌握词汇</span></div>
+          <div class="mini"><b class="up">+40</b><span>今日经验值</span></div>
+          <div class="mini"><b id="statWrong">5</b><span>易错词待攻克</span></div>
+        </div>
+      </div>
+
+      <!-- 主题模式 -->
+      <div class="panel" id="panel-theme">
+        <div id="thHero"></div>
+        <div class="segrow" style="margin-bottom:10px">
+          <span class="seghint" style="margin:0" id="themeHint">A1 · 免费开放 1 / 12 个主题</span>
+          <button class="mtab" style="margin-left:auto" onclick="showThemeUnlock()">解锁全部</button>
+        </div>
+        <div class="themes" id="themeList"></div>
+      </div>
+
+      <!-- 自由模式 -->
+      <div class="panel" id="panel-free">
+        <p class="panelhint" id="freeHint">A1 · 从整级词库随机抽 50 词，不限次数</p>
+        <div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="font-size:24px">🎲</div>
+          <div style="flex:1">
+            <b style="font-size:12.5px">每轮 50 词 · 5 对 5</b>
+            <p style="font-size:11.5px;color:var(--text-2);margin-top:3px;line-height:1.5">配错的词会隔 2~3 次配对后重新出现，直到配对正确为止。</p>
+          </div>
+        </div>
+        <button class="go-solid" onclick="startFree()">开始自由练习</button>
+      </div>
+
+    <div class="tabbar">
+      <button class="tab on" id="tab-learn" onclick="switchTab('learn')"><div class="dot"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></div>学习</button>
+      <button class="tab" id="tab-review" onclick="switchTab('review')"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/></svg></button>
+      <button class="tab" id="tab-dict" onclick="switchTab('dict')"><svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 012-2h13v18H6a2 2 0 01-2-2z"/><path d="M9 7h6M9 11h6"/></svg></button>
+      <button class="tab" id="tab-me" onclick="switchTab('me')"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></button>
+    </div>
+
+    <div class="flash-ok" id="flashOk"></div>
+    <div class="flash-bad" id="flashBad"></div>
+  </div>
+
+  <!-- ============ 学习会话 ============ -->
+  <div class="screen sess" id="sess">
+    <div class="shead">
+      <div class="row">
+        <button class="xbtn" onclick="endSession(false)">✕</button>
+        <div class="pbar"><i id="sprog"></i></div>
+        <div class="combo timer" id="timer">0:00</div>
+        <div class="combo" id="combo">🔥 <span id="comboN">2</span></div>
+      </div>
+      <div class="lvinfo">
+        <b id="lvName">U1</b>
+        <span id="lvSub">学习关 · 50 词</span>
+        <span class="left" id="lvCount">0 / 50</span>
+      </div>
+    </div>
+    <div class="sbody">
+      <div class="board" id="board"></div>
+      <div class="fb" id="fb"></div>
+    </div>
+  </div>
+
+  <!-- ============ 单词查询 ============ -->
+  <div class="look" id="look">
+    <div class="lhead">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="xbtn" onclick="closeDict()">←</button>
+        <div class="search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="q" placeholder="搜索单词或释义，如 milk / 牛奶" oninput="renderList()">
+        </div>
+      </div>
+      <p style="font-size:11.5px;color:var(--text-3);margin-top:9px">查过的词可一键加入今日学习 —— 词典也是学习入口</p>
+    </div>
+    <div class="lresults" id="lresults"></div>
+  </div>
+
+  <!-- ============ 结算 ============ -->
+  <div class="screen done" id="done">
+    <div class="medal">🎉</div>
+    <h2 id="dTitle">本关完成！</h2>
+    <div class="sub2" id="dTime">用时 1 分 24 秒 · 已打卡，streak 7 天 🔥</div>
+    <div class="dstats">
+      <div class="dstat"><b id="dRight">6</b><span>配对成功</span></div>
+      <div class="dstat"><b id="dAcc">83%</b><span>首次正确率</span></div>
+      <div class="dstat"><b id="dCombo" style="color:var(--flame)">3</b><span>最大连击</span></div>
+    </div>
+    <div class="added" id="dAdded">🦌 2 个配错的词（sugar、friend）已自动加入今日复习队列</div>
+    <div class="dact">
+      <button class="btn-p" id="dNext" onclick="nextUp()">下一关</button>
+      <button class="btn-g" onclick="endSession(true)">回到首页</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ---------- 真实词库数据（A1，含详细释义） ---------- */
+const THEMES = [["个人信息", "🪪"], ["动物", "🐾"], ["天气季节", "🌤"], ["学校学习", "📚"], ["家庭家人", "👪"], ["数字", "🔢"], ["日常问候", "👋"], ["时间", "⏰"], ["衣服", "👕"], ["身体", "🫀"], ["颜色", "🎨"], ["食物饮品", "🍽"]];
+const WORDS = [
+  {en:"address",zh:"地址",detail:"n.地址, 演讲, 称呼 v.处理, 写地址, 发表演讲, 对...说话, 称呼",ph:"[ˈædres]",t:1},
+  {en:"age",zh:"年龄",detail:"n.年龄, 很长时间 v.变老, 显老",ph:"[eɪdʒ]",t:1},
+  {en:"birth",zh:"出生",detail:"n.出生, 诞生, 出身",ph:"[bɜːrθ]",t:1},
+  {en:"birthday",zh:"生日",detail:"n.生日",ph:"[ˈbɜːrθdeɪ]",t:1},
+  {en:"boy",zh:"男孩",detail:"n.男孩 interj.男孩",ph:"[bɔɪ]",t:1},
+  {en:"boyfriend",zh:"男朋友",detail:"n.男朋友",ph:"[ˈbɔɪfrend]",t:1},
+  {en:"call",zh:"打电话",detail:"v.称呼, 打电话, 电话召唤",ph:"[kɑːl]",t:1},
+  {en:"card",zh:"卡片",detail:"n.卡片纸, 贺卡, 明信片, 名片, 工作证, 留言卡, 信用卡, 扑克牌, 纸牌游戏, 扩展卡",ph:"[kɑːrd]",t:1},
+  {en:"date",zh:"日期",detail:"n.日期, 时期, 约会, 约会对象, 椰枣 v.注明日期, 确定年代, 过时, 显得年长,  约会",ph:"[deɪt]",t:129},
+  {en:"everybody",zh:"所有人",detail:"pron.(某个群体中的)每个人;所有人;人们;",ph:"[ˈevriˌbɑːdi]",t:1},
+  {en:"everyone",zh:"每个人",detail:"pron.每个人",ph:"[ˈevriwʌn]",t:1},
+  {en:"friend",zh:"朋友",detail:"n.朋友, 好友, 支持者, 伙伴, 贵格会教徒 v.加好友",ph:"[frend]",t:1},
+  {en:"girl",zh:"女孩",detail:"n.女孩, 女儿, 年轻女子, 一群女性, 女朋友, 女工",ph:"[ɡɜːrl]",t:1},
+  {en:"girlfriend",zh:"女朋友",detail:"n.女朋友, 女性朋友",ph:"[ˈɡɜːrlfrend]",t:1},
+  {en:"guy",zh:"伙计",detail:"n.家伙;伙计们;小伙子;兄弟;男人",ph:"[ɡaɪ]",t:1},
+  {en:"hometown",zh:"家乡",detail:"n. 故乡, 家乡",ph:"[ˈhoʊmtaʊn]",t:1},
+  {en:"information",zh:"信息",detail:"n.信息, 查号台, 数据",ph:"[ˌɪnfərˈmeɪʃən]",t:1},
+  {en:"introduce",zh:"介绍",detail:"v.介绍, 引入, 推出, 开创, 提出, 加入",ph:"[ˌɪntrəˈduːs]",t:1},
+  {en:"man",zh:"男人",detail:"n.成年男子;男人;人类;伙计;丈夫;士兵",ph:"[mæn]",t:1},
+  {en:"name",zh:"名字",detail:"n.名字, 名声, 有名的, 名人 v.命名, 说出名字, 明确指出, 任命",ph:"[neɪm]",t:1},
+  {en:"nationality",zh:"国籍",detail:"n. 国籍, 国家, 民族性 [法] 国家, 民族, 国民",ph:"[ˌnæʃənˈæləti]",t:1},
+  {en:"number",zh:"数字；号码",detail:"n.数字, 编号, 号码, 数量, 热门物品, 数",ph:"[ˈnʌmbər]",t:33},
+  {en:"people",zh:"人们",detail:"n.人, 人民,  人员, 大家 v.居住在;把…挤满人",ph:"[ˈpiːpəl]",t:1},
+  {en:"person",zh:"人",detail:"n.人, 人称",ph:"[ˈpɜːrsən]",t:1},
+  {en:"personal",zh:"个人的",detail:"adj.个人的, 私交的, 私人的, 亲自的, 定制的, 人身攻击的, 身体的",ph:"[ˈpɜːrsənəl]",t:1},
+  {en:"phone",zh:"电话",detail:"n.电话, 听筒 语音 v.打电话",ph:"[foʊn]",t:1},
+  {en:"photo",zh:"照片",detail:"noun.照片",ph:"[ˈfoʊtoʊ]",t:1},
+  {en:"self",zh:"自我",detail:"n.自我, 个性, 自我中心, 本人",ph:"[self]",t:1},
+  {en:"telephone",zh:"电话",detail:"n.电话, 听筒 v.打电话",ph:"[ˈteləfoʊn]",t:1},
+  {en:"woman",zh:"女人",detail:"n.成年女性, 女性, （某地或某职业的）女性, 女工, 娘们, 妻子",ph:"[ˈwʊmən]",t:1},
+  {en:"animal",zh:"动物",detail:"n.动物（不包括鸟类、鱼类、爬行动物、昆虫或人类）",ph:"[ˈænɪməl]",t:2},
+  {en:"bear",zh:"熊",detail:"phr.记住",ph:"[ber]",t:2},
+  {en:"bee",zh:"蜜蜂",detail:"n.蜜蜂, 拼字比赛",ph:"[biː]",t:2},
+  {en:"bird",zh:"鸟",detail:"n.鸟, 怪人, 妞儿 v.观鸟",ph:"[bɜːrd]",t:2},
+  {en:"butterfly",zh:"蝴蝶",detail:"n. 蝴蝶 [医] 蝶式棉块, 翼形皮癣, 纸蝶",ph:"[ˈbʌtərflaɪ]",t:2},
+  {en:"cat",zh:"猫",detail:"n.猫, 猫科动物",ph:"[kæt]",t:2},
+  {en:"chicken",zh:"鸡肉",detail:"n.鸡, 鸡肉, 胆小鬼 adj.胆小的",ph:"[ˈtʃɪkɪn]",t:2050},
+  {en:"cow",zh:"牛",detail:"n.牛, 母兽, 母牛, 讨厌的人 v.恐吓",ph:"[kaʊ]",t:2},
+  {en:"dog",zh:"狗",detail:"n.狗, 公狗, 赛狗, 劣质品, 丑女, 卑鄙的人 v.纠缠, 尾随",ph:"[dɑːɡ]",t:2},
+  {en:"fish",zh:"鱼",detail:"n.鱼, 鱼肉 v.钓鱼, 摸索",ph:"[fɪʃ]",t:2050},
+  {en:"frog",zh:"青蛙",detail:"n.青蛙, 法国佬",ph:"[frɑːɡ]",t:2},
+  {en:"horse",zh:"马",detail:"n.马, 赛马, 鞍马",ph:"[hɔːrs]",t:2},
+  {en:"lion",zh:"狮子",detail:"n.狮子",ph:"[ˈlaɪən]",t:2},
+  {en:"monkey",zh:"猴子",detail:"n.猴子, 调皮鬼, 五百英镑",ph:"[ˈmʌŋki]",t:2},
+  {en:"pet",zh:"宠物",detail:"n.宠物, 宠儿, 昵称 v.抚摸, 爱抚 adj.心爱之物",ph:"[pet]",t:10},
+  {en:"pig",zh:"猪",detail:"noun.猪",ph:"[pɪɡ]",t:2},
+  {en:"rabbit",zh:"兔子",detail:"n. 兔子 vi. 猎兔 vt. 让...见鬼去",ph:"[ˈræbɪt]",t:2},
+  {en:"rat",zh:"老鼠",detail:"n.老鼠, 卑鄙小人",ph:"[ræt]",t:2},
+  {en:"sheep",zh:"羊",detail:"n.羊",ph:"[ʃiːp]",t:2},
+  {en:"snake",zh:"蛇",detail:"n.蛇 v.蜿蜒前行",ph:"[sneɪk]",t:2},
+  {en:"tiger",zh:"老虎",detail:"n. 老虎, 虎, 凶暴的人",ph:"[ˈtaɪɡər]",t:2},
+  {en:"autumn",zh:"秋天",detail:"n.秋天",ph:"[ˈɑːtəm]",t:4},
+  {en:"cloud",zh:"云",detail:"n.云, 云状物, 阴云, 云端 v.使困惑, 使阴郁, 使复杂, 多云, 使扫兴, 变浑浊",ph:"[klaʊd]",t:4},
+  {en:"cloudy",zh:"多云",detail:"a. 多云的, 有愁容的, 云的, 浑浊的 [建] (混)浊的",ph:"[ˈklaʊdi]",t:4},
+  {en:"cold",zh:"冷",detail:"adj.寒冷的, 未加热的, 冷漠的, 冷淡的, 难以找到的, 离目标远的, 失去知觉的, 客观事实",ph:"[koʊld]",t:4},
+  {en:"cool",zh:"酷",detail:"adj.凉的, 降温的, 清凉的, 酷的, 有趣的, 赞成的, 冷静的, 冷淡的, 自信的, 大笔钱",ph:"[kuːl]",t:4},
+  {en:"dry",zh:"干的",detail:"adj.干的, 少雨的, 缺乏天然油脂的, 无痰的, 无酱料食用的, 不甜的, 冷幽默,",ph:"[draɪ]",t:4},
+  {en:"foggy",zh:"雾深的",detail:"a. 雾深的, 模糊的",ph:"[ˈfɑːɡi]",t:4},
+  {en:"hot",zh:"热",detail:"adj.热的, 感觉热的, 使人感觉温暖的, 辣的, 充满活力的, 危险的, 热门的, 新颖刺激的",ph:"[hɑːt]",t:4},
+  {en:"ice",zh:"冰",detail:"n.冰, 冰面, 冰块, 冰淇淋, 刨冰 v.给蛋糕撒糖霜",ph:"[aɪs]",t:2052},
+  {en:"moon",zh:"月亮；月球",detail:"noun.月亮；月球",ph:"[muːn]",t:4},
+  {en:"rain",zh:"雨水",detail:"n.雨水, 雨季, 如雨般落下 v.下雨, 倾泻",ph:"[reɪn]",t:4},
+  {en:"rainy",zh:"下雨的",detail:"a. 下雨的, 多雨的",ph:"[ˈreɪni]",t:4},
+  {en:"sky",zh:"天空",detail:"n.天空 v.高击",ph:"[skaɪ]",t:4},
+  {en:"snow",zh:"雪",detail:"n.雪, 降雪量 v.下雪, 用花言巧语欺骗",ph:"[snoʊ]",t:4},
+  {en:"snowy",zh:"多雪的",detail:"a. 多雪的, 雪的, 被雪所覆盖着的, 下雪的",ph:"[ˈsnoʊi]",t:4},
+  {en:"spring",zh:"春天",detail:"n.春天, 泉水, 弹簧, 弹力, 活力, 跳跃 v.弹跳, 弹回, 突然行动, 突然出现,  释放",ph:"[sprɪŋ]",t:4},
+  {en:"star",zh:"星星；明星",detail:"noun.星星；明星",ph:"[stɑːr]",t:4},
+  {en:"summer",zh:"夏天",detail:"n.夏天",ph:"[ˈsʌmər]",t:4},
+  {en:"sun",zh:"太阳",detail:"n.太阳, 阳光, 恒星 v.晒太阳",ph:"[sʌn]",t:4},
+  {en:"sunny",zh:"阳光明媚",detail:"a. 阳光充足的, 乐观的, 快乐的, 像太阳的",ph:"[ˈsʌni]",t:4},
+  {en:"sunshine",zh:"阳光",detail:"n. 阳光, 光明, 晴天",ph:"[ˈsʌnʃaɪn]",t:4},
+  {en:"warm",zh:"温暖的",detail:"adj.温暖的, 保暖的, 热情的, 暖色调的, 接近的",ph:"[wɔːrm]",t:4},
+  {en:"weather",zh:"天气",detail:"n.天气, 天气预报 v.风化, 经受住",ph:"[ˈweðər]",t:4},
+  {en:"winter",zh:"冬天",detail:"n.冬天 v.过冬",ph:"[ˈwɪntər]",t:4},
+  {en:"answer",zh:"回答",detail:"n.回答, 答案, 解决方法, 对应物 v.回答, 辩护, 符合",ph:"[ˈænsər]",t:72},
+  {en:"art",zh:"艺术",detail:"n.艺术创作, 美术品, 技艺 v.汝是",ph:"[ɑːrt]",t:8},
+  {en:"bag",zh:"袋子；包",detail:"noun.袋子；包",ph:"[bæɡ]",t:8},
+  {en:"bell",zh:"钟",detail:"n.钟, 铃",ph:"[bel]",t:8},
+  {en:"blackboard",zh:"黑板",detail:"n. 黑板",ph:"[ˈblækbɔːrd]",t:8},
+  {en:"book",zh:"书",detail:"n.书, 出版物, 笔记本, 册子, 账簿, v.预订, 订票, 签约",ph:"[bʊk]",t:8},
+  {en:"chair",zh:"椅子",detail:"n.椅子, 主席, 教授职位, 电椅 v.主持",ph:"[tʃer]",t:8},
+  {en:"class",zh:"班级",detail:"n.班级, 课堂, 课程, 届, 阶级, 等级, 类别, 纲 v.分类 adj.一流",ph:"[klæs]",t:8},
+  {en:"classmate",zh:"同学",detail:"n. 同班同学",ph:"[ˈklæsmeɪt]",t:8},
+  {en:"classroom",zh:"教室",detail:"n.教室",ph:"[ˈklæsruːm]",t:8},
+  {en:"concert",zh:"音乐会",detail:"n.音乐会",ph:"[ˈkɑːnsərt]",t:8},
+  {en:"course",zh:"课程",detail:"n.课程, 高尔夫球场, 跑道, 一道菜, 航线, 方向, 做法, 过程, 河道, 疗程, 层",ph:"[kɔːrs]",t:8},
+  {en:"desk",zh:"书桌",detail:"n.书桌, 服务台, 部门",ph:"[desk]",t:8},
+  {en:"dictionary",zh:"词典",detail:"n.词典, 专业词典, 拼写词典",ph:"[ˈdɪkʃəneri]",t:8},
+  {en:"exam",zh:"考试",detail:"n.考试, 检查",ph:"[ɪɡˈzæm]",t:8},
+  {en:"grade",zh:"分数",detail:"n.分数, 年级, 等级, 级别, 程度, 坡度 v.评分, 分级",ph:"[ɡreɪd]",t:40},
+  {en:"grammar",zh:"语法",detail:"n. 语法;文法;语法书;(人的)语言知识及运用能力;",ph:"[ˈɡræmər]",t:8},
+  {en:"history",zh:"历史",detail:"n.历史, 历史学, 历史故事, 个人历史, 历史记录, 浏览历史, 过往关系, 历史剧",ph:"[ˈhɪstəri]",t:8},
+  {en:"homework",zh:"作业",detail:"n.家庭作业, 准备工作",ph:"[ˈhoʊmwɜːrk]",t:8},
+  {en:"learn",zh:"学习",detail:"v.学习, 记住, 学会, 得知",ph:"[lɜːrn]",t:8},
+  {en:"lesson",zh:"课程",detail:"n.课程, 课, 教训, 经文",ph:"[ˈlesən]",t:8},
+  {en:"musician",zh:"音乐家",detail:"n.音乐家",ph:"[mjuːˈzɪʃən]",t:8},
+  {en:"note",zh:"笔记；便条",detail:"n.便条, 便签, 笔记, 记录, 注释, 注解, 纸币, 音符, 语气, 家长信, 照会",ph:"[noʊt]",t:8},
+  {en:"notebook",zh:"笔记本",detail:"n.笔记本, 练习本, 笔记本电脑",ph:"[ˈnoʊtbʊk]",t:8},
+  {en:"paper",zh:"纸",detail:"n.纸, 报纸, 文件, 证件, 试卷, 论文, 作业, 壁纸 v.贴壁纸",ph:"[ˈpeɪpər]",t:8},
+  {en:"paragraph",zh:"段落",detail:"n.段落",ph:"[ˈperəɡræf]",t:8},
+  {en:"pen",zh:"笔",detail:"n.笔, 围栏, 监狱, 点球 v.写, 关押",ph:"[pen]",t:8},
+  {en:"pencil",zh:"铅笔",detail:"n.铅笔 v.用铅笔写",ph:"[ˈpensəl]",t:8},
+  {en:"pop",zh:"流行音乐",detail:"n.流行音乐, 砰的一声, 汽水, 爸爸",ph:"[pɑːp]",t:8},
+  {en:"practice",zh:"练习",detail:"n.练习, 实践, 惯例, 习惯, 业务 v.练习, 执业, 实行",ph:"[ˈpræktɪs]",t:8},
+  {en:"problem",zh:"难题",detail:"n.问题;难题;困难;棘手的问题;数学题;逻辑题; adj.有问题的",ph:"[ˈprɑːbləm]",t:8},
+  {en:"question",zh:"问题",detail:"n.问题, 疑问 v.询问, 怀疑",ph:"[ˈkwestʃən]",t:8},
+  {en:"read",zh:"阅读",detail:"v.阅读, 朗读, 通过阅读学习, 揣测心思, 读唇语, 理解为, 写着, 读起来, 显示, 读取",ph:"[riːd]",t:8},
+  {en:"reading",zh:"阅读",detail:"n.阅读, 朗读, 读物, 解读, 读数, 朗诵会, 经文诵读, 议案宣读",ph:"[ˈriːdɪŋ]",t:8},
+  {en:"ruler",zh:"统治者",detail:"n. 统治者, 管理者, 尺, 直尺 n. 划线板 [计] 标尺",ph:"[ˈruːlər]",t:8},
+  {en:"school",zh:"学校",detail:"n.学校, 全校师生, 学院, 流派, 鱼群 v.训练,   教育",ph:"[skuːl]",t:8},
+  {en:"science",zh:"科学",detail:"n.科学",ph:"[ˈsaɪəns]",t:8},
+  {en:"sentence",zh:"句子",detail:"n.句子, 判决 v.判刑",ph:"[ˈsentəns]",t:8},
+  {en:"spell",zh:"拼写",detail:"v.拼写, 正确地拼写单词, 用字母组成单词, 意味着, 接替",ph:"[spel]",t:8},
+  {en:"student",zh:"学生",detail:"n.学生, 学者",ph:"[ˈstuːdənt]",t:8},
+  {en:"study",zh:"学习",detail:"n.学习, 学业, 学科, 调查, 研究报告, 观察, 书房, 习作, 分析报告, 练习曲, 典范",ph:"[ˈstʌdi]",t:8},
+  {en:"subject",zh:"主题",detail:"n.主题, 学科, 主体, 受试者, 主语, 臣民",ph:"[ˈsʌbdʒekt]",t:8},
+  {en:"teach",zh:"教育",detail:"v.教, 教授, 传授, 教训",ph:"[tiːtʃ]",t:8},
+  {en:"teacher",zh:"教师",detail:"n.教师",ph:"[ˈtiːtʃər]",t:8},
+  {en:"test",zh:"测试",detail:"n.测试, 医学检查, 试验, 考验, 国际比赛",ph:"[test]",t:8},
+  {en:"word",zh:"词",detail:"n.词, 话, 承诺, 消息, 圣经 v.措辞 interj.同意",ph:"[wɜːrd]",t:8},
+  {en:"write",zh:"写",detail:"v.用笔在纸上写字, 写作, 写信, 书面陈述, 填写表格, 写入, 书写流畅",ph:"[raɪt]",t:8},
+  {en:"aunt",zh:"姑妈/阿姨",detail:"n.姑妈, 阿姨",ph:"[ænt]",t:16},
+  {en:"baby",zh:"婴儿",detail:"n.婴儿, 最小的孩子, 幼稚的人, 宝贝 adj.嫩菜 v.娇惯",ph:"[ˈbeɪbi]",t:16},
+  {en:"brother",zh:"兄弟",detail:"n.兄弟, 哥们, 教友, 黑人兄弟, 兄弟会成员 interj.老兄",ph:"[ˈbrʌðər]",t:16},
+  {en:"child",zh:"孩子",detail:"n.儿童, 子女, 时代产物, 幼稚的人",ph:"[tʃaɪld]",t:16},
+  {en:"cousin",zh:"表妹;表兄",detail:"n.堂兄弟姐妹, 远房亲戚, 同胞, 类似事物",ph:"[ˈkʌzən]",t:16},
+  {en:"dad",zh:"爸爸",detail:"noun.爸爸",ph:"[dæd]",t:16},
+  {en:"daddy",zh:"爸爸",detail:"n. 爸爸，常见于儿童用语和非正式场合",ph:"[ˈdædi]",t:16},
+  {en:"daughter",zh:"女儿",detail:"n.女儿",ph:"[ˈdɑːtər]",t:16},
+  {en:"family",zh:"家庭",detail:"n.家庭, 家族, 子女, 科, 语系 adj.家庭的, 家族所有的, 适合全家人的",ph:"[ˈfæməli]",t:16},
+  {en:"father",zh:"父亲",detail:"n.父亲, 祖先, 创始人, 天父, 神父 v.成为...的父亲, 创立",ph:"[ˈfɑːðər]",t:16},
+  {en:"grandfather",zh:"祖父",detail:"n.祖父",ph:"[ˈɡrænfɑːðər]",t:16},
+  {en:"grandma",zh:"奶奶",detail:"n. 奶奶, 外婆",ph:"[ˈɡrænmɑː]",t:16},
+  {en:"grandmother",zh:"祖母",detail:"n.祖母",ph:"[ˈɡrænmʌðər]",t:16},
+  {en:"grandpa",zh:"爷爷",detail:"爷爷, 老太爷, 外公",ph:"[ˈɡrænpɑː]",t:16},
+  {en:"grandparent",zh:"祖父母",detail:"n.祖父母",ph:"[ˈɡrænperənt]",t:16},
+  {en:"home",zh:"家",detail:"n.家, 住宅, 家乡, 家庭, 疗养院, 动物收容所, 栖息地, 存放处, 发源地",ph:"[hoʊm]",t:16},
+  {en:"house",zh:"房子",detail:"n.房子, 全家人,家族, v.提供住所, 存放",ph:"[haʊs]",t:16},
+  {en:"husband",zh:"丈夫",detail:"n.丈夫 v.节约",ph:"[ˈhʌzbənd]",t:16},
+  {en:"kid",zh:"小孩",detail:"n.小孩, 小山羊, 小山羊皮 v.开玩笑, 自欺 adj.弟弟或妹妹",ph:"[kɪd]",t:16},
+  {en:"mom",zh:"妈妈",detail:"n. 妈妈",ph:"[mɑːm]",t:16},
+  {en:"mother",zh:"母亲",detail:"n.母亲, 女修道院院长 v.像母亲般照顾",ph:"[ˈmʌðər]",t:16},
+  {en:"mum",zh:"妈妈",detail:"noun.妈妈",ph:"[ˈməm]",t:16},
+  {en:"parent",zh:"父母",detail:"n.父亲或母亲, 亲本, 母公司 v.抚养",ph:"[ˈperənt]",t:16},
+  {en:"sister",zh:"姐妹",detail:"n.姐妹, 护士长, 修女, 姐妹会成员, 黑人姐妹, 姐妹机构",ph:"[ˈsɪstər]",t:16},
+  {en:"son",zh:"儿子",detail:"n.儿子, 孩子, 子孙, 圣子",ph:"[sʌn]",t:16},
+  {en:"uncle",zh:"叔叔",detail:"n.叔叔, 大叔",ph:"[ˈʌŋkəl]",t:16},
+  {en:"wife",zh:"妻子",detail:"n.妻子",ph:"[waɪf]",t:16},
+  {en:"add",zh:"添加",detail:"v.添加, 相加, 补充说, 赋予特色",ph:"[æd]",t:32},
+  {en:"eight",zh:"八",detail:"numb.八",ph:"[eɪt]",t:32},
+  {en:"eighteen",zh:"十八",detail:"num.十八",ph:"[ˌeɪˈtiːn]",t:32},
+  {en:"eighty",zh:"八十",detail:"numb.八十",ph:"[ˈeɪti]",t:32},
+  {en:"eleven",zh:"十一",detail:"numb.十一",ph:"[əˈlevən]",t:32},
+  {en:"fifteen",zh:"十五",detail:"numb.十五",ph:"[ˌfɪfˈtiːn]",t:32},
+  {en:"fifty",zh:"五十",detail:"numb.五十",ph:"[ˈfɪfti]",t:32},
+  {en:"first",zh:"第一",detail:"det.第一, 最重要的 adv.首先, 第一次, 第一点, 宁可",ph:"[ˈfɜːrst]",t:32},
+  {en:"five",zh:"五",detail:"num.五",ph:"[faɪv]",t:32},
+  {en:"forty",zh:"四十",detail:"numb.四十",ph:"[ˈfɔːrti]",t:32},
+  {en:"four",zh:"四",detail:"num.四，四个;",ph:"[fɔːr]",t:32},
+  {en:"fourteen",zh:"十四",detail:"num.十四",ph:"[ˌfɔːrˈtiːn]",t:32},
+  {en:"half",zh:"一半",detail:"n.一半, 半场, 半品脱饮料 det.一半的,  大半",ph:"[hæf]",t:32},
+  {en:"nine",zh:"九",detail:"numb.九",ph:"[naɪn]",t:32},
+  {en:"nineteen",zh:"十九",detail:"num.十九",ph:"[ˌnaɪnˈtiːn]",t:32},
+  {en:"ninety",zh:"九十",detail:"numb.九十",ph:"[ˈnaɪnti]",t:32},
+  {en:"one",zh:"一",detail:"det.数字1, 用于百、千等数字前, 替代'a'或'an', 与名字连用",ph:"[ˈwən]",t:32},
+  {en:"pair",zh:"一对",detail:"n.一对, 一副, 搭档, 配偶, 并驾马 vi.配对, 交配",ph:"[per]",t:32},
+  {en:"quarter",zh:"四分之一；一刻钟",detail:"n.四分之一, 一刻钟, 季度, 街区, 来源, 25美分硬币, 营房, 弦月, 节, 四分之一磅",ph:"[ˈkwɔːrtər]",t:32},
+  {en:"second",zh:"第二",detail:"det.第二的, 次好的, 又一个 adv.位于第二, 第二点",ph:"[ˈsekənd]",t:160},
+  {en:"seven",zh:"七",detail:"numb.七",ph:"[ˈsevən]",t:32},
+  {en:"seventeen",zh:"十七",detail:"num.十七",ph:"[ˌsevənˈtiːn]",t:32},
+  {en:"seventy",zh:"七十",detail:"numb.七十",ph:"[ˈsevənti]",t:32},
+  {en:"six",zh:"六",detail:"numb.六",ph:"[sɪks]",t:32},
+  {en:"sixteen",zh:"十六",detail:"num.十六",ph:"[ˌsɪkˈstiːn]",t:32},
+  {en:"sixty",zh:"六十",detail:"numb.六十",ph:"[ˈsɪksti]",t:32},
+  {en:"sum",zh:"总和",detail:"n.金额总数, 总和, 全部, 加法题",ph:"[sʌm]",t:32},
+  {en:"ten",zh:"十",detail:"numb.十",ph:"[ten]",t:32},
+  {en:"thirteen",zh:"十三",detail:"num.十三",ph:"[θɜːrˈtiːn]",t:32},
+  {en:"thirty",zh:"三十",detail:"numb.三十",ph:"[ˈθɜːrti]",t:32},
+  {en:"three",zh:"三",detail:"numb.三",ph:"[θriː]",t:32},
+  {en:"twelve",zh:"十二",detail:"num.十二",ph:"[twelv]",t:32},
+  {en:"twenty",zh:"二十",detail:"numb.二十",ph:"[ˈtwenti]",t:32},
+  {en:"two",zh:"二",detail:"numb.二；两个",ph:"[tuː]",t:32},
+  {en:"arrive",zh:"到达",detail:"vi.到达, 送达, 发生",ph:"[əˈraɪv]",t:64},
+  {en:"ask",zh:"问",detail:"v.询问, 要求, 索要, 请求许可, 邀请, 要价, 期望",ph:"[æsk]",t:64},
+  {en:"begin",zh:"开始",detail:"v.开始, 出现, 开头, 开创, 起初是, 开始说, 无法开始",ph:"[bɪˈɡɪn]",t:64},
+  {en:"borrow",zh:"借",detail:"v.借, 借钱, 借用",ph:"[ˈbɑːroʊ]",t:64},
+  {en:"break",zh:"打破",detail:"v.打破, 损坏, 划破, 违反, 休息, 终止",ph:"[breɪk]",t:64},
+  {en:"bring",zh:"带来",detail:"v.带（某人或某物）到（某地）, 给（某人）看（某物）, 引起, 使（某人或某物）处于（某种状态）",ph:"[brɪŋ]",t:64},
+  {en:"brush",zh:"刷子",detail:"v.用刷子清洁或弄平, 用刷子或手清除, 用刷子涂抹, 轻擦而过",ph:"[brʌʃ]",t:64},
+  {en:"bye",zh:"再见",detail:"interj.再见 n.轮空",ph:"[baɪ]",t:64},
+  {en:"carry",zh:"携带",detail:"v.搬运, 随身携带, 输送, 携带（病菌）, 记住, 支撑, 承担, 带有, 导致, 射程,",ph:"[ˈkeri]",t:64},
+  {en:"catch",zh:"抓住",detail:"phr.抓住",ph:"[kætʃ]",t:64},
+  {en:"choose",zh:"选择",detail:"v.选择, 决定",ph:"[tʃuːz]",t:64},
+  {en:"clean",zh:"干净",detail:"adj.干净的, 整洁的, 环保的, 空白的, 清新的",ph:"[kliːn]",t:64},
+  {en:"climb",zh:"攀登",detail:"v.向上爬, 攀岩, 攀爬, 上升, 晋升, 爬升, 向上, 攀缘生长",ph:"[klaɪm]",t:64},
+  {en:"close",zh:"关闭",detail:"v.关闭, 闭合, 关门, 结束, 敲定, 修复, 收盘, 缩小 adv.附近的",ph:"[kloʊz]",t:64},
+  {en:"collect",zh:"收集",detail:"v.收集, 收藏, 积聚, 领取, 募捐, 收取, 聚集 adj.对方付费 adv.对方付费",ph:"[kəˈlekt]",t:64},
+  {en:"come",zh:"来",detail:"v.来到;发生;成为;达到 phr.生效",ph:"[kʌm]",t:64},
+  {en:"copy",zh:"复制",detail:"n.复制品, 一本, 文案, 复印件, 练习本 v.复制, 抄写, 模仿, 抄袭, 复印",ph:"[ˈkɑːpi]",t:64},
+  {en:"cover",zh:"覆盖",detail:"v.覆盖, 涂抹, 涵盖, 支付, 行驶, 蔓延, 报道, 顶替, 掩饰",ph:"[ˈkʌvər]",t:64},
+  {en:"cry",zh:"哭泣",detail:"v.哭泣, 大声喊叫, 发出响亮的声音",ph:"[kraɪ]",t:64},
+  {en:"cut",zh:"切",detail:"v.切割分开, 剪短, 切除, 裁剪制作, 能切割, 易切割, 削减, 割断解救, 剪裁款式,",ph:"[kʌt]",t:64},
+  {en:"dance",zh:"舞蹈",detail:"n.舞蹈, 舞艺, 跳舞, 舞会, 舞曲 v.跳舞, 跳, 雀跃",ph:"[dæns]",t:64},
+  {en:"dancing",zh:"跳舞",detail:"n.跳舞",ph:"[dæns]",t:64},
+  {en:"describe",zh:"描述",detail:"v.描述, 描绘",ph:"[dɪˈskraɪb]",t:64},
+  {en:"do",zh:"做",detail:"phr.吃亏",ph:"[də]",t:64},
+  {en:"draw",zh:"画",detail:"v.画, 描绘, 得出, 区分, 引起, 引起注意, 吸引, 靠近, 轻拉, 牵引",ph:"[drɑː]",t:64},
+  {en:"drink",zh:"喝",detail:"n.饮料, 酒, 酒会 v.喝, 喝酒",ph:"[drɪŋk]",t:2112},
+  {en:"drive",zh:"驾驶",detail:"idiom.把某人逼疯",ph:"[draɪv]",t:64},
+  {en:"drop",zh:"下降",detail:"v.不小心掉落, 故意丢下, 累倒, 下降, 输掉, 向下看",ph:"[drɑːp]",t:64},
+  {en:"eat",zh:"吃",detail:"v.吃, 吃饭",ph:"[iːt]",t:2112},
+  {en:"end",zh:"结束",detail:"n.末端, 结束, 最远端, 目的, 参与部分, 一端, 端区, 残余部分, 终结, 端锋 v.结束",ph:"[end]",t:64},
+  {en:"enjoy",zh:"享受",detail:"v.享受, 享受做某事的乐趣, 拥有美好的事物, 玩得开心（给予某物时说的）",ph:"[ɪnˈdʒɔɪ]",t:64},
+  {en:"feed",zh:"喂养",detail:"v.喂养, 进食, 供应食物, 施肥, 提供信息, 供给, 喂入, 满足需求",ph:"[fiːd]",t:64},
+  {en:"feel",zh:"感受",detail:"v.感受, 触觉, 感知, 感觉起来, 摸起来, 触摸, 认为, 受影响, 摸索寻找",ph:"[fiːl]",t:64},
+  {en:"feeling",zh:"感觉",detail:"n.感觉",ph:"[ˈfiːlɪŋ]",t:64},
+  {en:"find",zh:"找到",detail:"v.偶然发现, 找回, 找到, 得知, 觉得, 存在, 发觉, 拥有, 展现, 自然达到, 裁定",ph:"[faɪnd]",t:64},
+  {en:"finish",zh:"完成",detail:"v.完成, 结束, 用完, 完成比赛, 使筋疲力尽 n.结束, 名次, 涂层, 最后细节",ph:"[ˈfɪnɪʃ]",t:64},
+  {en:"forget",zh:"忘记",detail:"v.忘记做或带应该做的事, 忘记过去的事情或信息, 试图不去想某人或某事, 不再相信某事是可能的,",ph:"[fərˈɡet]",t:64},
+  {en:"get",zh:"获得",detail:"v. 得到;获得;（考试）获得，达到",ph:"[ɡet]",t:64},
+  {en:"give",zh:"递给",detail:"v.递给, 赠送, 提供, 捐赠, 支付, 做, 引起, 打电话, 评分, 传染, 施加惩罚,",ph:"[ɡɪv]",t:64},
+  {en:"go",zh:"走",detail:"vi.走；离开；去做；进行",ph:"[ɡoʊ]",t:64},
+  {en:"greet",zh:"问候",detail:"v.问候, 反应, 映入眼帘",ph:"[ɡriːt]",t:64},
+  {en:"grow",zh:"生长",detail:"v.变大, 长大, 生长, 变长, 逐渐产生, 逐渐开始, 进步, 发展",ph:"[ɡroʊ]",t:64},
+  {en:"guess",zh:"猜测",detail:"v.猜测, 猜猜, 猜想 n.猜测",ph:"[ɡes]",t:64},
+  {en:"happen",zh:"发生",detail:"v.发生, 碰巧, 恰好",ph:"[ˈhæpən]",t:64},
+  {en:"hear",zh:"听见",detail:"v.听见, 听, 听说, 审理",ph:"[hɪr]",t:64},
+  {en:"hello",zh:"你好",detail:"interj.你好, 哎呀, 喂",ph:"[heˈloʊ]",t:64},
+  {en:"help",zh:"帮助",detail:"v.帮助, 改善, 扶助, 招待, 擅自取用",ph:"[help]",t:64},
+  {en:"hi",zh:"你好",detail:"interj.你好",ph:"[haɪ]",t:64},
+  {en:"hold",zh:"持有",detail:"phr.俘虏某人",ph:"[hoʊld]",t:64},
+  {en:"hope",zh:"希望",detail:"v.希望 n.希望",ph:"[hoʊp]",t:64},
+  {en:"hurry",zh:"匆忙",detail:"v.匆忙做某事, 匆忙前往, 催促某人, 赶快完成, 匆忙行事 n.紧迫感",ph:"[ˈhɜːri]",t:64},
+  {en:"imagine",zh:"想象",detail:"v.想象, 假想, 猜想",ph:"[ɪˈmædʒɪn]",t:64},
+  {en:"job",zh:"工作",detail:"n.工作, 任务, 职责, 犯罪, 东西, 作业",ph:"[dʒɑːb]",t:64},
+  {en:"join",zh:"连接",detail:"v.连接, 结合, 加入, 参与, 上车, 加入行列 n.连接点",ph:"[dʒɔɪn]",t:64},
+  {en:"jump",zh:"跳",detail:"v.跳, 跳过, 快速移动, 惊跳, 猛增, 突然转换话题, 突然移位, 突袭, 跳上车辆,",ph:"[dʒʌmp]",t:64},
+  {en:"keep",zh:"保持",detail:"v.保持;继续(做某事);（为某人）保留",ph:"[kiːp]",t:64},
+  {en:"kiss",zh:"亲吻",detail:"v.亲吻, 轻吻 n.亲吻",ph:"[kɪs]",t:64},
+  {en:"know",zh:"知道",detail:"phr.确切知道",ph:"[noʊ]",t:64},
+  {en:"laugh",zh:"笑",detail:"v.笑, 得意 n.笑声, 乐事, 有趣的人",ph:"[læf]",t:64},
+  {en:"leave",zh:"离开",detail:"v.离开, 退出, 断绝关系, 留下, 保持, 剩下, 导致, 记录, 推迟, 委托, 遗赠,",ph:"[liːv]",t:64},
+  {en:"let",zh:"让",detail:"vt.允许，任由；让，随；假设；出租",ph:"[let]",t:64},
+  {en:"like",zh:"喜欢",detail:"prep.像, 怎样, 如同, 例如, 典型的",ph:"[laɪk]",t:64},
+  {en:"listen",zh:"听",detail:"vi.听, 听着, 听从 n.倾听",ph:"[ˈlɪsən]",t:64},
+  {en:"live",zh:"居住",detail:"v.居住, 活着, 在世, 生活, 被铭记, 活得精彩",ph:"[lɪv]",t:64},
+  {en:"look",zh:"看",detail:"v.看, 寻找, 注意, 显得, 有某种样子, 好像, 朝向",ph:"[lʊk]",t:64},
+  {en:"make",zh:"制造",detail:"v.制造, 编写, 留下痕迹, 导致, 使感到, 促使, 选定, 整理床铺, 决定, 强迫,",ph:"[meɪk]",t:64},
+  {en:"meet",zh:"遇见",detail:"v.偶遇, 会面, 见面, 迎接, 初次见面, 满足, 对阵, 遭遇, 受到, 接触, 支付",ph:"[miːt]",t:64},
+  {en:"miss",zh:"错过",detail:"v.错过, 不在场, 疏忽, 错失, 未击中, 没看到, 没理解, 想念, 发现...不见了,",ph:"[mɪs]",t:64},
+  {en:"mobile",zh:"移动设备",detail:"adj.移动设备相关的, 便于移动的, 可自由移动的, 流动性强的, 多变的",ph:"[ˈmoʊbəl]",t:64},
+  {en:"move",zh:"移动",detail:"v.移动, 搬迁, 调动, 走棋, 采取行动, 改变, 进展, 行动, 感动, 激励, 销售, 提议",ph:"[muːv]",t:64},
+  {en:"need",zh:"需要",detail:"v.需要 n.需要",ph:"[niːd]",t:64},
+  {en:"no",zh:"不；没有",detail:"interj.表示拒绝或不同意, 表示惊讶或震惊 det.没有，无, 表示不允许，禁止, ",ph:"[noʊ]",t:64},
+  {en:"off",zh:"关闭",detail:"adv.脱离的, 关闭的, 远离的, 减价的",ph:"[ɑːf]",t:64},
+  {en:"open",zh:"打开",detail:"adj.打开的, 敞开的, 展开的, 未锁的, 无盖的, 无顶的, 营业中的, 公开的 开口的",ph:"[ˈoʊpən]",t:64},
+  {en:"pick",zh:"选择",detail:"v.选择, 采摘, 剔除, 拨弦 n.选择, 选中的人或物, 最佳选择, 镐, 拨片",ph:"[pɪk]",t:64},
+  {en:"plan",zh:"计划",detail:"n.计划, 方案, 平面图, 设计图, 布局图 v.计划, 打算, 设计",ph:"[plæn]",t:64},
+  {en:"play",zh:"玩；演奏",detail:"v.玩乐, 扮演, 参加游戏, 作为队员参赛, 纳入队伍, 击球, 走棋, 出牌, 演奏乐器,",ph:"[pleɪ]",t:64},
+  {en:"please",zh:"请",detail:"interj.请, 拜托, 好的, 别这样, 得了吧 v.使高兴, 愿意",ph:"[pliːz]",t:64},
+  {en:"push",zh:"推送",detail:"v.推, 挤, 按, 推动, 鼓励, 督促, 逼迫, 推广, 贩毒, 推进",ph:"[pʊʃ]",t:64},
+  {en:"put",zh:"放",detail:"vt.放;说;使处于;使与…连接;给予;推（铅球）  n.投掷;推;",ph:"[pʊt]",t:64},
+  {en:"remember",zh:"记住",detail:"v.记住, 想起, 牢记, 记得, 纪念, 赠予",ph:"[rɪˈmembər]",t:64},
+  {en:"repeat",zh:"重复;复述",detail:"v.重复说, 重申, 跟读, 转述, 重做, 重现, 回味 n.重复事件, 重播节目,   重复部分",ph:"[rɪˈpiːt]",t:64},
+  {en:"ride",zh:"骑；乘",detail:"v.骑（马等动物）, 骑（自行车、摩托车）, 乘坐, 漂浮于水上, 沿路骑行, 取笑",ph:"[raɪd]",t:64},
+  {en:"run",zh:"跑",detail:"v.跑, 跑一段距离, 从事跑步运动, 参加赛跑, 组织赛跑, 快速移动, 播放录音,",ph:"[rʌn]",t:64},
+  {en:"save",zh:"拯救",detail:"v.拯救, 储蓄, 节省, 保存, 收集, 避免, 扑救, 救赎",ph:"[seɪv]",t:64},
+  {en:"saw",zh:"看见，见到(see的过去式)",detail:"n. 锯子, 谚语 vt. 锯, 锯开, 来回移动 vi. 拉锯, 移动 see的过去式",ph:"[sɑː]",t:64},
+  {en:"say",zh:"说",detail:"v.说, 重复说, 告知, 发表意见, 无声表达, 表明, 建议",ph:"[seɪ]",t:64},
+  {en:"see",zh:"看，看见",detail:"v.看，看见, 有视力，能看见, 观看，观赏, 查阅，查看, 认出，确保，保证, 经历，体验,",ph:"[siː]",t:64},
+  {en:"shake",zh:"摇晃",detail:"v.摇晃, 用摇晃的方式引导, 握手, 摇头表示不赞成或悲伤, 挥拳表示愤怒, 颤抖, 声音颤抖,",ph:"[ʃeɪk]",t:64},
+  {en:"share",zh:"分享",detail:"v.分享, 共享, 分配, 共鸣, 分担 n.份额, 参与部分, 份量, 分享, 股份,  犁铧",ph:"[ʃer]",t:64},
+  {en:"show",zh:"展示",detail:"v.显示信息, 展示, 解释, 指出, 带领, 展现品质, 对待, 变得可见, 显露迹象,",ph:"[ʃoʊ]",t:64},
+  {en:"sing",zh:"唱歌",detail:"verb.唱歌",ph:"[sɪŋ]",t:64},
+  {en:"sit",zh:"坐",detail:"v.坐, 使坐下, 位于, 担任, 开会, 参加考试, 栖息, 让宠物坐下, 临时照看孩子",ph:"[sɪt]",t:64},
+  {en:"sleep",zh:"睡觉",detail:"vi.睡觉, 容纳 n.睡眠, 睡眠时间, 眼屎",ph:"[sliːp]",t:576},
+  {en:"smile",zh:"微笑",detail:"v.微笑, 以微笑表达, 露出某种微笑 n.微笑的动作",ph:"[smaɪl]",t:64},
+  {en:"solve",zh:"解决",detail:"v.解决问题, 解答问题",ph:"[sɑːlv]",t:64},
+  {en:"speak",zh:"说话",detail:"v.与某人交谈, 用声音表达, 会说某种语言, 用某种语言表达, 说某种语言的人,",ph:"[spiːk]",t:64},
+  {en:"stand",zh:"站立",detail:"v.站立, 站起来, 竖立, 忍受, 承受, 位于, 处于, 持有观点, 请客",ph:"[stænd]",t:64},
+  {en:"start",zh:"开始",detail:"v.开始, 使开始, 启动, 创建, 从...开始, 以某种方式开始, 出发, 惊动, 惊跳",ph:"[stɑːrt]",t:64},
+  {en:"stay",zh:"停留",detail:"vi.停留, 暂住, 保持 n.停留时间, 支索",ph:"[steɪ]",t:64},
+  {en:"stop",zh:"停止",detail:"v.停止移动或行动, 停止继续某项活动, 使结束或终止, 阻止做某事或发生, 暂停休息一下",ph:"[stɑːp]",t:64},
+  {en:"take",zh:"拿；带走",detail:"phr.承担责任",ph:"[teɪk]",t:64},
+  {en:"talk",zh:"说话",detail:"v.说话, 讨论, 讲, 提到, 闲谈, 透露 n.演讲, 谈话, 谈判, 空谈, 谣言,  话题",ph:"[tɑːk]",t:64},
+  {en:"tell",zh:"告诉",detail:"v.告诉, 描述, 表达, 泄露, 命令, 辨别, 区分, 显现",ph:"[tel]",t:64},
+  {en:"thank",zh:"感谢",detail:"verb.感谢",ph:"[θæŋk]",t:64},
+  {en:"thanks",zh:"谢谢",detail:"interj.谢谢 n.感谢",ph:"[θæŋks]",t:64},
+  {en:"think",zh:"想，认为",detail:"v.认为, 思考, 想到, 设想, 预料, 想着, 难道, 觉得, 打算, 想起 n.想法",ph:"[θɪŋk]",t:64},
+  {en:"throw",zh:"投掷",detail:"v.投掷, 扔, 猛推, 甩动, 摔倒, 使处于, 投向, 使困惑, 掷骰子, 拉坯, 投射,",ph:"[θroʊ]",t:64},
+  {en:"try",zh:"尝试",detail:"v.尝试, 试用, 审判 n.尝试, 初次体验, 达阵",ph:"[traɪ]",t:64},
+  {en:"turn",zh:"旋转",detail:"v.旋转, 转向, 翻转, 转弯, 弯曲, 翻页, 转变, 朝向, 涨落, 引导, 车削,",ph:"[tɜːrn]",t:64},
+  {en:"use",zh:"使用",detail:"v.使用, 消耗, 使用（语言）, 利用, 吸毒 n.使用, 用途, 使用权, 功能, 用法",ph:"[juːz]",t:64},
+  {en:"wait",zh:"等待",detail:"v.等待, 期待, 准备, 延迟 n.等待",ph:"[weɪt]",t:64},
+  {en:"wake",zh:"醒来",detail:"v.醒来, 唤醒 n.守夜, 尾流",ph:"[weɪk]",t:64},
+  {en:"walk",zh:"走，步行",detail:"v.用脚走路, 散步, 陪同行走, 遛动物, 消失, 出现, 主动离场, 保送上垒",ph:"[wɑːk]",t:64},
+  {en:"want",zh:"想要",detail:"v.想要, 需要, 应该, 渴望, 缺乏 n.需求, 缺乏, 贫困",ph:"[wɑːnt]",t:64},
+  {en:"wash",zh:"清洗",detail:"v.清洗, 洗澡, 耐洗, 冲刷 n.洗涤, 船尾浪, 薄涂层, 洗面奶",ph:"[wɑːʃ]",t:64},
+  {en:"watch",zh:"观看，注视",detail:"v.注视, 照看, 小心, 关注变化, 暗中观察 n.手表, 警戒, 值班时间, 天气警报",ph:"[wɑːtʃ]",t:192},
+  {en:"wear",zh:"穿",detail:"v.穿, 留（发型）, 显露, 磨损, 磨出, 耐用, 忍受 n.服装, 穿戴, 耐用性,  磨损",ph:"[wer]",t:320},
+  {en:"welcome",zh:"欢迎",detail:"interj.欢迎 v.迎接, 欢迎加入, 乐意接受",ph:"[ˈwelkəm]",t:64},
+  {en:"win",zh:"赢",detail:"v.获胜, 获奖, 赢得 n.胜利",ph:"[wɪn]",t:64},
+  {en:"work",zh:"工作",detail:"v.工作, 有工作, 努力完成, 让某人过度工作, 运作, 操作机器, 剧烈移动, 缓慢移动",ph:"[wɜːrk]",t:64},
+  {en:"yes",zh:"是",detail:"interj.是的, 同意, 不对, 可以, 接受, 什么事？, 在, 对了, 然后呢？,",ph:"[jes]",t:64},
+  {en:"afternoon",zh:"下午",detail:"n.下午",ph:"[ˌæftərˈnuːn]",t:128},
+  {en:"ago",zh:"以前",detail:"adv.以前",ph:"[əˈɡoʊ]",t:128},
+  {en:"april",zh:"四月",detail:"n.四月, 艾普丽尔",ph:"[ˈeɪprəl]",t:128},
+  {en:"august",zh:"八月",detail:"adj.威严的",ph:"[ɑːˈɡʌst]",t:128},
+  {en:"clock",zh:"时钟",detail:"n.时钟, 里程表 v.达到（时间或速度）, 计时, 注意到, 击打（头部）,  调表（里程表）",ph:"[klɑːk]",t:128},
+  {en:"day",zh:"天",detail:"n.一天, 白天, 活动时间, 时代, 人生阶段",ph:"[deɪ]",t:128},
+  {en:"december",zh:"十二月",detail:"n.十二月",ph:"[dɪˈsembər]",t:128},
+  {en:"early",zh:"早期",detail:"adj.初期, 提早, 早期 adv.早期, 提前, 之前",ph:"[ˈɜːrli]",t:128},
+  {en:"evening",zh:"傍晚",detail:"n.傍晚, 晚间活动",ph:"[ˈiːvnɪŋ]",t:128},
+  {en:"february",zh:"二月",detail:"n.二月",ph:"[ˈfebrueri]",t:128},
+  {en:"friday",zh:"星期五",detail:"n.星期五, 忠仆",ph:"[ˈfraɪdeɪ]",t:128},
+  {en:"future",zh:"未来",detail:"n.未来, 前途, 期货, 将来时 adj.未来的",ph:"[ˈfjuːtʃər]",t:128},
+  {en:"hour",zh:"小时",detail:"n.小时, 课时, 工作时间, 很长时间, 时刻, 关键时刻, 整点, 24小时制",ph:"[aʊr]",t:128},
+  {en:"january",zh:"一月",detail:"n.一月",ph:"[ˈdʒænjueri]",t:128},
+  {en:"july",zh:"七月",detail:"n.七月",ph:"[ˌdʒuˈlaɪ]",t:128},
+  {en:"june",zh:"六月",detail:"n.六月, 琼",ph:"[dʒuːn]",t:128},
+  {en:"late",zh:"迟到",detail:"adj.迟到的, 晚期的, 傍晚的, 已故的",ph:"[leɪt]",t:128},
+  {en:"later",zh:"以后",detail:"adv.以后, 再见 adj.后来的, 较晚的",ph:"[ˈleɪtər]",t:128},
+  {en:"march",zh:"三月",detail:"n.三月",ph:"[mɑːrtʃ]",t:128},
+  {en:"minute",zh:"分钟",detail:"n.分钟, 片刻, 时刻, 分（角度单位）, 会议记录, 便条",ph:"[ˈmɪnɪt]",t:128},
+  {en:"moment",zh:"片刻",detail:"n.片刻, 时刻, 时机, 重要时刻",ph:"[ˈmoʊmənt]",t:128},
+  {en:"monday",zh:"星期一",detail:"n.星期一",ph:"[ˈmʌndeɪ]",t:128},
+  {en:"month",zh:"月份",detail:"n.月份, 月, 数月",ph:"[mʌnθ]",t:128},
+  {en:"morning",zh:"早上",detail:"n.早上, 早晨, 每日早晨 interj.早上好",ph:"[ˈmɔːrnɪŋ]",t:128},
+  {en:"night",zh:"夜晚",detail:"n.夜晚, 晚间, 晚会",ph:"[naɪt]",t:128},
+  {en:"november",zh:"十一月",detail:"n.十一月",ph:"[noʊˈvembər]",t:128},
+  {en:"now",zh:"现在",detail:"adv.现在, 从现在开始, 好了, 那么 conj.既然",ph:"[naʊ]",t:128},
+  {en:"october",zh:"十月",detail:"n.十月",ph:"[ɑːkˈtoʊbər]",t:128},
+  {en:"past",zh:"过去的",detail:"adj.过去的, 刚结束的, 早先的, 过去时态",ph:"[pæst]",t:128},
+  {en:"period",zh:"时期",detail:"n.一段时间, 地质时期, 课时, 月经 adv.到此为止 adj.古代的",ph:"[ˈpɪriəd]",t:128},
+  {en:"present",zh:"当前",detail:"adj.现在的, 在场的, 存在的",ph:"[ˈprezənt]",t:128},
+  {en:"saturday",zh:"星期六",detail:"n.星期六",ph:"[ˈsætərdeɪ]",t:128},
+  {en:"september",zh:"九月",detail:"n.九月",ph:"[sepˈtembər]",t:128},
+  {en:"soon",zh:"很快",detail:"adv.不久, 尽快",ph:"[suːn]",t:128},
+  {en:"sunday",zh:"星期日",detail:"n.星期日, 星期日版报纸",ph:"[ˈsʌndeɪ]",t:128},
+  {en:"then",zh:"那时",detail:"adv.那时, 然后, 那么, 而且 adj.当时的",ph:"[ðen]",t:128},
+  {en:"thursday",zh:"星期四",detail:"n.星期四",ph:"[ˈθɜːrzdeɪ]",t:128},
+  {en:"time",zh:"时间",detail:"n.时间, 时刻, 时间段, 时间点, 可用时间, 时期, 时代, 场合, 经历, 速度, 节拍,",ph:"[taɪm]",t:128},
+  {en:"today",zh:"今天",detail:"adv.今天, 当今 n.今天, 当今",ph:"[təˈdeɪ]",t:128},
+  {en:"tomorrow",zh:"明天",detail:"adv.在明天 n.明天, 未来",ph:"[təˈmɔːroʊ]",t:128},
+  {en:"tonight",zh:"今晚",detail:"adv.今晚 n.今晚",ph:"[təˈnaɪt]",t:128},
+  {en:"tuesday",zh:"星期二",detail:"n.星期二",ph:"[ˈtuːzdeɪ]",t:128},
+  {en:"until",zh:"直到",detail:"conj.直到",ph:"[ənˈtɪl]",t:128},
+  {en:"wednesday",zh:"星期三",detail:"n.星期三",ph:"[ˈwenzdeɪ]",t:128},
+  {en:"week",zh:"星期",detail:"n.星期, 七天, 工作日, 工作时间",ph:"[wiːk]",t:128},
+  {en:"weekend",zh:"周末",detail:"n.周末 v.度周末",ph:"[ˈwiːkend]",t:128},
+  {en:"year",zh:"年",detail:"n.年（从1月1日到12月31日的365或366天）, 一年（任何十二个月的期间）, 年龄，岁数,",ph:"[jɪr]",t:128},
+  {en:"yesterday",zh:"昨天",detail:"adv.在昨天 n.昨天, 近来 adj.过时的",ph:"[ˈjestərdeɪ]",t:128},
+  {en:"button",zh:"按钮",detail:"n.纽扣, 按钮, 徽章 v.扣上, 被扣上",ph:"[ˈbʌtən]",t:256},
+  {en:"cap",zh:"鸭舌帽",detail:"n.鸭舌帽, 专用帽, 学士帽, 国家队帽, 盖子, 牙冠, 山顶, 上限, 玩具枪纸炮, 子宫帽",ph:"[kæp]",t:256},
+  {en:"clothes",zh:"衣服",detail:"n.衣服",ph:"[kloʊðz]",t:256},
+  {en:"coat",zh:"外套",detail:"n.外套, 西装外套, 皮毛, 涂层 v.涂",ph:"[koʊt]",t:256},
+  {en:"dress",zh:"连衣裙",detail:"n.连衣裙, 服装",ph:"[dres]",t:256},
+  {en:"hat",zh:"帽子",detail:"n.帽子, 角色",ph:"[hæt]",t:256},
+  {en:"jacket",zh:"夹克",detail:"n.夹克, 书套, 保温套, 土豆皮, 唱片封套",ph:"[ˈdʒækɪt]",t:256},
+  {en:"jeans",zh:"牛仔裤",detail:"n.牛仔裤",ph:"[dʒiːnz]",t:256},
+  {en:"pants",zh:"裤子",detail:"n.内裤, 裤子, 差劲的",ph:"[pænts]",t:256},
+  {en:"pocket",zh:"口袋",detail:"n.口袋, 容器袋, 零用钱, 小块区域, 球袋 v.放入口袋, 侵吞, 赚取, 击球入袋",ph:"[ˈpɑːkɪt]",t:256},
+  {en:"shirt",zh:"衬衫",detail:"n.衬衫",ph:"[ʃɜːrt]",t:256},
+  {en:"shoe",zh:"鞋",detail:"n.鞋, 马蹄铁 v.给马钉蹄铁",ph:"[ʃuː]",t:256},
+  {en:"skirt",zh:"裙子",detail:"n.裙子, 裙摆, 防护罩 v.沿着边缘移动, 回避",ph:"[skɜːrt]",t:256},
+  {en:"trousers",zh:"裤子",detail:"n.裤子",ph:"[ˈtraʊzərz]",t:256},
+  {en:"arm",zh:"手臂",detail:"n.手臂, 袖子, 扶手, 机械臂, 支流, 部门 v.武装, 解除炸弹保险",ph:"[ɑːrm]",t:512},
+  {en:"back",zh:"返回，背部",detail:"n.背部, 脊柱, 后部 adj.后面的, 以前的, 舌后音 adv.返回, 后退",ph:"[bæk]",t:512},
+  {en:"body",zh:"身体",detail:"n.身体, 躯干, 尸体, 主体, 团体, 大量, 物体, 醇厚度, 体型, 紧身衣",ph:"[ˈbɑːdi]",t:512},
+  {en:"bone",zh:"骨骼",detail:"n.骨骼, 骨料, 骨型 v.去骨",ph:"[boʊn]",t:512},
+  {en:"brain",zh:"大脑",detail:"n.大脑, 脑花, 智力, 聪明人, 智囊 v.猛击头部",ph:"[breɪn]",t:512},
+  {en:"breathe",zh:"呼吸",detail:"v.呼吸, 呼出, 低语, 醒酒, 透气, 充满",ph:"[briːð]",t:512},
+  {en:"ear",zh:"耳朵",detail:"noun.耳朵",ph:"[ɪr]",t:512},
+  {en:"eye",zh:"眼睛",detail:"n.眼睛, 有特定种类或数量的眼睛的, 视力, 视角, 针眼, 纽扣眼, 风眼, 芽眼 v.注视",ph:"[aɪ]",t:512},
+  {en:"face",zh:"脸",detail:"n.脸, 表情, 人物, 面容, 表面, 表盘, 主角, 特定面",ph:"[feɪs]",t:512},
+  {en:"hair",zh:"头发",detail:"n.头发, 毛发, 一根毛发, 有特定类型头发的, 植物茸毛",ph:"[her]",t:512},
+  {en:"hand",zh:"手",detail:"手",ph:"[hænd]",t:512},
+  {en:"head",zh:"头部",detail:"n.头部, 头脑, 头痛, 领导, 顶部, 源头 v.朝...方向前进, 领导",ph:"[hed]",t:512},
+  {en:"heart",zh:"心脏",detail:"noun.心脏；内心",ph:"[hɑːrt]",t:512},
+  {en:"knee",zh:"膝盖",detail:"n.膝盖, 膝部, 大腿面 v.用膝盖顶",ph:"[niː]",t:512},
+  {en:"leg",zh:"腿",detail:"noun.腿",ph:"[leɡ]",t:512},
+  {en:"mouth",zh:"嘴",detail:"n.嘴, 需供养的人, 河口, 开口, 说话方式, 嘴型, 说话风格 v.做口型,  言不由衷地说",ph:"[maʊθ]",t:512},
+  {en:"neck",zh:"脖子",detail:"n.脖子, 领口, 领型, 颈部, 颈肉 v.亲吻",ph:"[nek]",t:512},
+  {en:"nose",zh:"鼻子",detail:"n.鼻子, 有某种鼻型, 前端, 直觉, 嗅觉, 酒香 v.缓慢前行, 用鼻子搜寻",ph:"[noʊz]",t:512},
+  {en:"shoulder",zh:"肩膀",detail:"n.肩膀, 肩宽, 肩部, 肩肉, 肩状部分, 路肩 v.承担, 用肩挤, 用肩移动, 肩扛",ph:"[ˈʃoʊldər]",t:512},
+  {en:"sight",zh:"视力；景象",detail:"n.视力, 看见, 视距, 景象, 景点, 怪人, 瞄准器 v.瞥见",ph:"[saɪt]",t:512},
+  {en:"smell",zh:"气味；闻",detail:"v.嗅到, 感知气味, 有嗅觉能力, 吸入气味, 散发难闻气味, 感觉到",ph:"[smel]",t:512},
+  {en:"tooth",zh:"牙齿",detail:"n.牙齿, 齿",ph:"[tuːθ]",t:512},
+  {en:"touch",zh:"触碰",detail:"v.触碰, 接近, 感动, 影响, 食用, 匹敌, 达到, 涉及, 显露",ph:"[tʌtʃ]",t:512},
+  {en:"black",zh:"黑色",detail:"adj.黑色, 漆黑的, 黑人的, 黑咖啡, 很脏的, 愤怒的, 绝望的, 邪恶的, 黑色幽默的",ph:"[blæk]",t:1024},
+  {en:"blue",zh:"蓝色",detail:"adj.蓝色, 发青的, 忧郁的, 色情的, 支持民主党的",ph:"[bluː]",t:1024},
+  {en:"bright",zh:"明亮的",detail:"adj.明亮的, 鲜艳的, 充满希望的, 聪明的, 欢快的 adv.明亮地 n.远光灯",ph:"[braɪt]",t:1024},
+  {en:"brown",zh:"棕色",detail:"adj.棕色, 晒黑 v.变棕",ph:"[braʊn]",t:1024},
+  {en:"cream",zh:"奶油",detail:"n.奶油, 奶糖, 乳霜, 奶油色, 精英 adj.奶油色的 v.搅拌至顺滑, 彻底击败",ph:"[kriːm]",t:1024},
+  {en:"dark",zh:"深色",detail:"adj.黑暗的, 接近黑色的, 几乎黑色的, 黑色或棕色的, 黑发的, 神秘的, 令人恐惧的,",ph:"[dɑːrk]",t:1024},
+  {en:"green",zh:"绿色",detail:"adj.绿色, 绿草如茵的, 未成熟的, 环保的, 青涩的, 脸色苍白的",ph:"[ɡriːn]",t:1024},
+  {en:"light",zh:"光",detail:"n.光, 特定颜色的光, 灯, 眼神, 亮部, 点火工具, 采光口",ph:"[laɪt]",t:1024},
+  {en:"orange",zh:"橙子",detail:"n.橙子, 橙汁, 橙色 adj.橙色的, 奥兰治派的",ph:"[ˈɔːrɪndʒ]",t:3072},
+  {en:"paint",zh:"油漆",detail:"n.油漆, 颜料 v.刷漆, 绘画, 描绘, 涂指甲油",ph:"[peɪnt]",t:1024},
+  {en:"pink",zh:"粉色",detail:"adj.粉红色, 与同性恋相关的, 左翼政治观点的 n.红白混合色, 石竹花 v.爆震",ph:"[pɪŋk]",t:1024},
+  {en:"purple",zh:"紫色",detail:"adj.紫色, 华丽辞藻 n.紫色",ph:"[ˈpɜːrpəl]",t:1024},
+  {en:"red",zh:"红色",detail:"adj.红色, 红褐色, 脸红的，涨红的, 布满血丝的； n.红色, 红葡萄酒",ph:"[red]",t:1024},
+  {en:"white",zh:"白色",detail:"adj.白色, 白种人的, 苍白的, 加奶的",ph:"[waɪt]",t:1024},
+  {en:"yellow",zh:"黄色的",detail:"adj.黄色的, 黄祸（贬义）, 胆小的 n.黄色 v.变黄",ph:"[ˈjeloʊ]",t:1024},
+  {en:"apple",zh:"苹果",detail:"n.苹果",ph:"[ˈæpəl]",t:2048},
+  {en:"banana",zh:"香蕉",detail:"n.香蕉",ph:"[bəˈnænə]",t:2048},
+  {en:"bean",zh:"豆子",detail:"n.豆子, 咖啡豆 v.击打头部",ph:"[biːn]",t:2048},
+  {en:"beef",zh:"牛肉",detail:"n.牛肉, 抱怨 v.抱怨",ph:"[biːf]",t:2048},
+  {en:"biscuit",zh:"饼干",detail:"n.饼干, 司康饼, 饼干色",ph:"[ˈbɪskɪt]",t:2048},
+  {en:"bowl",zh:"碗",detail:"n.碗, 一碗的量, 碗状部分, 圆形露天剧场",ph:"[boʊl]",t:2048},
+  {en:"bread",zh:"面包",detail:"n.面包, 钱",ph:"[bred]",t:2048},
+  {en:"breakfast",zh:"早餐",detail:"n.早餐 v.吃早餐",ph:"[ˈbrekfəst]",t:2048},
+  {en:"burger",zh:"汉堡",detail:"n. 汉堡包（等于hamburger）",ph:"[ˈbɜːrɡər]",t:2048},
+  {en:"butter",zh:"黄油",detail:"n.黄油 v.涂黄油",ph:"[ˈbʌtər]",t:2048},
+  {en:"cake",zh:"蛋糕",detail:"n.蛋糕, 饼 vi.覆盖, 变硬",ph:"[keɪk]",t:2048},
+  {en:"candy",zh:"糖果",detail:"n. 糖果, 冰糖 vt. 用糖煮, 使结晶为砂糖 vi. 结晶为砂糖",ph:"[ˈkændi]",t:2048},
+  {en:"cheese",zh:"奶酪",detail:"n.奶酪, 茄子",ph:"[tʃiːz]",t:2048},
+  {en:"chocolate",zh:"巧克力",detail:"n.巧克力, 巧克力糖, 巧克力饮料, 巧克力色",ph:"[ˈtʃɑːklət]",t:2048},
+  {en:"coffee",zh:"咖啡",detail:"n.咖啡豆, 咖啡, 一杯咖啡, 咖啡色",ph:"[ˈkɑːfi]",t:2048},
+  {en:"coke",zh:"可乐",detail:"n. 可口可乐, 焦炭 v. (使)成焦炭",ph:"[koʊk]",t:2048},
+  {en:"cook",zh:"烹饪",detail:"v.烹饪, 被烹饪, 密谋 n.厨师",ph:"[kʊk]",t:2048},
+  {en:"cookie",zh:"饼干",detail:"n. 饼干, 小甜点 [建] 糕点",ph:"[ˈkʊki]",t:2048},
+  {en:"corn",zh:"玉米",detail:"n. 玉蜀黍, 谷类, 谷粒, 鸡眼 vt. 使成颗粒, 腌",ph:"[kɔːrn]",t:2048},
+  {en:"cup",zh:"杯子",detail:"n.杯子, 杯中的饮料, 奖杯",ph:"[kʌp]",t:2048},
+  {en:"delicious",zh:"美味",detail:"adj.美味, 愉悦",ph:"[dɪˈlɪʃəs]",t:2048},
+  {en:"dish",zh:"盘子",detail:"n.盘子, 餐具, 菜肴, 碟形物, 俊男美女",ph:"[dɪʃ]",t:2048},
+  {en:"egg",zh:"蛋",detail:"n.蛋, 鸡蛋, 卵子",ph:"[eɡ]",t:2048},
+  {en:"food",zh:"食物",detail:"n.食物",ph:"[fuːd]",t:2048},
+  {en:"fruit",zh:"水果",detail:"n.水果, 果实, 产物, 男同性恋者（冒犯性用语） v.结果实",ph:"[fruːt]",t:2048},
+  {en:"grape",zh:"葡萄",detail:"n. 葡萄, 葡萄树 [医] 葡萄",ph:"[ɡreɪp]",t:2048},
+  {en:"hamburger",zh:"汉堡包",detail:"n. 汉堡(德国港口), 肉饼, 汉堡包, 纯精牛肉, 汉堡牛排",ph:"[ˈhæmˌbɜːrɡər]",t:2048},
+  {en:"hungry",zh:"饥饿的",detail:"adj.饥饿的, 缺乏食物的, 需要食物的人, 令人食欲大开的, 渴望的",ph:"[ˈhʌŋɡri]",t:2048},
+  {en:"juice",zh:"果汁",detail:"n.果汁, 肉汁, 消化液, 电力, 汽油, 影响力, 酒, 类固醇, 烟油 v.榨汁",ph:"[dʒuːs]",t:2048},
+  {en:"kitchen",zh:"厨房",detail:"n.厨房",ph:"[ˈkɪtʃən]",t:2048},
+  {en:"lunch",zh:"午餐",detail:"n.午餐 v.吃午餐",ph:"[lʌntʃ]",t:2048},
+  {en:"meal",zh:"一顿饭",detail:"n.进餐时间, 膳食, 粗磨粉",ph:"[mɪəl]",t:2048},
+  {en:"meat",zh:"肉",detail:"n.肉, 核心",ph:"[miːt]",t:2048},
+  {en:"milk",zh:"牛奶",detail:"n.牛奶, 母乳, 植物乳汁 v.挤奶, 榨取",ph:"[mɪlk]",t:2048},
+  {en:"pizza",zh:"披萨",detail:"n. 比萨饼",ph:"[ˈpiːtsə]",t:2048},
+  {en:"potato",zh:"土豆",detail:"n.土豆",ph:"[pəˈteɪtoʊ]",t:2048},
+  {en:"rice",zh:"米；米饭",detail:"noun.米；米饭",ph:"[raɪs]",t:2048},
+  {en:"salad",zh:"沙拉",detail:"n.沙拉",ph:"[ˈsæləd]",t:2048},
+  {en:"sandwich",zh:"三明治",detail:"n.三明治, 夹心蛋糕",ph:"[ˈsænwɪtʃ]",t:2048},
+  {en:"soup",zh:"汤",detail:"n.汤;羹;",ph:"[suːp]",t:2048},
+  {en:"sugar",zh:"糖",detail:"n.糖, 一勺糖, 糖分, 甜心 v.加糖 interj.哎呀",ph:"[ˈʃʊɡər]",t:2048},
+  {en:"sweet",zh:"甜的",detail:"adj.甜的, 芳香的, 悦耳的, 有益的, 友善的, 赞许的",ph:"[swiːt]",t:2048},
+  {en:"tea",zh:"茶",detail:"n.茶叶, 茶, 一杯茶, 花草茶, 正餐, 下午茶",ph:"[tiː]",t:2048},
+  {en:"tomato",zh:"番茄",detail:"n.番茄",ph:"[təˈmeɪtoʊ]",t:2048},
+  {en:"turkey",zh:"火鸡",detail:"n. 火鸡, 无用的家伙, 土耳其",ph:"[ˈtɜːrki]",t:2048},
+  {en:"vegetable",zh:"蔬菜",detail:"n.蔬菜, 植物人, 无聊的人",ph:"[ˈvedʒtəbəl]",t:2048},
+  {en:"water",zh:"水",detail:"n.水, 水体, 水面, 领海, 困境 v.浇水, 流泪, 灌溉",ph:"[ˈwɑːtər]",t:2048}
+];
+
+/* ---------- Web Audio 音效（合成，无外部文件） ---------- */
+let AC=null;
+function ac(){ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); return AC; }
+function tone(f0,f1,t0,dur,type,vol){
+  const a=ac(), o=a.createOscillator(), g=a.createGain();
+  o.type=type; o.frequency.setValueAtTime(f0,a.currentTime+t0);
+  if(f1) o.frequency.exponentialRampToValueAtTime(f1,a.currentTime+t0+dur);
+  g.gain.setValueAtTime(vol,a.currentTime+t0);
+  g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+t0+dur);
+  o.connect(g).connect(a.destination); o.start(a.currentTime+t0); o.stop(a.currentTime+t0+dur+0.02);
+}
+const sfx = {
+  ok(){ tone(880,1318,0,0.12,'sine',0.18); tone(1318,1760,0.07,0.16,'sine',0.12); },
+  bad(){ tone(220,140,0,0.22,'square',0.07); },
+  fanfare(){ [523,659,784,1047].forEach((f,i)=>tone(f,f,i*0.09,0.22,'triangle',0.14)); },
+  tick(){ tone(660,660,0,0.05,'sine',0.08); }
+};
+function vibrate(p){ if(navigator.vibrate) try{navigator.vibrate(p)}catch(e){} }
+
+/* ---------- 首页交互 ---------- */
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('on');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),1600);
+}
+function playWord(){
+  const s=document.getElementById('spk');
+  s.classList.remove('pulse'); void s.offsetWidth; s.classList.add('pulse');
+  tone(523,392,0,0.28,'sine',0.1);
+  toast('🔊 演示环境用合成音代替 · 正式版为真人发音');
+}
+function flash(elId){
+  const el=document.getElementById(elId);
+  el.classList.remove('flash-on'); void el.offsetWidth; el.classList.add('flash-on');
+}
+
+/* ---------- 语音 ---------- */
+let spokeOnce=false;
+function speak(word){
+  try{
+    const u=new SpeechSynthesisUtterance(word);
+    u.lang='en-US'; u.rate=0.85;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){}
+  if(!spokeOnce){ spokeOnce=true; toast('🔊 演示用浏览器合成语音 · 正式版为真人发音'); }
+}
+function switchTab(name){
+  ['learn','review','dict','me'].forEach(t=>{
+    const el=document.getElementById('tab-'+t);
+    if(el) el.classList.toggle('on', t===name || (name==='dict'&&t==='dict'));
+  });
+  if(name==='dict'){ openDict(); return; }
+  closeDict();
+  if(name==='learn') return;
+  toast(name==='review' ? '复习页不在本 Demo 范围' : '我的页不在本 Demo 范围');
+}
+
+/* ---------- 单词查询 ---------- */
+function openDict(){
+  document.getElementById('look').classList.add('show');
+  document.getElementById('tab-dict').classList.add('on');
+  document.getElementById('tab-learn').classList.remove('on');
+  renderList(); sfx.tick();
+}
+function closeDict(){
+  document.getElementById('look').classList.remove('show');
+  document.getElementById('tab-dict').classList.remove('on');
+  document.getElementById('tab-learn').classList.add('on');
+}
+function renderList(){
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  const box=document.getElementById('lresults'); box.innerHTML='';
+  const hits=WORDS.filter(w=>!q || w.en.includes(q) || w.zh.includes(q) || w.detail.toLowerCase().includes(q));
+  if(!hits.length){
+    box.innerHTML='<div class="lempty">🦌 没找到「'+q+'」<br>试试 milk、猫、学校 这些词</div>';
+    return;
+  }
+  hits.forEach(w=>{
+    const row=document.createElement('div'); row.className='wrow';
+    row.innerHTML=
+      '<div class="wi"><div class="we">'+w.en+'</div><div class="wp">'+w.ph+'</div><div class="wz">'+w.detail+'</div></div>'+
+      '<button class="wspk" title="听发音"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg></button>'+
+      '<button class="addw">＋ 加入学习</button>';
+    row.querySelector('.wspk').onclick=()=>speak(w.en);
+    row.querySelector('.addw').onclick=ev=>{
+      ev.target.classList.add('done'); ev.target.textContent='✓ 已加入';
+      toast('「'+w.en+'」已加入今日任务 · 明天复习见'); sfx.ok();
+    };
+    box.appendChild(row);
+  });
+}
+
+/* ================= 三种模式：关卡 / 主题 / 自由 ================= */
+const PER_LEVEL = 50, PAIRS = 5;
+const LS_KEY = 'engdemo_v5';
+/* 级别是页面第一层学习信息：切级别 = 换一整套进度与主题解锁 */
+const LV_LIST = [
+  { id: 'A1', name: '入门' },
+  { id: 'A2', name: '基础' },
+  { id: 'B1', name: '进阶' },
+  { id: 'B2', name: '高阶' },
+  { id: 'C1', name: '精通' }
+];
+let curLv = 'A1';
+let state = { levels: {}, themes: {} };
+
+function lvName(id){ const o = LV_LIST.find(l => l.id === id); return o ? o.name : ''; }
+
+function shuffle(a){
+  a = [...a];
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function mins(n){ return Math.max(1, Math.round(n * 0.08)); }
+
+/* 主题模式下，一个词可能同时属于多个主题（数据里用位掩码 t 标记） */
+const THEME_WORDS = THEMES.map((_, i) => WORDS.filter(w => (w.t >> i) & 1));
+
+/* 关卡：U1–U5 学习，U6 复习前 5 关，U7–U11 学习，U12 复习 */
+const LEVELS = (function(){
+  const out = [];
+  let cur = 0;
+  for(let i = 1; i <= 12; i++){
+    if(i % 6 === 0){
+      const words = out.filter(l => l.type === 'learn').slice(-5).flatMap(l => l.words);
+      out.push({ id: 'U' + i, type: 'review', words });
+    } else {
+      const words = [];
+      for(let k = 0; k < PER_LEVEL; k++){ words.push(WORDS[cur % WORDS.length]); cur++; }
+      out.push({ id: 'U' + i, type: 'learn', words });
+    }
+  }
+  return out;
+})();
+
+function loadState(){
+  let raw = null;
+  try{ raw = localStorage.getItem(LS_KEY); }catch(e){}
+  if(raw){ try{ const o = JSON.parse(raw); if(o && typeof o === 'object') state = o; }catch(e){} }
+  if(!state.levels) state.levels = {};
+  if(!state.themes) state.themes = {};
+  if(!state.part) state.part = {};
+  if(!Object.keys(state.levels).length){
+    /* 每个级别都已经走过第一关，A1 多走一关 —— 关卡树才有"当前关" */
+    LV_LIST.forEach(l => {
+      state.levels[l.id + ':U1'] = true;
+      if(l.id === 'A1') state.levels[l.id + ':U2'] = true;
+    });
+    state.part['A1:U3'] = 32;        /* 演示：正在学的这关学到一半 */
+    state.themes['A1:t0'] = 18;      /* 演示：第一个主题学过一部分 */
+    saveState();
+  }
+}
+function saveState(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }
+
+/* ---------- 首页：级别 / 进度 / 三个面板 ---------- */
+let warnedLv = false;
+function themeKey(i){ return curLv + ':t' + i; }
+function doneOf(lvId){ return LEVELS.filter(l => state.levels[lvId + ':' + l.id]).length; }
+
+function renderLevels(){
+  const box = document.getElementById('levels');
+  box.innerHTML = '';
+  LV_LIST.forEach(l => {
+    const dn = doneOf(l.id);
+    const pct = Math.round(dn / LEVELS.length * 100);
+    const b = document.createElement('button');
+    b.className = 'lvpill' + (l.id === curLv ? ' on' : '');
+    b.innerHTML = '<b>' + l.id + '</b><em>' + l.name + '</em>' +
+      '<span class="mb"><i style="width:' + Math.max(pct, 4) + '%"></i></span>';
+    b.onclick = () => selectLevel(l.id);
+    box.appendChild(b);
+  });
+}
+function selectLevel(id){
+  if(id === curLv) return;
+  curLv = id;
+  sfx.tick();
+  renderHome();
+  if(id !== 'A1' && !warnedLv){
+    warnedLv = true;
+    toast('演示只内置 A1 词表，' + id + ' 复用同一批词看交互');
+  }
+}
+function renderGreet(){
+  const dn = doneOf(curLv);
+  document.getElementById('greetSub').textContent =
+    curLv + ' ' + lvName(curLv) + ' · 已通关 ' + dn + ' / ' + LEVELS.length +
+    ' 关 · 已学 ' + (dn * PER_LEVEL) + ' 词';
+}
+function renderHome(){
+  renderLevels();
+  renderGreet();
+  renderTree();
+  renderThemes();
+  renderFree();
+  updateHint();
+}
+
+let curMode = 'level';
+function updateHint(){
+  const h = document.getElementById('segHint');
+  if(!h) return;
+  h.textContent = curMode === 'level' ? (curLv + ' · U1–U' + LEVELS.length)
+    : curMode === 'theme' ? (curLv + ' · ' + THEMES.length + ' 个主题')
+    : (curLv + ' · 随机 ' + PER_LEVEL + ' 词');
+}
+function setModeTab(m){
+  curMode = m;
+  document.querySelectorAll('#modeTabs .mtab').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === 'panel-' + m));
+  updateHint();
+  sfx.tick();
+}
+
+/* 关卡进度：已通关 = 总数，进行中取上次退出时学到的词数 */
+function levelProgress(lv){
+  const total = lv.words.length;
+  const done = state.levels[curLv + ':' + lv.id] ? total
+             : Math.min(state.part[curLv + ':' + lv.id] || 0, total);
+  return { total, done, pct: total ? Math.round(done / total * 100) : 0 };
+}
+
+/* ---------- 独立的学习进度卡：一张卡说清"学到哪、还剩多少" ---------- */
+function ring(done, total){
+  const R = 24, C = 2 * Math.PI * R;
+  const off = C * (1 - (total ? done / total : 0));
+  return '<div class="pring"><svg viewBox="0 0 56 56">' +
+    '<circle cx="28" cy="28" r="' + R + '" fill="none" stroke="rgba(255,255,255,.26)" stroke-width="5"/>' +
+    '<circle cx="28" cy="28" r="' + R + '" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"' +
+      ' stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '"' +
+      ' transform="rotate(-90 28 28)"/>' +
+    '</svg><b>' + done + '/' + total + '</b></div>';
+}
+
+function renderLvHero(){
+  const box = document.getElementById('lvHero');
+  if(!box) return;
+  let i = LEVELS.findIndex(lv => !state.levels[curLv + ':' + lv.id]);
+  const allDone = i < 0;
+  if(allDone) i = LEVELS.length - 1;
+  const lv = LEVELS[i], p = levelProgress(lv);
+  const title = lv.id + ' ' + (lv.type === 'review' ? '复习关' : '学习关');
+  box.innerHTML =
+    '<div class="pcard" onclick="' + (allDone ? '' : 'startLevel(' + i + ')') + '">' +
+      '<div class="p-l">' +
+        '<em>' + (allDone ? '本级别全部通关' : '继续学习 · ' + curLv + ' 第 ' + (i + 1) + ' 关') + '</em>' +
+        '<h3>' + (allDone ? lv.id + ' 已完成 🎉' : title) + '</h3>' +
+        '<p>' + (allDone
+          ? '已通关 ' + LEVELS.length + ' / ' + LEVELS.length + ' 关 · 点这里重刷最后一关'
+          : p.total + ' 词 · 已学 ' + p.done + ' 词 · 剩 ' + (p.total - p.done) + ' 词') + '</p>' +
+      '</div>' + ring(p.done, p.total) +
+    '</div>';
+}
+
+function renderThHero(){
+  const box = document.getElementById('thHero');
+  if(!box) return;
+  const ws = THEME_WORDS[0];
+  const learned = Math.min(state.themes[themeKey(0)] || 0, ws.length);
+  box.innerHTML =
+    '<div class="pcard" onclick="startTheme(0)">' +
+      '<div class="p-l">' +
+        '<em>继续学习 · ' + curLv + ' 主题</em>' +
+        '<h3>' + THEMES[0][0] + '</h3>' +
+        '<p>' + ws.length + ' 词 · 已学 ' + learned + ' 词 · 剩 ' + (ws.length - learned) + ' 词</p>' +
+      '</div>' + ring(learned, ws.length) +
+    '</div>';
+}
+
+function renderTree(){
+  renderLvHero();
+  const box = document.getElementById('tree');
+  box.innerHTML = '';
+  LEVELS.forEach((lv, i) => {
+    const done = !!state.levels[curLv + ':' + lv.id];
+    const open = i === 0 || !!state.levels[curLv + ':' + LEVELS[i - 1].id];
+    const cur = !done && open;
+    const el = document.createElement('div');
+    el.className = 'lvl' + (done ? ' passed' : '') + (cur ? ' cur' : '') +
+      (lv.type === 'review' ? ' review' : '') + (open ? '' : ' lock');
+    const icon = done ? '<svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>'
+               : (open ? String(i + 1) : '🔒');
+    const badge = lv.type === 'review' ? '<em>复习</em>' : '';
+    const sub = (lv.type === 'review' ? '复习前 5 关' : '学习关') + ' · ' + lv.words.length + ' 词' +
+      (done ? ' · <b style="color:var(--ok);display:inline">已完成</b>'
+            : ' · 约 ' + mins(lv.words.length) + ' 分钟');
+    el.innerHTML =
+      '<div class="node">' + icon + '</div>' +
+      '<div class="inf"><b>' + lv.id + badge + '</b>' +
+      '<span>' + sub + '</span>' +
+      '</div>' +
+      (open ? '<span class="arrow">›</span>' : '');
+    el.onclick = () => open ? startLevel(i)
+      : toast('🔒 完成 ' + LEVELS[i - 1].id + ' 后解锁 ' + lv.id);
+    box.appendChild(el);
+  });
+  document.getElementById('statDone').textContent = 18 + doneOf(curLv) * 25;
+}
+
+function renderThemes(){
+  renderThHero();
+  const box = document.getElementById('themeList');
+  box.innerHTML = '';
+  document.getElementById('themeHint').textContent =
+    curLv + ' · 免费开放 1 / ' + THEMES.length + ' 个主题';
+  THEMES.forEach(([name, em], i) => {
+    const ws = THEME_WORDS[i];
+    const unlocked = i === 0;                 /* 每个级别默认只开第一个主题 */
+    const el = document.createElement('div');
+    el.className = 'tcard' + (unlocked ? '' : ' lock');
+    el.innerHTML =
+      '<div class="em">' + em + '</div>' +
+      (unlocked
+        ? '<span class="free">免费</span>'
+        : '<span class="lk"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></span>') +
+      '<b>' + name + '</b>' +
+      '<span>' + (unlocked
+        ? ws.length + ' 词 · 约 ' + mins(ws.length) + ' 分钟'
+        : '会员解锁 · ' + ws.length + ' 词') + '</span>';
+    el.onclick = () => unlocked ? startTheme(i) : showThemeUnlock(name);
+    box.appendChild(el);
+  });
+}
+
+function showThemeUnlock(name){
+  sfx.bad();
+  toast((name ? '「' + name + '」' : '') + '每个级别免费开放第一个主题，会员解锁全部 ' + THEMES.length + ' 个');
+}
+
+function renderFree(){
+  const el = document.getElementById('freeHint');
+  if(el) el.textContent = curLv + ' · 从整级词库随机抽 ' + PER_LEVEL + ' 词，不限次数';
+}
+
+/* ================= 会话引擎（N 词一关 · 5 对 5 · 错词回流） ================= */
+let S = null, timerInt = null;
+
+function startLevel(i){
+  const lv = LEVELS[i];
+  launch({
+    kind: 'level', idx: i, label: lv.id,
+    sub: curLv + ' · ' + (lv.type === 'review' ? '复习关' : '学习关') + ' · ' + lv.words.length + ' 词',
+    words: lv.words
+  });
+}
+function startTheme(i){
+  const ws = THEME_WORDS[i];
+  launch({ kind: 'theme', idx: i, label: THEMES[i][0], sub: curLv + ' · 主题 · ' + ws.length + ' 词', words: ws });
+}
+function startFree(){
+  launch({
+    kind: 'free', idx: -1, label: '自由练习',
+    sub: curLv + ' · 随机 ' + PER_LEVEL + ' 词',
+    words: shuffle(WORDS).slice(0, Math.min(PER_LEVEL, WORDS.length))
+  });
+}
+
+function launch(o){
+  ac();
+  S = {
+    kind: o.kind, idx: o.idx, label: o.label, sub: o.sub, lv: curLv,
+    queue: shuffle(o.words), total: o.words.length,
+    retry: [], done: 0, matched: 0, combo: 0, maxCombo: 0, firstTry: 0,
+    wrong: new Map(), enSlots: [], zhSlots: [],
+    t0: Date.now(), locked: false, sel: { en: null, zh: null }, over: false
+  };
+  document.getElementById('done').classList.remove('show');
+  document.getElementById('sess').classList.add('show');
+  document.getElementById('combo').classList.remove('on');
+  document.getElementById('fb').className = 'fb';
+  document.getElementById('lvName').textContent = o.label;
+  document.getElementById('lvSub').textContent = o.sub;
+  document.getElementById('sprog').style.width = '0%';
+  document.getElementById('lvCount').textContent = '0 / ' + S.total;
+  clearInterval(timerInt);
+  timerInt = setInterval(() => {
+    const s = Math.floor((Date.now() - S.t0) / 1000);
+    document.getElementById('timer').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }, 400);
+  buildBoard();
+  sfx.tick();
+}
+
+function endSession(fromDone){
+  clearInterval(timerInt);
+  /* 中途退出也记进度：下次进来卡片上的百分比是接着上次的 */
+  if(S && !S.over && S.done > 0 && (S.kind === 'level' || S.kind === 'theme')){
+    if(S.kind === 'level'){
+      const k = S.lv + ':' + LEVELS[S.idx].id;
+      state.part[k] = Math.max(state.part[k] || 0, S.done);
+    } else {
+      const k = S.lv + ':t' + S.idx;
+      state.themes[k] = Math.max(state.themes[k] || 0, S.done);
+    }
+    saveState();
+    renderLevels(); renderGreet(); renderTree(); renderThemes();
+  }
+  document.getElementById('sess').classList.remove('show');
+  document.getElementById('done').classList.remove('show');
+}
+
+function makeSlot(){
+  const b = document.createElement('button');
+  b.className = 'tile empty';
+  return b;
+}
+
+function buildBoard(){
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  board.className = 'board';
+  S.enSlots = []; S.zhSlots = [];
+  for(let i = 0; i < PAIRS; i++){
+    const e = { w: null, el: makeSlot() };
+    const z = { w: null, el: makeSlot() };
+    S.enSlots.push(e); S.zhSlots.push(z);
+    board.appendChild(e.el);
+    board.appendChild(z.el);
+  }
+  const first = [];
+  for(let i = 0; i < PAIRS; i++){
+    const w = S.queue.shift();
+    if(!w) break;
+    first.push(w);
+  }
+  shuffle(first).forEach((w, i) => setSlot(S.enSlots[i], w, 'en'));
+  shuffle(first).forEach((w, i) => setSlot(S.zhSlots[i], w, 'zh'));
+  updateHud();
+}
+
+function setSlot(slot, w, side){
+  slot.w = w;
+  const el = slot.el;
+  el.className = 'tile pop';
+  el.dataset.en = w.en;
+  el.dataset.side = side;
+  el.innerHTML = '';
+  const main = document.createElement('span'); main.className = 'm';
+  const sub = document.createElement('span');
+  if(side === 'zh'){
+    main.textContent = w.zh;
+    sub.className = 'sub de'; sub.textContent = brief(w);
+  } else {
+    main.textContent = w.en;
+    sub.className = 'sub ph'; sub.textContent = w.ph || '';
+  }
+  el.appendChild(main);
+  if(sub.textContent) el.appendChild(sub);
+  el.onclick = () => tapTile(el);
+  setTimeout(() => el.classList.remove('pop'), 360);
+}
+
+function clearSlot(slot){
+  slot.w = null;
+  slot.el.className = 'tile empty';
+  slot.el.dataset.en = '';
+  slot.el.dataset.side = '';
+  slot.el.innerHTML = '';
+  slot.el.onclick = null;
+}
+
+/* 补位：错词优先（delay 用完的），其次新词 */
+function nextWord(){
+  const ready = S.retry.findIndex(r => r.delay <= 0);
+  if(ready >= 0) return S.retry.splice(ready, 1)[0].w;
+  if(S.queue.length) return S.queue.shift();
+  if(S.retry.length) return S.retry.shift().w;
+  return null;
+}
+
+function fillBoard(){
+  let guard = 0;
+  while(guard++ < PAIRS * 2){
+    const ei = S.enSlots.findIndex(s => !s.w);
+    const zi = S.zhSlots.findIndex(s => !s.w);
+    if(ei < 0 || zi < 0) break;
+    const w = nextWord();
+    if(!w) break;
+    setSlot(S.enSlots[ei], w, 'en');
+    setSlot(S.zhSlots[zi], w, 'zh');
+  }
+}
+
+function updateHud(){
+  document.getElementById('sprog').style.width = (S.done / S.total * 100) + '%';
+  document.getElementById('lvCount').textContent = S.done + ' / ' + S.total;
+}
+
+/* 释义缩略：解析成「词性 + 义项」，去掉与主释义重复的，只留 1~2 个补充义项 */
+function brief(w){
+  const d = w.detail || '';
+  if(!d) return '';
+  const segs = [];
+  for(const chunk of d.replace(/\s+([a-z]{1,8}\.)/gi, '|$1').split('|')){
+    let cur = null;
+    for(let p of chunk.split(/,\s*|，\s*/)){
+      p = p.trim();
+      if(!p) continue;
+      const m = p.match(/^([a-z]{1,8}\.)\s*(.*)$/i);
+      if(m) cur = m[1].toLowerCase();
+      segs.push({ pos: cur, sense: m ? m[2] : p });
+    }
+  }
+  const zh = (w.zh || '').trim();
+  const keep = segs.filter(s => {
+    if(!s.sense) return false;
+    const core = s.sense.replace(/[的地得]$/, '');
+    return !(zh && (zh.includes(s.sense) || core === zh));
+  });
+  if(!keep.length) return '';
+  const picks = keep.slice(0, 2);
+  const samePos = picks.every(p => p.pos === picks[0].pos);
+  let out = samePos
+    ? (picks[0].pos || '') + picks.map(p => p.sense).join('，')
+    : picks.map(p => (p.pos || '') + p.sense).join('，');
+  if(keep.length > 2) out += '…';
+  return out;
+}
+
+function mkSpkTile(w){
+  const b = document.createElement('button');
+  b.className = 'tile spk-tile';
+  b.dataset.en = w.en;
+  b.dataset.side = 'spk';
+  b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 010 7"/><path d="M18 6a8.5 8.5 0 010 12"/></svg>';
+  b.onclick = () => { speak(w.en); tapTile(b); };
+  return b;
+}
+
+function tapTile(el){
+  if(!S || S.locked || !el.dataset.en) return;
+  const side = el.dataset.side;
+  if(S.sel[side] === el){ el.classList.remove('sel'); S.sel[side] = null; return; }
+  if(S.sel[side]) S.sel[side].classList.remove('sel');
+  S.sel[side] = el;
+  el.classList.add('sel');
+  sfx.tick();
+  if(S.sel.en && S.sel.zh) evaluate();
+}
+
+function evaluate(){
+  S.locked = true;
+  const enEl = S.sel.en, zhEl = S.sel.zh;
+  const enSlot = S.enSlots.find(s => s.el === enEl);
+  const zhSlot = S.zhSlots.find(s => s.el === zhEl);
+  const w1 = enSlot.w, w2 = zhSlot.w;
+  const ok = !!w1 && !!w2 && w1.en === w2.en;
+  const fb = document.getElementById('fb');
+
+  setTimeout(() => {
+    if(ok){
+      S.matched++; S.combo++; S.maxCombo = Math.max(S.maxCombo, S.combo);
+      S.done++;
+      if(!S.wrong.has(w1.en)) S.firstTry++;
+      enEl.classList.add('ok');
+      zhEl.classList.add('ok');
+      sfx.ok(); vibrate(30); flash('flashOk');
+      fb.className = 'fb good on';
+      fb.textContent = S.combo >= 2
+        ? '连对 ' + S.combo + ' 对！' + w1.en + ' = ' + w1.zh
+        : '✓ ' + w1.en + ' = ' + w1.zh;
+      S.retry.forEach(r => r.delay--);
+      setTimeout(() => {
+        clearSlot(enSlot);
+        clearSlot(zhSlot);
+        fillBoard();
+        updateHud();
+        S.sel.en = null; S.sel.zh = null;
+        S.locked = false;
+        checkEnd();
+      }, 420);
+    } else {
+      S.combo = 0;
+      [w1, w2].forEach(w => S.wrong.set(w.en, (S.wrong.get(w.en) || 0) + 1));
+      enEl.classList.add('bad');
+      zhEl.classList.add('bad');
+      sfx.bad(); vibrate([60, 40, 60]); flash('flashBad');
+      fb.className = 'fb err on';
+      fb.textContent = '✗ 配错了 — 这两个词隔两三个词后会再出现，直到配对正确';
+      setTimeout(() => {
+        [w1, w2].forEach(w => {
+          const es = S.enSlots.find(s => s.w === w); if(es) clearSlot(es);
+          const zs = S.zhSlots.find(s => s.w === w); if(zs) clearSlot(zs);
+        });
+        S.retry.push({ w: w1, delay: 2 }, { w: w2, delay: 2 });
+        fillBoard();
+        updateHud();
+        S.sel.en = null; S.sel.zh = null;
+        S.locked = false;
+        checkEnd();
+      }, 760);
+    }
+    document.getElementById('combo').classList.toggle('on', S.combo >= 2);
+    document.getElementById('comboN').textContent = S.combo;
+  }, 260);
+}
+
+function checkEnd(){
+  const empty = S.enSlots.every(s => !s.w) && S.zhSlots.every(s => !s.w);
+  if(empty && !S.queue.length && !S.retry.length) setTimeout(finish, 480);
+}
+
+function finish(){
+  if(!S || S.over) return;
+  S.over = true;
+  clearInterval(timerInt);
+  const s = Math.floor((Date.now() - S.t0) / 1000);
+  const acc = Math.round(S.firstTry / S.total * 100);
+  document.getElementById('dRight').textContent = S.total;
+  document.getElementById('dAcc').textContent = acc + '%';
+  document.getElementById('dCombo').textContent = S.maxCombo;
+  document.getElementById('dTime').textContent =
+    '用时 ' + (s >= 60 ? Math.floor(s / 60) + ' 分 ' + (s % 60) + ' 秒' : s + ' 秒') +
+    ' · ' + S.label + ' 完成';
+
+  const wrongList = [...S.wrong.keys()];
+  document.getElementById('dAdded').textContent = wrongList.length
+    ? '🦌 ' + wrongList.length + ' 个词配错过（' + wrongList.slice(0, 6).join('、') +
+      (wrongList.length > 6 ? '…' : '') + '），本关内已反复重现直到配对正确'
+    : '🦌 一次全对，直接满星通关';
+
+  if(S.kind === 'level'){
+    state.levels[S.lv + ':' + LEVELS[S.idx].id] = true;
+    delete state.part[S.lv + ':' + LEVELS[S.idx].id];
+    saveState();
+    renderLevels(); renderGreet(); renderTree();
+    const nxt = LEVELS[S.idx + 1];
+    const btn = document.getElementById('dNext');
+    btn.textContent = nxt ? ('下一关 · ' + nxt.id) : '全部完成，回首页';
+  } else if(S.kind === 'theme'){
+    state.themes[S.lv + ':t' + S.idx] = S.total;
+    saveState();
+    renderThemes();
+    document.getElementById('dNext').textContent = '再刷一遍';
+  } else {
+    document.getElementById('dNext').textContent = '再来一轮';
+  }
+
+  document.getElementById('sess').classList.remove('show');
+  document.getElementById('done').classList.add('show');
+  sfx.fanfare(); vibrate([40, 60, 40, 60, 120]);
+}
+
+function nextUp(){
+  if(!S) return endSession();
+  if(S.kind === 'level'){
+    const n = S.idx + 1;
+    if(n < LEVELS.length) return startLevel(n);
+    return endSession();
+  }
+  if(S.kind === 'theme') return startTheme(S.idx);
+  return startFree();
+}
+
+/* ---------- 启动 ---------- */
+loadState();
+renderHome();
+
+/* 深链：#lv-B1 / #theme / #free / #session / #review / #dict / #done，可组合如 #theme-lv-A2 */
+const H = location.hash;
+const lvHit = /lv-([ABC][12])/.exec(H);
+if(lvHit) selectLevel(lvHit[1]);
+if(H.indexOf('theme') >= 0) setModeTab('theme');
+if(H.indexOf('free') >= 0) setModeTab('free');
+if(H.indexOf('session') >= 0) startLevel(2);
+if(H.indexOf('review') >= 0) startLevel(5);
+if(H.indexOf('dict') >= 0) openDict();
+if(H.indexOf('done') >= 0){
+  startLevel(2);
+  S.done = S.total; S.firstTry = S.total - 3;
+  S.wrong = new Map([['apple', 2], ['water', 1], ['book', 1]]);
+  S.maxCombo = 7; S.t0 = Date.now() - 213000;
+  finish();
+}
+
+</script>
+</body>
+</html>

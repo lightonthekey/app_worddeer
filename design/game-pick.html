@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>游戏界面 · 三方案对比 — 词鹿英语</title>
+<style>
+  *{box-sizing:border-box}
+  :root{
+    --ink:#1B1930; --ink-2:#6E6B8A; --ink-3:#9B98B5;
+    --line:#E7E5F2; --primary:#5A50E0; --primary-50:#EFEEFE;
+  }
+  html,body{margin:0;background:#F4F3FB;color:var(--ink);
+    font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1240px; margin:0 auto; padding:34px 24px 60px}
+  header{margin-bottom:24px}
+  h1{font-size:21px; margin:0; letter-spacing:.2px}
+  header p{font-size:13px; color:var(--ink-2); margin:8px 0 0; line-height:1.7}
+  header p b{color:var(--primary)}
+
+  .grid{display:grid; grid-template-columns:repeat(3,1fr); gap:20px}
+  @media (max-width:1100px){ .grid{grid-template-columns:1fr; max-width:420px; margin:0 auto} }
+
+  .col{background:#fff; border:1px solid var(--line); border-radius:20px; padding:16px;
+    display:flex; flex-direction:column; min-width:0; overflow:hidden}
+  .hd{display:flex; align-items:center; gap:9px; min-width:0}
+  .bdg{width:26px; height:26px; border-radius:9px; background:var(--primary); color:#fff;
+    font-size:12.5px; font-weight:800; display:grid; place-items:center; flex:none}
+  .col.c .bdg{background:#6C5CE7}
+  .col.b .bdg{background:#1B1930}
+  .hd b{font-size:14.5px; font-weight:700}
+  .hd em{font-style:normal; font-size:10px; color:var(--ink-3); margin-left:auto; flex:none;
+    border:1px solid var(--line); border-radius:999px; padding:2px 7px}
+
+  /* 缩略预览：390x844 用 transform 缩放 */
+  .shot{margin-top:13px; position:relative; overflow:hidden; border-radius:16px;
+    background:#EDEAF7; height:548px}
+  /* iframe 视口要比手机框宽一圈，否则机身阴影环会被裁掉 */
+  .shot .scaler{position:absolute; top:0; left:50%; width:452px; height:884px;
+    transform:translateX(-50%) scale(.625); transform-origin:top center;
+    border-radius:0; box-shadow:none; pointer-events:none}
+  .shot iframe{width:452px; height:884px; border:0; display:block; background:transparent}
+  .open{display:block; text-align:center; font-size:11.5px; color:var(--primary);
+    text-decoration:none; padding:9px 0 1px; font-weight:600}
+  .open:hover{text-decoration:underline}
+
+  ul{margin:13px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:7px}
+  li{font-size:11.8px; color:var(--ink-2); line-height:1.5; display:flex; gap:7px}
+  li i{font-style:normal; color:var(--primary); font-weight:800; flex:none; margin-top:-1px}
+  .col.b li i{color:#1B1930}
+  .col.c li i{color:#6C5CE7}
+
+  .who{margin-top:13px; padding-top:12px; border-top:1px dashed var(--line);
+    font-size:11.5px; color:var(--ink-3); line-height:1.55}
+  .who b{color:var(--ink); font-weight:700}
+
+  .tips{margin-top:26px; background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px 18px}
+  .tips b{font-size:12.5px}
+  .tips p{font-size:12px; color:var(--ink-2); line-height:1.75; margin:7px 0 0}
+  .tips code{background:var(--primary-50); color:#463CBE; border-radius:5px; padding:1px 5px;
+    font-size:11px; font-family:ui-monospace,Menlo,Consolas,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>游戏界面 · 三方案对比</h1>
+    <p>同一套玩法（5 对 5、错词隔 2~3 次重现、配对即补位），三种界面语言。每个预览都能直接点着玩：<b>先点英文卡，再点对应中文卡</b>。</p>
+  </header>
+
+  <div class="grid">
+    <!-- A -->
+    <div class="col a">
+      <div class="hd"><span class="bdg">A</span><b>卡片桌</b><em>经典款</em></div>
+      <div class="shot">
+        <div class="scaler"><iframe src="game-a-desk.html#mid" loading="lazy"></iframe></div>
+      </div>
+      <a class="open" href="game-a-desk.html" target="_blank">打开全屏 ↗</a>
+      <ul>
+        <li><i>·</i>左右分栏固定：左英文 + 音标，右中文 + 词性</li>
+        <li><i>·</i>配对成功先蹦一下，再炸成纸屑 + 卡片碎片</li>
+        <li><i>·</i>配错是上下颠，不左右晃，视线不离开列</li>
+      </ul>
+      <div class="who">★ 已选定。适合 <b>成人 / 正式学习场景</b>，与 demo.html 同构，移植成本最低。</div>
+    </div>
+
+    <!-- B -->
+    <div class="col b">
+      <div class="hd"><span class="bdg">B</span><b>连线</b><em>极简款</em></div>
+      <div class="shot">
+        <div class="scaler"><iframe src="game-b-link.html#mid" loading="lazy"></iframe></div>
+      </div>
+      <a class="open" href="game-b-link.html" target="_blank">打开全屏 ↗</a>
+      <ul>
+        <li><i>·</i>两列留出中间通道，配对时画出贝塞尔连线</li>
+        <li><i>·</i>选中一侧会出现指向中缝的虚线牵引</li>
+        <li><i>·</i>白底留白，安静、专注，文字信息密度高</li>
+      </ul>
+      <div class="who">适合 <b>偏工具型 / 高年级用户</b>，最能体现“词与义之间的连接”这件事。</div>
+    </div>
+
+    <!-- C -->
+    <div class="col c">
+      <div class="hd"><span class="bdg">C</span><b>消消乐混排</b><em>游戏款</em></div>
+      <div class="shot">
+        <div class="scaler"><iframe src="game-c-merge.html#mid" loading="lazy"></iframe></div>
+      </div>
+      <a class="open" href="game-c-merge.html" target="_blank">打开全屏 ↗</a>
+      <ul>
+        <li><i>·</i>10 张卡打乱混排，英中不分列，寻找难度更高</li>
+        <li><i>·</i>配对成功爆粒子 + 飘字，新卡从上方掉入</li>
+        <li><i>·</i>深紫底 + 金色连击，情绪浓度最高</li>
+      </ul>
+      <div class="who">适合 <b>青少年 / 追求留存与爽感</b>，但混排会牺牲一点“扫读效率”。</div>
+    </div>
+  </div>
+
+  <div class="tips">
+    <b>三个都实现的部分</b>
+    <p>5 对 5 同屏、点两张判定、配对成功补位、配错后延迟 2 次重现（直到配对正确）、连击计数、计时、顶部进度（<code>x / 20</code>，正式每关 50）、结算页（正确数 / 一次选对率 / 最高连击 / 错词回顾）。深链 <code>#mid</code> 看进行中、<code>#done</code> 看结算，方便截图评审。</p>
+  </div>
+</div>
+</body>
+</html>

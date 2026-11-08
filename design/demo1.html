@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>词鹿英语 · Demo1 — 闯关式首页</title>
+<style>
+  :root{
+    --bg:#F4F3FB; --card:#FFFFFF; --line:#E7E5F2;
+    --primary:#5A50E0; --primary-deep:#4A41C4; --primary-50:#EEEDFE;
+    --text:#211E3B; --text-2:#6E6B8A; --text-3:#9B98B5;
+    --ok:#1D9E75; --ok-50:#E1F5EE; --bad:#E24B4A; --bad-50:#FCEBEB;
+    --flame:#EF9F27; --amber-50:#FAEEDA; --gold:#E08C1B;
+    --r-lg:20px; --r-md:14px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:#ECEAF6; color:var(--text); min-height:100vh;
+    display:flex; align-items:center; justify-content:center; gap:36px; padding:28px;
+  }
+
+  /* ---------- 左侧设计注解 ---------- */
+  .notes{width:308px; align-self:center}
+  .notes h1{font-size:17px; font-weight:600; margin-bottom:4px}
+  .notes .sub{font-size:12.5px; color:var(--text-2); margin-bottom:12px; line-height:1.5}
+  .roles{display:flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--line);
+    border-radius:12px; padding:8px 10px; margin-bottom:12px}
+  .roles span{font-size:11px; color:var(--text-3); margin-right:2px}
+  .roles button{flex:1; border:1px solid var(--line); background:#fff; color:var(--text-2);
+    border-radius:9px; padding:6px 0; font-size:11.5px; cursor:pointer; font-weight:600}
+  .roles button.on{background:var(--primary); border-color:var(--primary); color:#fff}
+  .note{background:#fff; border:1px solid var(--line); border-radius:var(--r-md); padding:10px 12px; margin-bottom:8px}
+  .note b{font-size:12.5px; font-weight:600; display:flex; align-items:center; gap:6px}
+  .note b i{font-style:normal; font-size:10px; color:#fff; background:var(--primary); border-radius:6px; padding:1px 6px; font-weight:500}
+  .note b i.g{background:var(--gold)}
+  .note p{font-size:12px; color:var(--text-2); line-height:1.55; margin-top:3px}
+  @media (max-width:980px){ .notes{display:none} body{padding:12px} }
+
+  /* ---------- 手机壳 ---------- */
+  .phone{
+    width:390px; height:812px; background:#0F0E1D; border-radius:52px; padding:12px;
+    box-shadow:0 30px 70px rgba(35,30,90,.35); position:relative; flex:none;
+  }
+  .phone::after{content:""; position:absolute; top:24px; left:50%; transform:translateX(-50%);
+    width:118px; height:26px; background:#0F0E1D; border-radius:14px; z-index:20}
+  .screen{width:100%; height:100%; background:var(--bg); border-radius:42px; overflow:hidden;
+    position:relative; display:flex; flex-direction:column}
+  .statusbar{height:44px; flex:none; display:flex; justify-content:space-between; align-items:flex-end;
+    padding:0 26px 4px; font-size:13px; font-weight:600}
+  /* 头部固定，只有关卡链滚动 —— 随时能看到"我在哪个级别/单元" */
+  .header{flex:none; padding:2px 20px 0; background:var(--bg); z-index:2}
+  .pathscroll{flex:1; overflow-y:auto; padding:0 20px 92px; scrollbar-width:none}
+  .pathscroll::-webkit-scrollbar{display:none}
+  .tabbar{position:absolute; bottom:0; left:0; right:0; height:76px; background:#fff;
+    border-top:1px solid var(--line); display:flex; padding:8px 10px 18px; z-index:5}
+  .tab{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    font-size:10.5px; color:var(--text-3); cursor:pointer; border:none; background:none}
+  .tab svg{width:23px; height:23px; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round}
+  .tab.on{color:var(--primary); font-weight:600}
+
+  /* ---------- 顶部 ---------- */
+  .top{display:flex; justify-content:space-between; align-items:center; margin:6px 2px 12px}
+  .top h2{font-size:21px; font-weight:700; letter-spacing:.2px}
+  .top p{font-size:11.5px; color:var(--text-2); margin-top:3px}
+  .streak{display:flex; align-items:center; gap:5px; background:var(--amber-50);
+    border:1px solid #F3DCA9; border-radius:999px; padding:6px 12px 6px 9px;
+    font-weight:700; font-size:14px; color:#B26A0B}
+  .streak .fire{font-size:15px; animation:flick 1.8s ease-in-out infinite}
+  @keyframes flick{0%,100%{transform:scale(1) rotate(-2deg)}50%{transform:scale(1.14) rotate(3deg)}}
+
+  /* ---------- 级别切换 ---------- */
+  .levels{display:flex; gap:7px; margin-bottom:14px}
+  .lv{flex:1; background:#fff; border:1.5px solid var(--line); border-radius:12px; padding:7px 0 24px;
+    text-align:center; cursor:pointer; transition:.15s; position:relative}
+  .lv b{display:block; font-size:12.5px; font-weight:700; color:var(--text-2)}
+  .lv span{display:block; font-size:9px; color:var(--text-3); margin-top:1px}
+  .lv.on{background:var(--primary); border-color:var(--primary); box-shadow:0 6px 14px rgba(90,80,224,.28)}
+  .lv.on b,.lv.on span{color:#fff}
+  .lv.locked{opacity:.55}
+  .lv .mini{position:absolute; left:9px; right:9px; bottom:5px; height:3px; border-radius:9px; background:#EDEBF7; overflow:hidden}
+  .lv .mini i{display:block; height:100%; background:var(--primary); border-radius:9px}
+  .lv.on .mini{background:rgba(255,255,255,.35)}
+  .lv.on .mini i{background:#fff}
+
+  /* ---------- 单元卡 ---------- */
+  .unitcard{background:linear-gradient(135deg,#655CE8,#4A41C4); border-radius:var(--r-lg); padding:16px 18px;
+    color:#fff; display:flex; align-items:center; gap:14px; box-shadow:0 10px 24px rgba(90,80,224,.26);
+    margin-bottom:12px; position:relative; overflow:hidden}
+  .unitcard::after{content:""; position:absolute; right:-30px; top:-40px; width:120px; height:120px;
+    border-radius:50%; background:rgba(255,255,255,.08)}
+  .unitcard .u-l{flex:1; min-width:0}
+  .unitcard .u-l em{font-style:normal; font-size:10.5px; letter-spacing:1px; opacity:.8; font-weight:600}
+  .unitcard .u-l h3{font-size:18px; font-weight:700; margin:3px 0 5px}
+  .unitcard .u-l p{font-size:11.5px; opacity:.85}
+  .u-ring{width:56px; height:56px; flex:none; position:relative}
+  .u-ring svg{transform:rotate(-90deg)}
+  .u-ring .n{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:700}
+
+  /* ---------- 单元 pill ---------- */
+  .units{display:flex; gap:7px; overflow-x:auto; padding:2px 2px 10px; scrollbar-width:none}
+  .units::-webkit-scrollbar{display:none}
+  .up{flex:none; border:1px solid var(--line); background:#fff; border-radius:999px; padding:5px 11px;
+    font-size:11px; color:var(--text-2); cursor:pointer; display:flex; align-items:center; gap:4px}
+  .up.on{background:var(--primary-50); border-color:#C9C5F5; color:var(--primary-deep); font-weight:700}
+  .up svg{width:10px; height:10px; stroke:currentColor; fill:none; stroke-width:2.4; stroke-linecap:round}
+
+  /* ---------- 关卡路径 ---------- */
+  .path{position:relative; padding:10px 0 18px}
+  .path::before{content:""; position:absolute; left:50%; top:30px; bottom:30px; width:2px; margin-left:-1px;
+    background:repeating-linear-gradient(to bottom,#D3CEEF 0 4px,transparent 4px 10px)}
+  .row{display:flex; justify-content:center; position:relative; z-index:1; margin-bottom:10px}
+  .node{width:62px; height:62px; border-radius:50%; border:none; cursor:pointer; position:relative;
+    display:flex; align-items:center; justify-content:center; transition:transform .14s;
+    transform:translateX(var(--off,0))}
+  .node:active{transform:translateX(var(--off,0)) scale(.94)}
+  .node svg{width:24px; height:24px; stroke:currentColor; fill:none; stroke-width:2.4;
+    stroke-linecap:round; stroke-linejoin:round}
+  /* 复习关：方形，形状本身就是"这不是普通一关"的信号 */
+  .node.review{border-radius:17px}
+
+  /* 已完成 */
+  .node.done{background:linear-gradient(160deg,#6E65EC,#4A41C4); color:#fff;
+    box-shadow:0 5px 12px rgba(90,80,224,.28), inset 0 -2px 0 rgba(0,0,0,.12)}
+  /* 当前关：唯一焦点 */
+  .node.now{width:74px; height:74px; background:linear-gradient(160deg,#776EEF,#5A50E0); color:#fff;
+    box-shadow:0 10px 22px rgba(90,80,224,.42), inset 0 -3px 0 rgba(0,0,0,.14); font-size:24px; font-weight:800}
+  .node.now::after{content:""; position:absolute; inset:-9px; border-radius:50%;
+    border:2.5px solid rgba(90,80,224,.22); animation:halo 2s ease-out infinite}
+  @keyframes halo{0%{transform:scale(.94); opacity:.9}70%{transform:scale(1.12); opacity:0}100%{opacity:0}}
+  /* 进度锁：淡、灰、无边框 —— 表示"再走走就到了" */
+  .node.lock{background:#F0EEF9; color:#BDB9D4; border:2px dashed #DFDBF0; cursor:default}
+  /* 会员锁：金、实、有描边 —— 与进度锁形成完全不同的信号 */
+  .node.vip{background:linear-gradient(160deg,#F7C868,#E08C1B); color:#fff;
+    box-shadow:0 7px 18px rgba(224,140,27,.36), inset 0 -2px 0 rgba(120,64,0,.18)}
+  .node.vip::before{content:""; position:absolute; inset:-4px; border-radius:50%;
+    border:1.5px solid rgba(224,140,27,.35)}
+
+  /* 节点旁的浮标 */
+  .bub{position:absolute; left:calc(100% + 10px); top:50%; transform:translateY(-50%);
+    background:#fff; border:1px solid var(--line); border-radius:10px; padding:5px 9px; white-space:nowrap;
+    font-size:10.5px; font-weight:700; color:var(--primary-deep); box-shadow:0 4px 10px rgba(35,30,90,.1)}
+  .bub::before{content:""; position:absolute; left:-4px; top:50%; width:7px; height:7px; background:#fff;
+    border-left:1px solid var(--line); border-bottom:1px solid var(--line); transform:translateY(-50%) rotate(45deg)}
+  .bub.gold{color:#9A5B00; border-color:#F3DCA9; background:#FFF9EC}
+  .bub.gold::before{background:#FFF9EC; border-color:#F3DCA9}
+  .bub.gray{color:var(--text-3); font-weight:600}
+  /* 复习关角标 */
+  .star{position:absolute; right:-2px; top:-2px; width:20px; height:20px; border-radius:50%;
+    background:#fff; border:1px solid #F3DCA9; display:flex; align-items:center; justify-content:center;
+    font-size:10px; box-shadow:0 2px 5px rgba(0,0,0,.08)}
+
+  /* 下一单元预告卡：付费墙在"章节边界"出现，不粗暴打断当前的链 */
+  .nextunit{display:flex; align-items:center; gap:12px; background:#FFF9EC; border:1.5px dashed #EFCB85;
+    border-radius:var(--r-md); padding:12px 14px; margin:4px 0 12px; cursor:pointer}
+  .nextunit .ni{width:38px; height:38px; border-radius:12px; flex:none; color:#fff;
+    background:linear-gradient(160deg,#F7C868,#E08C1B); display:flex; align-items:center; justify-content:center;
+    box-shadow:0 5px 12px rgba(224,140,27,.3)}
+  .nextunit .ni svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round}
+  .nextunit .nt{flex:1; min-width:0}
+  .nextunit b{font-size:12.5px; color:#7A4A00; display:block}
+  .nextunit p{font-size:11px; color:#A97C34; margin-top:2px; line-height:1.45}
+  .nextunit .arrow{font-size:16px; color:#C79A4F; font-weight:700}
+  .nextunit.free{background:#fff; border-style:solid; border-color:var(--line)}
+  .nextunit.free b{color:var(--text)}
+  .nextunit.free p{color:var(--text-2)}
+  .nextunit.free .ni{background:var(--primary-50); color:var(--primary); box-shadow:none}
+
+  /* 底部小鹿提示 */
+  .deer{display:flex; gap:10px; background:#fff; border:1px solid var(--line); border-radius:var(--r-md);
+    padding:12px 14px; margin-top:4px}  .deer .face{width:30px; height:30px; border-radius:50%; background:var(--primary-50); flex:none;
+    display:flex; align-items:center; justify-content:center; font-size:15px}
+  .deer p{font-size:11.5px; color:var(--text-2); line-height:1.6}
+  .deer p b{color:var(--text); font-weight:600}
+
+  /* ---------- 付费弹层 ---------- */
+  .sheet-wrap{position:absolute; inset:0; z-index:30; display:none; align-items:flex-end;
+    border-radius:42px; overflow:hidden; background:rgba(18,16,40,.5)}
+  .sheet-wrap.show{display:flex}
+  .sheet{width:100%; max-height:92%; overflow-y:auto; background:#fff; border-radius:26px 26px 42px 42px;
+    padding:22px 22px 26px; animation:up .3s cubic-bezier(.2,.9,.3,1)}
+  @keyframes up{from{transform:translateY(60px)}to{transform:none}}
+  @media (prefers-reduced-motion: reduce){ .sheet{animation:none} .hero .fire{animation:none} }
+  .sheet .crown{width:52px; height:52px; border-radius:16px; background:linear-gradient(160deg,#F7C868,#E08C1B);
+    display:flex; align-items:center; justify-content:center; margin:0 auto 12px; color:#fff;
+    box-shadow:0 8px 18px rgba(224,140,27,.36)}
+  .sheet .crown svg{width:26px; height:26px; stroke:currentColor; fill:none; stroke-width:2; stroke-linejoin:round}
+  .sheet h3{font-size:18px; text-align:center; font-weight:700}
+  .sheet .s-sub{font-size:12px; color:var(--text-2); text-align:center; margin:6px 0 16px; line-height:1.5}
+  .perk{display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--text);
+    padding:9px 0; border-bottom:1px dashed var(--line)}
+  .perk:last-of-type{border-bottom:none}
+  .perk svg{width:16px; height:16px; flex:none; stroke:var(--ok); fill:none; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round}
+  .price{display:flex; align-items:baseline; justify-content:center; gap:8px; margin:14px 0 4px}
+  .price b{font-size:27px; font-weight:800; color:var(--text)}
+  .price b i{font-style:normal; font-size:14px; font-weight:600}
+  .price s{font-size:12px; color:var(--text-3)}
+  .price em{font-style:normal; font-size:10.5px; color:var(--gold); background:#FFF6E4; border-radius:6px; padding:2px 6px}
+  .pay{width:100%; border:none; border-radius:14px; padding:14px 0; font-size:15px; font-weight:700;
+    color:#3D2400; background:linear-gradient(135deg,#F9CE74,#E89120); margin-top:10px; cursor:pointer;
+    box-shadow:0 8px 20px rgba(224,140,27,.3)}
+  .pay:active{transform:scale(.98)}
+  .later{width:100%; border:none; background:none; color:var(--text-3); font-size:12.5px;
+    padding:12px 0 0; cursor:pointer}
+
+  /* toast */
+  .toast{position:absolute; left:50%; bottom:106px; transform:translate(-50%,10px); z-index:40;
+    background:rgba(30,26,60,.92); color:#fff; font-size:12px; padding:9px 15px; border-radius:999px;
+    opacity:0; transition:.22s; pointer-events:none; white-space:nowrap; max-width:320px}
+  .toast.on{opacity:1; transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+
+<aside class="notes">
+  <h1>词鹿英语 · 闯关首页</h1>
+  <p class="sub">只做首页。级别 → 单元 → 关卡链，点关卡可试交互，点金锁会弹付费墙。</p>
+  <div class="roles">
+    <span>身份</span>
+    <button data-role="guest">访客</button>
+    <button data-role="free" class="on">普通</button>
+    <button data-role="vip">会员</button>
+  </div>
+  <div class="note"><b><i>01</i>级别是章节，不是列表</b><p>A1 106 关不能平铺，切成 11 个 10 关的单元；首页只画当前单元，级别进度条在顶上。</p></div>
+  <div class="note"><b><i>02</i>两种锁必须长得不一样</b><p>进度锁＝灰虚线（"再走走就到"），会员锁＝金实心（"要花钱"）。混用会让用户误以为付费墙是 bug。</p></div>
+  <div class="note"><b><i class="g">03</i>付费墙放在章节边界</b><p>普通用户免费 3 个单元（30 关），第 4 单元起才收费。不打断正在学的单元 —— 学到一半被拦住只会卸载。访客额度只有 3 关，才在关卡中间拦。</p></div>
+  <div class="note"><b><i>04</i>只有当前关是主角</b><p>放大 74px、外圈呼吸光、旁边挂「继续」气泡；其余关一律降级，用户永远知道下一步点哪。</p></div>
+  <div class="note"><b><i>05</i>每 5 关一个复习关</b><p>角标 ⭐ 的关卡走 SRS 到期复习，把"复习"塞进主线，不另开入口。</p></div>
+  <div class="note"><b><i>06</i>10 词/关＝4 分钟</b><p>关卡长度按会话制定，短到"随时能开一关"，长到"有明显进展"。</p></div>
+  <div class="note"><b><i>07</i>身份切换用于评审</b><p>三个身份对应三种免费额度：访客 3 关 / 普通 30 关 / 会员无限。切换即可检查锁分布是否讲得通。</p></div>
+</aside>
+
+<div class="phone">
+  <div class="screen">
+    <div class="statusbar"><span>9:41</span><span>● ● ● ▮</span></div>
+
+    <div class="header">
+      <div class="top">
+        <div>
+          <h2>闯关</h2>
+          <p id="subline">A1 入门 · 已完成 27 / 106 关</p>
+        </div>
+        <div class="streak"><span class="fire">🔥</span>7</div>
+      </div>
+
+      <div class="levels" id="levels"></div>
+      <div class="unitcard" id="unitcard"></div>
+      <div class="units" id="units"></div>
+    </div>
+
+    <div class="pathscroll" id="page">
+      <div class="path" id="path"></div>
+      <div id="nextUnit"></div>
+
+      <div class="deer">
+        <div class="face">🦌</div>
+        <p id="deerText"><b>第 28 关</b>就在眼前，10 个新词，大概 4 分钟。</p>
+      </div>
+    </div>
+
+    <nav class="tabbar">
+      <button class="tab on"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>闯关</button>
+      <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/></svg>复习</button>
+      <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 012-2h13v18H6a2 2 0 01-2-2z"/><path d="M9 7h6M9 11h6"/></svg>词典</button>
+      <button class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>我的</button>
+    </nav>
+
+    <div class="toast" id="toast"></div>
+
+    <div class="sheet-wrap" id="sheetWrap">
+      <div class="sheet">
+        <div class="crown">
+          <svg viewBox="0 0 24 24"><path d="M3 8l4 3 5-7 5 7 4-3-2 11H5z"/><path d="M5 19h14"/></svg>
+        </div>
+        <h3 id="payTitle">解锁 A1 全部 106 关</h3>
+        <p class="s-sub" id="paySub">你已经走完 27 关，剩下 79 关的词都在这儿了。</p>
+        <div class="perk"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg><span>A1–C1 全部 951 关，永久解锁</span></div>
+        <div class="perk"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg><span>离线音频包，地铁里也能听</span></div>
+        <div class="perk"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg><span>错词本不限量 + 未来 30 天复习预测</span></div>
+        <div class="price"><b><i>¥</i>128</b><s>¥198</s><em>首年 6.5 折</em></div>
+        <button class="pay" onclick="closeSheet()">开通会员 · 立刻解锁</button>
+        <button class="later" onclick="closeSheet()">先继续免费的部分</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= 数据 ================= */
+const PER = 10;          /* 每关 10 词，约 4 分钟 */
+const CUR = 'A1';        /* 当前级别 */
+const NOW = 28;          /* 当前进度：第 28 关 */
+
+const QUOTA = { guest:3, free:30, vip:Infinity };
+
+const LEVELS = [
+  { id:'A1', name:'入门', words:1055,
+    units:['日常问候','食物饮品','学校学习','时间','描述人物','数字','身体','天气季节','个人信息','动物','家庭家人'] },
+  { id:'A2', name:'基础', words:1298,
+    units:['描述人物','城市地点','职业','运动','交通出行','购物','兴趣爱好','日常作息','健康医疗','旅行住宿','饮食文化','邻里社区','生活服务'] },
+  { id:'B1', name:'进阶', words:2127,
+    units:['科技网络','表达观点','旅行经历','环境环保','学习考试','人际关系','生活健康','教育与未来','职场沟通','媒体娱乐','社会现象'] },
+  { id:'B2', name:'高阶', words:2367,
+    units:['商务谈判','新闻时事','学术写作','心理健康','城市治理','消费经济','文化差异','科技创新','职场管理','法律常识','全球议题'] },
+  { id:'C1', name:'精通', words:747,
+    units:['法律治理','学术高等教育','高级商业管理','能源地缘','公共卫生','经济金融','复杂社会分析','科技伦理前沿'] }
+];
+const DONE = { A1:27, A2:12, B1:0, B2:0, C1:0 };
+
+let role = 'free';
+let levelId = CUR;
+let unitIdx = Math.floor((NOW - 1) / PER);   /* 当前关所在单元 */
+
+/* ================= 工具 ================= */
+const el = id => document.getElementById(id);
+const totalOf = lv => Math.ceil(lv.words / PER);
+const unitCount = lv => Math.ceil(totalOf(lv) / PER);
+const unitName = (lv, i) => lv.units[i] || ('综合 ' + (i + 1));
+/* 已完成关数：访客只有免费额度内的一点点进度 */
+const doneOf = id => role === 'guest' ? Math.min(DONE[id] || 0, QUOTA.guest - 1) : (DONE[id] || 0);
+
+/* 蛇形偏移：0 → 右 → 左 → 右 … 节点边缘刚好让出中线，虚线从缝里露出来 */
+const OFFS = [0, 34, -34, 34, 0, -34, 34, -34, 0, 34];
+
+let toastTimer = null;
+function toast(msg){
+  const t = el('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('on'), 1900);
+}
+
+/* ================= 渲染：级别 ================= */
+function renderLevels(){
+  const box = el('levels');
+  box.innerHTML = '';
+  LEVELS.forEach(lv => {
+    const t = totalOf(lv), d = doneOf(lv.id);
+    const b = document.createElement('button');
+    b.className = 'lv' + (lv.id === levelId ? ' on' : '');
+    b.innerHTML = `<b>${lv.id}</b><span>${lv.name}</span>
+      <div class="mini"><i style="width:${Math.round(d / t * 100)}%"></i></div>`;
+    b.onclick = () => {
+      levelId = lv.id;
+      const dn = doneOf(lv.id);
+      unitIdx = Math.floor(dn / PER);       /* 切级别时落在进度所在单元 */
+      renderAll();
+      toast(`${lv.id} ${lv.name} · 共 ${t} 关`);
+    };
+    box.appendChild(b);
+  });
+}
+
+/* ================= 渲染：单元卡 ================= */
+function renderUnitCard(){
+  const lv = LEVELS.find(x => x.id === levelId);
+  const dn = doneOf(levelId);
+  const start = unitIdx * PER + 1, end = start + PER - 1;
+  const inUnit = Math.max(0, Math.min(PER, dn - unitIdx * PER));
+  const pct = Math.round(inUnit / PER * 100);
+  const C = 2 * Math.PI * 23;
+
+  el('unitcard').innerHTML = `
+    <div class="u-l">
+      <em>单元 ${unitIdx + 1} / ${unitCount(lv)}</em>
+      <h3>${unitName(lv, unitIdx)}</h3>
+      <p>第 ${start}–${end} 关 · 每关 ${PER} 词</p>
+    </div>
+    <div class="u-ring">
+      <svg width="56" height="56" viewBox="0 0 56 56">
+        <circle cx="28" cy="28" r="23" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="5"/>
+        <circle cx="28" cy="28" r="23" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"
+          stroke-dasharray="${C}" stroke-dashoffset="${C - C * pct / 100}"/>
+      </svg>
+      <div class="n">${inUnit}/${PER}</div>
+    </div>`;
+}
+
+/* ================= 渲染：单元 pill ================= */
+function renderUnits(){
+  const lv = LEVELS.find(x => x.id === levelId);
+  const n = unitCount(lv);
+  const quota = QUOTA[role];
+  const box = el('units');
+  box.innerHTML = '';
+  for (let i = 0; i < n; i++){
+    const firstLevel = i * PER + 1;
+    const paid = firstLevel > quota;      /* 整单元第一个关卡就超额度 → 标锁 */
+    const b = document.createElement('button');
+    b.className = 'up' + (i === unitIdx ? ' on' : '');
+    b.innerHTML = `U${i + 1}${paid ? `<svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>` : ''}`;
+    b.onclick = () => { unitIdx = i; renderAll(); };
+    box.appendChild(b);
+  }
+  /* 让当前单元 pill 可见 */
+  setTimeout(() => {
+    const on = box.querySelector('.up.on');
+    if (on) box.scrollLeft = on.offsetLeft - 100;
+  }, 0);
+}
+
+/* ================= 渲染：关卡路径 ================= */
+function renderPath(){
+  const lv = LEVELS.find(x => x.id === levelId);
+  const dn = doneOf(levelId);
+  const quota = QUOTA[role];
+  const start = unitIdx * PER + 1;
+  const box = el('path');
+  box.innerHTML = '';
+
+  const done = document.createElement('div');  /* 竖虚线由 .path::before 提供 */
+  let vipBub = false;                          /* 金锁气泡只挂第一个，避免重复刷屏 */
+  for (let i = 0; i < PER; i++){
+    const no = start + i;
+    let state;
+    if (no <= dn) state = 'done';
+    else if (no === dn + 1) state = (no > quota ? 'vip' : 'now');
+    else state = (no > quota ? 'vip' : 'lock');
+
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const b = document.createElement('button');
+    b.className = 'node ' + state + ((no % 5) === 0 ? ' review' : '');
+    b.style.setProperty('--off', OFFS[i] + 'px');
+
+    if (state === 'done')      b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
+    else if (state === 'lock') b.innerHTML = '<svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>';
+    else if (state === 'vip')  b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 8l4 3 5-7 5 7 4-3-2 11H5z"/></svg>';
+    else b.textContent = no;   /* 当前关显示关号 */
+
+    /* 浮标：只给三种关键时刻挂 */
+    const extra = document.createElement('span');
+    if (state === 'now'){
+      extra.className = 'bub'; extra.textContent = '继续 · 10 词';
+      b.appendChild(extra);
+    } else if (state === 'vip' && !vipBub){
+      vipBub = true;
+      extra.className = 'bub gold'; extra.textContent = role === 'guest' ? '登录解锁' : '会员';
+      b.appendChild(extra);
+    } else if (state === 'lock' && i === 0){
+      extra.className = 'bub gray'; extra.textContent = '先过前关';
+      b.appendChild(extra);
+    }
+
+    b.onclick = () => {
+      if (state === 'done')      toast(`第 ${no} 关已完成 · 重刷 +5 XP`);
+      else if (state === 'vip')  openSheet();
+      else if (state === 'lock') toast(`先把第 ${no - 1} 关过了才能开这一关`);
+      else                       toast(`进入第 ${no} 关 · ${unitName(lv, unitIdx)}`);
+    };
+
+    row.appendChild(b);
+    box.appendChild(row);
+  }
+}
+
+/* ================= 付费墙 ================= */
+function openSheet(){
+  const lv = LEVELS.find(x => x.id === levelId);
+  const total = totalOf(lv);
+  const dn = doneOf(levelId);
+  el('payTitle').textContent = `解锁 ${lv.id} 全部 ${total} 关`;
+  el('paySub').textContent = role === 'guest'
+    ? '访客只能试玩前 3 关，登录后免费额度提高到 30 关。'
+    : `你已经走完 ${dn} 关，剩下 ${total - dn} 关的词都在这儿了。`;
+  el('sheetWrap').classList.add('show');
+}
+function closeSheet(){ el('sheetWrap').classList.remove('show'); }
+el('sheetWrap').addEventListener('click', e => { if (e.target.id === 'sheetWrap') closeSheet(); });
+
+/* ================= 下一单元预告 ================= */
+function renderNextUnit(){
+  const lv = LEVELS.find(x => x.id === levelId);
+  const n = unitCount(lv), i = unitIdx + 1, box = el('nextUnit');
+  if (i >= n){ box.innerHTML = ''; return; }
+
+  const firstLevel = i * PER + 1;
+  const locked = firstLevel > QUOTA[role];
+  const rest = totalOf(lv) - i * PER;      /* 从下一单元起到本级结束的关数 */
+
+  box.innerHTML = `
+    <div class="nextunit ${locked ? '' : 'free'}" id="nextUnitCard">
+      <div class="ni">${locked
+        ? '<svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>'
+        : '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'}</div>
+      <div class="nt">
+        <b>单元 ${i + 1} · ${unitName(lv, i)}</b>
+        <p>${locked
+          ? `往后 ${rest} 关需要会员 · 已解锁 ${Math.min(QUOTA[role], totalOf(lv))}/${totalOf(lv)}`
+          : `${PER} 关 · 每关 ${PER} 词`}</p>
+      </div>
+      <span class="arrow">${locked ? '›' : '›'}</span>
+    </div>`;
+
+  el('nextUnitCard').onclick = () => {
+    if (locked) openSheet();
+    else { unitIdx = i; renderAll(); }
+  };
+}
+
+/* ================= 汇总渲染 ================= */
+function renderAll(){
+  const lv = LEVELS.find(x => x.id === levelId);
+  const dn = doneOf(levelId);
+  el('subline').textContent = `${lv.id} ${lv.name} · 已完成 ${dn} / ${totalOf(lv)} 关`;
+  renderLevels();
+  renderUnitCard();
+  renderUnits();
+  renderPath();
+  renderNextUnit();
+
+  const quota = QUOTA[role];
+  const nextNo = dn + 1;
+  el('deerText').innerHTML = nextNo > quota
+    ? (role === 'guest'
+        ? '<b>前 3 关试玩完了。</b>登录就能免费解锁到第 30 关。'
+        : '<b>免费部分已经走完。</b>会员解锁剩下的关卡，或者先去复习已学的词。')
+    : `<b>第 ${nextNo} 关</b>就在眼前，10 个新词，大概 4 分钟。`;
+}
+
+/* 身份切换 */
+function setRole(r){
+  role = r;
+  document.querySelectorAll('.roles button').forEach(x => x.classList.toggle('on', x.dataset.role === r));
+  unitIdx = Math.floor(doneOf(levelId) / PER);   /* 回到该身份进度所在的单元 */
+  renderAll();
+  scrollToNow();
+}
+document.querySelectorAll('.roles button').forEach(b => {
+  b.onclick = () => {
+    setRole(b.dataset.role);
+    toast(role === 'vip' ? '会员：全部关卡已解锁' : role === 'guest' ? '访客：只能试玩 3 关' : '普通用户：每级别免费 30 关');
+  };
+});
+
+/* 让当前关落在视野中间 */
+function scrollToNow(){
+  setTimeout(() => {
+    const now = document.querySelector('.node.now, .node.vip');
+    if (now) el('page').scrollTop = Math.max(0, now.closest('.row').offsetTop - 150);
+  }, 40);
+}
+
+renderAll();
+scrollToNow();
+
+/* 深链（便于截图/评审）：#guest #vip #bottom #pay */
+const H = location.hash;
+if (H === '#guest') setRole('guest');
+if (H === '#vip')   setRole('vip');
+if (H === '#pay')   setTimeout(openSheet, 160);
+if (H === '#bottom') setTimeout(() => { el('page').scrollTop = 9999; }, 260);
+</script>
+</body>
+</html>
