@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../audio.dart';
 import '../auth.dart';
+import '../backend.dart';
 import '../entitlement.dart';
 import '../progress.dart';
+import '../pay.dart';
 import '../progress_sync.dart';
 import '../ui.dart';
 import 'login.dart';
@@ -117,6 +119,12 @@ class _MePageState extends State<MePage> {
             child: const Text('清空学习记录',
                 style: TextStyle(fontSize: 13, color: kRed)),
           ),
+          if (Auth.I.loggedIn)
+            TextButton(
+              onPressed: _confirmDeleteAccount,
+              child: const Text('删除账号',
+                  style: TextStyle(fontSize: 13, color: kRed)),
+            ),
           const Center(
             child: Text('词鹿英语 v0.1 · MVP',
                 style: TextStyle(fontSize: 11, color: Color(0xFFC4C0D6))),
@@ -465,6 +473,74 @@ class _MePageState extends State<MePage> {
               nav.pop();
             },
             child: const Text('清空', style: TextStyle(color: kRed)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 删除账号（Apple 审核硬性要求）：服务端清账号/进度/权益，
+  /// 本地清全部状态回到未登录；订单匿名保留（防收据重放薅权益）
+  void _confirmDeleteAccount() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('删除账号？', style: TextStyle(fontSize: 16)),
+        content: const Text(
+            '账号、学习进度、会员权益会被永久删除，且无法恢复。'
+            '已支付的订单记录会按法规要求匿名保留。',
+            style: TextStyle(fontSize: 13, color: kMuted)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消', style: TextStyle(color: kMuted)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final nav = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
+              try {
+                await Pay.I.deleteAccount(Auth.I.token);
+              } on ApiException catch (e) {
+                messenger
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(SnackBar(
+                    content: Text(e.message, style: const TextStyle(fontSize: 13)),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: const Color(0xFF3A3550),
+                  ));
+                if (mounted) nav.pop();
+                return;
+              } catch (_) {
+                messenger
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(const SnackBar(
+                    content: Text('删除失败，请检查网络后重试',
+                        style: TextStyle(fontSize: 13)),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: Color(0xFF3A3550),
+                  ));
+                if (mounted) nav.pop();
+                return;
+              }
+              await Auth.I.resetLocal();
+              ProgressSync.I.onAuthChanged();
+              Ent.I.onAuthChanged();
+              if (mounted) setState(() {});
+              appTick.value++;
+              nav.pop();
+              messenger
+                ..hideCurrentSnackBar()
+                ..showSnackBar(const SnackBar(
+                  content: Text('账号已删除，学习数据已清空',
+                      style: TextStyle(fontSize: 13)),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: Color(0xFF3A3550),
+                ));
+            },
+            child: const Text('永久删除', style: TextStyle(color: kRed)),
           ),
         ],
       ),

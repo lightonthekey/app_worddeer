@@ -21,6 +21,7 @@ app_worddeer/
 │  ├─ content_sync.dart 词库内容包同步（改词不发版）
 │  ├─ progress_sync.dart 学习进度云同步（本地优先 + 异步增量）
 │  ├─ entitlement.dart 会员权益（付费墙唯一数据源）
+│  ├─ pay.dart        支付（下单/凭证校验/恢复购买/删号，沙箱 mock 占位扣款）
 │  ├─ audio.dart      发音（默认 https://tooldeer.com，--dart-define=AUDIO_BASE 可覆盖）
 │  ├─ confetti.dart   配对成功的纸屑粒子（Canvas + Ticker，固定 1/60 步长）
 │  ├─ ui.dart         主题/配色
@@ -32,6 +33,17 @@ app_worddeer/
 ├─ tools/asset_build/ 词库再生成脚本（build_db.py + TSV 源）
 └─ test/              冒烟测试 + 配对游戏回归（变绿停留 / 只 2 张红 / 整局到结算 / 补位换位）
 ```
+
+## 购买与删号（第 5 项）
+
+- `pages/paywall.dart` 点开通：`Pay.createOrder` →（扣款占位）→ `Pay.verify` →
+  服务端校验凭证 → 事务内发权益 → `Ent.refresh`。全程服务端判定，客户端拿不到凭证就开通不了
+- **扣款占位**：沙箱联调用 `mock:txid:original:product_id` 凭证（服务端 `pay.sandbox: true`
+  才接受）；接真实 IAP 只改 `Pay.purchase`，换成 StoreKit 调起支付并返回 JWS
+- **恢复购买**：verify 成功的凭证留存在 prefs，换机/重装后 `Pay.restore` 批量上交补录；
+  同一交易号跨账号会被服务端唯一约束拒绝（防薅）
+- **删除账号**：我的页底部红色入口（Apple 审核硬性要求），服务端硬删账号/进度/权益，
+  订单匿名保留（财务凭证 + 防收据重放）
 
 ## 会员与付费墙（第 4 项）
 

@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../auth.dart';
+import '../backend.dart';
 import '../entitlement.dart';
+import '../pay.dart';
 import '../ui.dart';
 
 /// 付费墙。全 App 的价格、权益、解锁额度都来自 [Ent]，这里只负责展示与引导。
@@ -31,6 +33,7 @@ class _PaywallSheet extends StatefulWidget {
 
 class _PaywallSheetState extends State<_PaywallSheet> {
   int _sel = -1;
+  bool _busy = false;
   StreamSubscription<void>? _sub;
 
   @override
@@ -314,30 +317,88 @@ class _PaywallSheetState extends State<_PaywallSheet> {
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
-        onPressed: plan == null ? null : () => _buy(plan),
-        child: Text(label,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        onPressed: plan == null || _busy ? null : () => _buy(plan),
+        child: _busy
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2.2, color: Colors.white),
+              )
+            : Text(label,
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
       ),
     );
   }
 
-  void _buy(PlanInfo plan) {
-    // 第 5 项接 IAP：这里换成调起 App Store / 微信支付，
-    // 支付成功回调后端写 account_profile.role/expire_at，再 Ent.I.refresh()
+  void _toast(String msg, {bool ok = false}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(
-        content: Text(
-          Auth.I.loggedIn
-              ? '内购即将开放（${plan.name}），开通后会立即生效'
-              : '请先登录，再开通${plan.name}',
-          style: const TextStyle(fontSize: 13),
-        ),
+        content: Text(msg, style: const TextStyle(fontSize: 13)),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF3A3550),
+        backgroundColor: ok ? kGreen : const Color(0xFF3A3550),
       ));
+  }
+
+  /// 开通：下单 →（扣款）→ 凭证校验 → 刷新权益。
+  /// 全程服务端判定，客户端任何一步失败都拿不到会员。
+  Future<void> _buy(PlanInfo plan) async {
     if (!Auth.I.loggedIn) {
+      _toast('请先登录，再开通${plan.name}');
       Navigator.of(context).pop();
+      return;
+    }
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final token = Auth.I.token;
+      final orderNo =
+          await Pay.I.createOrder(plan.code, Pay.I.platformName(), token);
+      // 真实 IAP：这里调起 StoreKit/微信支付，拿支付凭证
+      final payload = await Pay.I.purchase(orderNo, plan.productId);
+      final r = await Pay.I.verify(orderNo, payload, token);
+      await Ent.I.refresh();
+      if (!mounted) return;
+      final expire = r['expire_at'] as String? ?? '';
+      Navigator.of(context).pop();
+      _toast(
+        expire.isEmpty ? '已开通${plan.name}，永久有效' : '已开通${plan.name}，有效期至 $expire',
+        ok: true,
+      );
+    } on ApiException catch (e) {
+      _toast(e.message);
+    } catch (_) {
+      _toast('开通失败，请检查网络后重试');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// 恢复购买：换机/重装后把本机记录过的凭证交回服务端补录权益
+  Future<void> _restore() async {
+    if (!Auth.I.loggedIn) {
+      _toast('请先登录后再恢复购买');
+      Navigator.of(context).pop();
+      return;
+    }
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await Pay.I.restore(Auth.I.token);
+      await Ent.I.refresh();
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      _toast(Ent.I.ent.vip
+          ? '已恢复${Ent.I.ent.tierName}，欢迎回来'
+          : '没有找到有效购买记录', ok: Ent.I.ent.vip);
+    } on ApiException catch (e) {
+      _toast(e.message);
+    } catch (_) {
+      _toast('恢复失败，请检查网络后重试');
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -353,16 +414,7 @@ class _PaywallSheetState extends State<_PaywallSheet> {
         ),
         if (!ent.vip)
           TextButton(
-            onPressed: () {
-              Ent.I.refresh();
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(const SnackBar(
-                  content: Text('恢复购买将在接入内购后可用', style: TextStyle(fontSize: 13)),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: Color(0xFF3A3550),
-                ));
-            },
+            onPressed: _busy ? null : () => _restore(),
             child: const Text('恢复购买',
                 style: TextStyle(fontSize: 12, color: kMuted)),
           ),
