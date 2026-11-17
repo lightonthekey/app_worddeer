@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:app_worddeer/bank.dart';
+import 'package:app_worddeer/curriculum.dart';
 
 void main() {
   test('applyRaw 解析内置裸数组格式', () {
@@ -47,5 +48,37 @@ void main() {
     expect(bank.words, hasLength(1));
     expect(bank.byLevel[1] ?? [], isEmpty);
     expect(bank.byLevel[2], hasLength(1));
+  });
+
+  test('内容包的 topics 层级表被解析，主题按级别绑定', () {
+    final bank = WordBank.I;
+    bank.applyRaw('''
+      {"version":6,"count":2,
+       "topics":{"A1":["日常问候","动物"],"A2":["交通出行"],"B1":[]},
+       "words":[
+        ["hello","你好","x","[a]","[a]",1,"A1","日常问候"],
+        ["bus","公交","n.公交","[a]","[a]",2,"A2","交通出行"]
+      ]}
+    ''');
+    expect(bank.levelTopics['A1'], ['日常问候', '动物']);
+    expect(bank.levelTopics['A2'], ['交通出行']);
+    // 主题与分级绑定：A1 只看 A1 的主题，看不到 A2 的
+    expect(themesFor('A1').map((t) => t.name), ['日常问候', '动物']);
+    expect(themesFor('A2').map((t) => t.name), ['交通出行']);
+    expect(themesFor('B1'), isEmpty);
+  });
+
+  test('旧数据（无 topics 表）按词分级众数推导主题归属', () {
+    final bank = WordBank.I;
+    bank.applyRaw('''
+      [["hi","你好","x","[a]","[a]",1,"A1","问候"],
+       ["hello","你好","x","[a]","[a]",1,"A1","问候"],
+       ["journey","旅程","x","[a]","[a]",2,"B1","旅行"],
+       ["travel","旅行","v.旅行","[a]","[a]",3,"B1","旅行"],
+       ["trip","短途旅行","x","[a]","[a]",4,"A1,B1","旅行"]]
+    ''');
+    // 「旅行」3 个词里 B1 占 2（trip 最低分级是 A1），归 B1；「问候」全 A1，归 A1
+    expect(themesFor('A1').map((t) => t.name), ['问候']);
+    expect(themesFor('B1').map((t) => t.name), ['旅行']);
   });
 }

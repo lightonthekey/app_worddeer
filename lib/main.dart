@@ -23,6 +23,7 @@ void main() async {
   unawaited(ContentSync.I.sync().then((_) async {
     if (ContentSync.I.updated) {
       await WordBank.I.load();
+      Curriculum.I.invalidateCache();
     }
   }));
 }

@@ -225,7 +225,7 @@ class _HomePageState extends State<HomePage> {
     const labels = ['关卡', '主题', '自由'];
     final hint = [
       'U1–U$unitCount',
-      '${kThemes.length} 个主题',
+      '${Curriculum.I.curThemes.length} 个主题',
       '随机 ${Curriculum.perUnit} 词',
     ][_mode];
 
@@ -578,7 +578,7 @@ class _HomePageState extends State<HomePage> {
     return [
       _heroCard(
         eyebrow: '继续学习 · ${c.curLv} 主题',
-        title: kThemes[0].name,
+        title: c.curThemes[0].name,
         sub: '${ws.length} 词 · 已学 $learned 词 · 剩 ${ws.length - learned} 词',
         done: learned,
         total: ws.length,
@@ -589,12 +589,12 @@ class _HomePageState extends State<HomePage> {
         children: [
           Expanded(
             child: Text(
-              '${c.curLv} · 免费开放 1 / ${kThemes.length} 个主题',
+              '${c.curLv} · 免费开放 1 / ${c.curThemes.length} 个主题',
               style: const TextStyle(fontSize: 10.5, color: kMuted),
             ),
           ),
           GestureDetector(
-            onTap: () => _toast('会员可解锁全部 ${kThemes.length} 个主题'),
+            onTap: () => _toast('会员可解锁全部 ${c.curThemes.length} 个主题'),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
@@ -616,7 +616,7 @@ class _HomePageState extends State<HomePage> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         padding: EdgeInsets.zero,
-        itemCount: kThemes.length,
+        itemCount: c.curThemes.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           mainAxisSpacing: 10,
@@ -629,7 +629,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _themeCard(Curriculum c, int i) {
-    final t = kThemes[i];
+    final t = c.curThemes[i];
     final unlocked = c.themeUnlocked(i);
     final total = c.themeWords(i).length;
 
@@ -820,7 +820,7 @@ class _HomePageState extends State<HomePage> {
     final ws = c.themeWords(i);
     await _runSession(
       words: ws,
-      title: kThemes[i].name,
+      title: c.curThemes[i].name,
       startDone: c.themeLearned(i),
       onProgress: (n) => c.markTheme(lv, i, n),
     );

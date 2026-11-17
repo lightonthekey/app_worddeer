@@ -22,7 +22,7 @@ const List<LvInfo> kLevels = [
   LvInfo('C1', '精通', 5),
 ];
 
-/// 12 个主题（沿用原工具 A1 主题分类，topic 标签与词库一致）
+/// 主题（名称 + 图标）。主题与分级一对多绑定：每个级别只显示挂在该级别下的主题。
 class ThemeInfo {
   final String name;
   final String emoji;
@@ -30,6 +30,7 @@ class ThemeInfo {
   const ThemeInfo(this.name, this.emoji);
 }
 
+/// A1 兜底主题（与后台 topic_catalog 种子一致）；其他级别从词库取
 const List<ThemeInfo> kThemes = [
   ThemeInfo('个人信息', '🪪'),
   ThemeInfo('动物', '🐾'),
@@ -44,6 +45,78 @@ const List<ThemeInfo> kThemes = [
   ThemeInfo('颜色', '🎨'),
   ThemeInfo('食物饮品', '🍽'),
 ];
+
+/// 全部主题的图标（后台目录新增主题时没配图标的用 📖）
+const Map<String, String> kTopicEmoji = {
+  // A1
+  '个人信息': '🪪', '动物': '🐾', '天气季节': '🌤', '学校学习': '📚',
+  '家庭家人': '👪', '数字': '🔢', '日常问候': '👋', '时间': '⏰',
+  '衣服': '👕', '身体': '🫀', '颜色': '🎨', '食物饮品': '🍽',
+  // A2
+  '交通出行': '🚌', '假期旅行': '✈️', '健康': '💊', '兴趣爱好': '🎯',
+  '城市地点': '🏙', '描述人物': '🧑', '方位位置': '🧭', '日常作息': '🌅',
+  '职业': '👷', '购物': '🛒', '运动': '⚽', '餐饮': '🍜',
+  // B1
+  '人际关系': '🤝', '城市生活': '🏘', '媒体新闻': '📰', '学习考试': '📝',
+  '工作职场': '💼', '教育与未来': '🚀', '旅行经历': '🗺', '环境环保': '🌱',
+  '生活健康': '🏃', '科技网络': '💻', '表达观点': '💬', '金钱经济': '💰',
+  // B2
+  '全球议题': '🌍', '决策风险': '🎲', '医疗健康': '🏥', '可持续发展': '♻️',
+  '商业经济': '📈', '心理情感': '💗', '法律权利': '📜', '社会问题': '🏛',
+  '科学研究': '🔬', '职业生涯': '📊', '艺术文化': '🎭', '语言沟通': '🗣',
+  // C1
+  '公共卫生': '🦠', '哲学思想': '🤔', '复杂社会分析': '🧩', '学术高等教育': '🎓',
+  '心理认知': '🧠', '法律治理': '⚖️', '科技伦理前沿': '🤖', '经济金融': '🏦',
+  '能源地缘': '⚡', '艺术批判': '🖼', '语言学术': '🔤', '高级商业管理': '🗂',
+};
+
+ThemeInfo _theme(String name) => ThemeInfo(name, kTopicEmoji[name] ?? '📖');
+
+/// 推导结果的缓存（按级别），热更新词库后随 [Curriculum.invalidateCache] 清空
+Map<String, List<ThemeInfo>>? _derivedThemeCache;
+
+/// 某级别的主题列表。优先用内容包下发的分级绑定表（后台 topic_catalog）；
+/// 词库数据里没带层级表时，按词表推导（每个主题取其词分级众数，
+/// 与后台目录种子规则一致），保证旧数据也能按级展示。
+List<ThemeInfo> themesFor(String lv) {
+  final bank = WordBank.I;
+  if (bank.levelTopics.isNotEmpty) {
+    return [for (final n in bank.levelTopics[lv] ?? const <String>[]) _theme(n)];
+  }
+  return _derivedThemeCache?.putIfAbsent(lv, () => _deriveThemes(lv)) ??
+      _deriveThemes(lv);
+}
+
+List<ThemeInfo> _deriveThemes(String lv) {
+  // 主题 → (级别 → 词数)。按词的 cefr 列表逐级计数（与后台目录种子规则一致），
+  // 不能用 w.lv——那是第 5 列的级别序号，一词多级时不准
+  final dist = <String, Map<int, int>>{};
+  final codeOf = {for (final l in kLevels) l.id: l.code};
+  for (final w in WordBank.I.words) {
+    for (final t in w.topic) {
+      final m = dist.putIfAbsent(t, () => {});
+      for (final c in w.cefr) {
+        final code = codeOf[c];
+        if (code != null) m[code] = (m[code] ?? 0) + 1;
+      }
+    }
+  }
+  final want = kLevels.firstWhere((l) => l.id == lv, orElse: () => kLevels[0]);
+  final names = <String>[];
+  dist.forEach((t, m) {
+    var bestLv = 1;
+    var bestN = -1;
+    m.forEach((code, n) {
+      if (n > bestN || (n == bestN && code < bestLv)) {
+        bestLv = code;
+        bestN = n;
+      }
+    });
+    if (bestLv == want.code) names.add(t);
+  });
+  names.sort();
+  return [for (final n in names) _theme(n)];
+}
 
 /// 关卡：每 6 关插入 1 关复习
 class Unit {
@@ -92,6 +165,13 @@ class Curriculum {
 
   final Map<String, List<Unit>> _cache = {};
   final Map<String, List<Word>> _themeCache = {};
+
+  /// 词库热更新后调用：关卡、主题与推导缓存都是按词库内容缓存的，必须清掉
+  void invalidateCache() {
+    _cache.clear();
+    _themeCache.clear();
+    _derivedThemeCache?.clear();
+  }
 
   SharedPreferences? _sp;
 
@@ -257,15 +337,20 @@ class Curriculum {
 
   // ---------------------------------------------------------------- 主题
 
+  /// 当前级别的主题列表（主题与分级绑定，每个级别只看自己的）
+  List<ThemeInfo> get curThemes => themesFor(curLv);
+
   String themeKey(int i) => '$curLv:t$i';
 
   bool themeUnlocked(int i) => i == 0; // 每个级别默认只开第一个
 
   /// 某主题在某级别下的词：该级别优先，不够再往下补
   List<Word> themeWords(int i, {int limit = perUnit}) {
+    final themes = curThemes;
+    if (i >= themes.length) return const [];
     final ck = '$curLv:$i';
     if (_themeCache.containsKey(ck)) return _themeCache[ck]!;
-    final name = kThemes[i].name;
+    final name = themes[i].name;
     final info = kLevels.firstWhere((l) => l.id == curLv, orElse: () => kLevels[0]);
 
     final same = <Word>[];

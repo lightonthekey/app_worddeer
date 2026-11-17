@@ -57,6 +57,10 @@ class WordBank {
   /// 按级别分组的词表，供选项干扰项抽取
   final Map<int, List<Word>> byLevel = {};
 
+  /// 分级 → 主题列表（主题与分级一对多绑定，随内容包下发）。
+  /// 空表示数据里没带层级表，调用方自行回退。
+  final Map<String, List<String>> levelTopics = {};
+
   bool get ready => words.isNotEmpty;
 
   /// 词库来源：后台下发的 wordbank.json 优先，读不到（还没同步过 / 文件损坏）
@@ -87,10 +91,19 @@ class WordBank {
       return; // 格式不对时保持现有词库不动
     }
     final List<dynamic> list;
+    Map<String, List<String>>? topicsMap;
     if (decoded is List<dynamic>) {
       list = decoded;
-    } else if (decoded is Map<String, dynamic> && decoded['words'] is List<dynamic>) {
+    } else if (decoded is Map<String, dynamic>) {
+      if (decoded['words'] is! List<dynamic>) {
+        return; // 格式不对时保持现有词库不动
+      }
       list = decoded['words'] as List<dynamic>;
+      final t = decoded['topics'];
+      if (t is Map<String, dynamic>) {
+        topicsMap = t.map((k, v) =>
+            MapEntry(k, v is List<dynamic> ? v.cast<String>() : <String>[]));
+      }
     } else {
       return; // 格式不对时保持现有词库不动
     }
@@ -113,6 +126,9 @@ class WordBank {
     byLevel
       ..clear()
       ..addAll(nextByLevel);
+    levelTopics
+      ..clear()
+      ..addAll(topicsMap ?? {});
   }
 
   List<Word> search(String q, {int limit = 60}) {
