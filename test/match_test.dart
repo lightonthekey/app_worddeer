@@ -245,14 +245,14 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('补位不再固定在原位：空位挪一格，也不会补出一整行白送分', (tester) async {
+  testWidgets('原地补位：新词填回原来那一格，牌桌不重排', (tester) async {
     await tester.pumpWidget(
       MaterialApp(home: MatchPage(words: List.generate(20, _w))),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500)); // 首屏 pop 收尾
 
-    var moved = 0;
+    var inPlace = 0;
     for (var round = 0; round < 6; round++) {
       // 找一对同词的两张卡，记下它们在各自列里的行号
       var word = -1, enSlot = -1, zhSlot = -1;
@@ -275,8 +275,8 @@ void main() {
 
       await _tapText(tester, 'w$word');
       await _tapText(tester, '词$word');
-      // 走完判定(220)+停留(680)+散尽(700)+空档(170)，再留出补位动画
-      await tester.pump(const Duration(milliseconds: 2400));
+      // 走完判定(150)+绿卡停留(520)+淡出(420)，再留出补位 pop 动画
+      await tester.pump(const Duration(milliseconds: 1400));
       await tester.pump(const Duration(milliseconds: 400));
 
       final enAfter = _column(tester, true);
@@ -295,22 +295,19 @@ void main() {
       final enNew = enAfter.indexOf(newEn.single);
       final zhNew = zhAfter.indexOf(newZh.single);
 
-      // 只挪一两格（不是整列重排）：挪了的那一列必须离开原位，且不超过两格
-      final enMoved = enNew != enSlot;
-      final zhMoved = zhNew != zhSlot;
-      if (enMoved) {
-        expect((enNew - enSlot).abs(), lessThanOrEqualTo(2),
-            reason: '最多只该挪动两格');
+      // 左列永远原地换字：这是「牌桌不重排」的底线
+      expect(enNew, enSlot, reason: '英文列必须原地补位，不能挪动');
+
+      if (enSlot == zhSlot) {
+        // 同行配对：右列必须错开一格，否则补回去又是一对白送
+        expect(zhNew, isNot(enSlot), reason: '同行补位必须错开，不能原地补成一对');
+      } else {
+        expect(zhNew, zhSlot, reason: '中文列必须原地补位，不能挪动');
+        inPlace++;
       }
-      if (zhMoved) {
-        expect((zhNew - zhSlot).abs(), lessThanOrEqualTo(2),
-            reason: '最多只该挪动两格');
-      }
-      if (enMoved || zhMoved) moved++;
 
       // 同一个词的两半不能补在同一行：那一行等于白送分
       expect(enNew, isNot(zhNew), reason: '两列的补位行不能重合');
-      // 也不许通过「挪过去正好凑一对」造出白送格
       for (var r = 0; r < 5; r++) {
         final a = enAfter[r], b = zhAfter[r];
         if (a >= 0 && b >= 0) {
@@ -319,8 +316,55 @@ void main() {
       }
     }
 
-    expect(moved, greaterThanOrEqualTo(3),
-        reason: '补位位置要跟着变，不能总是落回原来那一格');
+    expect(inPlace, greaterThanOrEqualTo(3),
+        reason: '绝大多数补位都该原地换字，不该整桌重排');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('流畅度：绿卡还在停留时就能接着配下一组', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: MatchPage(words: List.generate(20, _w))),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500)); // 首屏 pop 收尾
+
+    // 桌上所有「能配上」的 (词号, 英文行, 中文行)
+    List<List<int>> pairs() {
+      final r = <List<int>>[];
+      for (var i = 0; i < 5; i++) {
+        final w = _slotWord(tester, true, i);
+        if (w < 0) continue;
+        for (var j = 0; j < 5; j++) {
+          if (_slotWord(tester, false, j) == w) r.add([w, i, j]);
+        }
+      }
+      return r;
+    }
+
+    final all = pairs();
+    expect(all.length, greaterThanOrEqualTo(2), reason: '桌上至少要能凑出两对');
+
+    // 第一对：点完只等判定，不等绿卡退场
+    final p1 = all.first;
+    await _tapText(tester, 'w${p1[0]}');
+    await _tapText(tester, '词${p1[0]}');
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(_countBg(tester, ok50), 2, reason: '判定完应该已经变绿');
+
+    // 绿卡还在停留期（<520ms），此时点第二对必须是有反应的。
+    // 改造前这里整块牌桌锁死 1.7 秒，点了也不动 —— 就是用户说的「卡顿」。
+    final p2 = all.firstWhere((p) => p[0] != p1[0]);
+    await _tapText(tester, 'w${p2[0]}');
+    await _tapText(tester, '词${p2[0]}');
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(_countBg(tester, ok50), 4,
+        reason: '第一对还没退场时第二对就该能配绿，说明停留不再阻塞操作');
+
+    // 提示也该已经更新到第二对（连对 2 对）
+    expect(find.textContaining('连对 2 对'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 3000));
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -378,6 +422,79 @@ void main() {
     expect(find.text('10'), findsWidgets); // 配对正确 10 个
     // 一次全对，没有配错记录
     expect(find.textContaining('一次全对'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('主题场景：玩法一致，结算文案用「主题完成」', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchPage(
+          words: List.generate(10, _w),
+          title: '动物',
+          scene: MatchScene.theme,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // 同一套两列棋盘
+    expect(find.text('ENGLISH'), findsOneWidget);
+    expect(find.text('中文'), findsOneWidget);
+
+    for (var round = 0; round < 30; round++) {
+      if (find.text('主题完成').evaluate().isNotEmpty) break;
+      String? en;
+      for (var i = 0; i < 10; i++) {
+        if (find.text('w$i').evaluate().isNotEmpty) {
+          en = 'w$i';
+          break;
+        }
+      }
+      if (en == null) {
+        await tester.pump(const Duration(milliseconds: 600));
+        continue;
+      }
+      final idx = en.substring(1);
+      await _tapText(tester, en);
+      await _tapText(tester, '词$idx');
+      await tester.pump(const Duration(milliseconds: 2400));
+    }
+
+    expect(find.text('主题完成'), findsOneWidget);
+    expect(find.text('本关完成'), findsNothing);
+    expect(find.textContaining('直接满星拿下这个主题'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('主题词数不是 5 的倍数（13 词）也能打完结算', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: MatchPage(words: List.generate(13, _w))),
+    );
+    await tester.pump();
+
+    for (var round = 0; round < 40; round++) {
+      if (find.text('本关完成').evaluate().isNotEmpty) break;
+      String? en;
+      for (var i = 0; i < 13; i++) {
+        if (find.text('w$i').evaluate().isNotEmpty) {
+          en = 'w$i';
+          break;
+        }
+      }
+      if (en == null) {
+        await tester.pump(const Duration(milliseconds: 600));
+        continue;
+      }
+      final idx = en.substring(1);
+      await _tapText(tester, en);
+      await _tapText(tester, '词$idx');
+      await tester.pump(const Duration(milliseconds: 2400));
+    }
+
+    expect(find.text('本关完成'), findsOneWidget);
+    expect(find.text('13'), findsWidgets); // 13 对全部配对完成
 
     await tester.pumpWidget(const SizedBox());
   });

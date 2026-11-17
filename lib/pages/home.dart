@@ -823,7 +823,7 @@ class _HomePageState extends State<HomePage> {
     required String title,
     required int startDone,
     required void Function(int n) onProgress,
-    bool match = false,
+    MatchScene? scene,
   }) async {
     if (words.isEmpty) return;
     var seen = startDone;
@@ -835,13 +835,15 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
-    // 关卡走 5 对 5 配对棋盘，主题 / 自由仍走原来的四选一·拼写·听音
+    // 关卡 / 主题统一走两列配对棋盘（只有一种展示方式）；
+    // 自由练习保留原来的四选一·拼写·听音混排。
     final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) => match
+      builder: (_) => scene != null
           ? MatchPage(
               words: words,
               title: title,
               subtitle: '${words.length} 对配对 · 左边英文 · 右边中文',
+              scene: scene,
               onProgress: progress,
             )
           : SessionPage(
@@ -864,7 +866,7 @@ class _HomePageState extends State<HomePage> {
       title: u.title,
       startDone: c.partOf(lv, u.id),
       onProgress: (n) => c.setPart(lv, u.id, n),
-      match: true,
+      scene: MatchScene.level,
     );
     // 全部答完才算通关（中途退出只记半程进度）
     if (c.partOf(lv, u.id) >= u.total) c.markPassed(lv, u.id);
@@ -879,6 +881,7 @@ class _HomePageState extends State<HomePage> {
       title: c.curThemes[i].name,
       startDone: c.themeLearned(i),
       onProgress: (n) => c.markTheme(lv, i, n),
+      scene: MatchScene.theme,
     );
   }
 

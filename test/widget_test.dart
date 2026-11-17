@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -5,6 +6,8 @@ import 'package:app_worddeer/bank.dart';
 import 'package:app_worddeer/curriculum.dart';
 import 'package:app_worddeer/entitlement.dart';
 import 'package:app_worddeer/main.dart';
+import 'package:app_worddeer/pages/match.dart';
+import 'package:app_worddeer/pages/session.dart';
 import 'package:app_worddeer/progress.dart';
 
 void main() {
@@ -49,6 +52,50 @@ void main() {
     expect(find.text('ENGLISH'), findsOneWidget);
     expect(find.text('中文'), findsOneWidget);
     expect(find.textContaining('对配对'), findsOneWidget);
+  });
+
+  testWidgets('从首页主题进入配对棋盘（与关卡同一种展示方式）', (WidgetTester tester) async {
+    await tester.pumpWidget(const EngApp());
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+
+    await tester.tap(find.text('主题'));
+    await tester.pumpAndSettle();
+
+    // 免费档第一个主题已解锁，点主卡片进入游戏
+    final hero = find.textContaining('继续学习');
+    await tester.ensureVisible(hero);
+    await tester.pumpAndSettle();
+    await tester.tap(hero);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+
+    // 两列卡片配对：关卡同款棋盘，而不是四选一/拼写/听音混排
+    expect(find.byType(MatchPage), findsOneWidget);
+    expect(find.byType(SessionPage), findsNothing);
+    expect(find.text('ENGLISH'), findsOneWidget);
+    expect(find.text('中文'), findsOneWidget);
+    expect(find.textContaining('对配对'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('自由练习仍是混合题型，不受主题改造影响', (WidgetTester tester) async {
+    await tester.pumpWidget(const EngApp());
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+
+    await tester.tap(find.text('自由'));
+    await tester.pumpAndSettle();
+    final start = find.text('开始自由练习');
+    await tester.ensureVisible(start);
+    await tester.pumpAndSettle();
+    await tester.tap(start);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+
+    expect(find.byType(SessionPage), findsOneWidget);
+    expect(find.byType(MatchPage), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('首页主题区：免费额度按权益显示，锁着的主题点开付费墙', (WidgetTester tester) async {

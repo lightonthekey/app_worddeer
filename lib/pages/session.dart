@@ -54,7 +54,7 @@ class SessionPlan {
     return items;
   }
 
-  /// 按指定词表出题（关卡 / 主题 / 自由三种模式共用）
+  /// 按指定词表出题（自由练习专用；关卡 / 主题已统一走配对棋盘）
   static List<SessionItem> fromWords(List<Word> words, {bool shuffleAll = true}) {
     final rnd = Random();
     const types = [QType.choice, QType.spell, QType.listen];

@@ -38,11 +38,24 @@ const _bad50 = Color(0xFFFCECEC);
 const _amber50 = Color(0xFFFDF2DC);
 
 /// 动效时间轴（毫秒，从点下第二张卡开始算）
+///
+/// 这里的关键约定：**只有 [judge] 期间会锁住操作**。
+/// 绿卡停留（[hold]）和淡出补位（[fade]）都是纯视觉动画，
+/// 不持有 `_lock` —— 用户手快的话，绿卡还在桌上就能接着配下一对。
 class _T {
-  static const judge = Duration(milliseconds: 220);
-  static const burst = Duration(milliseconds: 680);
-  static const gone = Duration(milliseconds: 700);
-  static const wipe = Duration(milliseconds: 170);
+  /// 判定停顿：两张卡都选中到给出结果之间的留白。
+  /// 太短会看不出「我点的是哪两张」，150ms 是还能看清的下限。
+  static const judge = Duration(milliseconds: 150);
+
+  /// 绿卡停留：答对后两张卡留在原地变绿、不动的时长。
+  ///
+  /// 这是「答对不代表真记住了，留时间再看一眼词形」的原始诉求。
+  /// 以前这段时间把整个棋盘锁死（配合后面的淡出补位共 1.7 秒），
+  /// 手快的用户点了没反应，感觉像卡了 —— 现在它只是背景动画。
+  static const hold = Duration(milliseconds: 520);
+
+  /// 绿卡淡出到透明、随即原地补新词的时长。
+  static const fade = Duration(milliseconds: 420);
 
   /// 配错后红卡恢复成白卡的等待时间。
   /// 配错的卡不消失、不挪位，只抖一下变红提示，抖完就恢复，
@@ -51,6 +64,10 @@ class _T {
 }
 
 const int kPairs = 5;
+
+/// 配对棋盘的使用场景。玩法、展示方式完全一致，只影响结算页措辞：
+/// 关卡说「本关完成」，主题说「主题完成」。
+enum MatchScene { level, theme }
 
 // ---------------------------------------------------------------- 牌面模型
 
@@ -63,7 +80,13 @@ class _Card {
   bool sel = false;
   bool ok = false;
   bool bad = false;
-  bool blasting = false;
+
+  /// 这张卡已经配对成功、正在退场（绿卡停留 → 淡出 → 原地换词）。
+  ///
+  /// 退场期间它的 `w` 还在（用户要能再看一眼词形），所以光靠 `w == null`
+  /// 拦不住点击 —— 必须单独标一下，否则用户在绿卡停留时点到它，
+  /// 会把一张已经配掉的卡选成「当前选中」，判定必然失败。
+  bool retired = false;
 
   /// 状态透明度（起爆后 0.12、隐去后 0），配合 [opacityDur] 做慢速化掉
   double opacity = 1;
@@ -92,7 +115,7 @@ class _Card {
     sel = o.sel;
     ok = o.ok;
     bad = o.bad;
-    blasting = o.blasting;
+    retired = o.retired;
     opacity = o.opacity;
     opacityDur = o.opacityDur;
     slideFrom = o.slideFrom;
@@ -100,7 +123,7 @@ class _Card {
 
   void reset() {
     w = null;
-    sel = ok = bad = blasting = false;
+    sel = ok = bad = retired = false;
     opacity = 1;
     opacityDur = const Duration(milliseconds: 160);
     fx = CardFx.none;
@@ -120,11 +143,15 @@ class MatchPage extends StatefulWidget {
     this.onProgress,
     this.nextTitle,
     this.autoDemo = 0,
+    this.scene = MatchScene.level,
   });
 
   final List<Word> words;
   final String title;
   final String subtitle;
+
+  /// 结算页文案场景（关卡 / 主题），不改变任何玩法
+  final MatchScene scene;
 
   /// 每配对成功一对回调已掌握词数（用于半程进度与今日词数）
   final ValueChanged<int>? onProgress;
@@ -199,10 +226,10 @@ class _MatchPageState extends State<MatchPage> {
     if (!mounted || _over) return;
     for (var i = 0; i < kPairs; i++) {
       final w = _en[i].w;
-      if (w == null) continue;
+      if (w == null || _en[i].retired) continue;
       final zi = widget.autoDemo == 2
-          ? _zh.indexWhere((c) => c.w != null && c.w!.en != w.en)
-          : _zh.indexWhere((c) => c.w?.en == w.en);
+          ? _zh.indexWhere((c) => c.w != null && !c.retired && c.w!.en != w.en)
+          : _zh.indexWhere((c) => !c.retired && c.w?.en == w.en);
       if (zi < 0) continue;
       _tap(true, i);
       _tap(false, zi);
@@ -294,137 +321,86 @@ class _MatchPageState extends State<MatchPage> {
   void _wipe(_Card c) {
     c.reset();
     c.w = null;
-    // 清成虚线空格，之后由 refill 补新词
+    // 清成虚线空格，之后由 _fillPair 补新词
   }
 
-  /// 一对卡消失后，把两列的空位各挪一格（最多两格），再补新词。
+  /// 原地补一对新词：左列 [ei] 补英文、右列 [zi] 补同一个词的中文。
   ///
-  /// 为什么不留原位：留原位等于「消失的那格就是补位的那格」，位置完全可预测，
-  /// 而且两列都补在同一行时，同一行左右就是现成的一对 ——
-  /// 用户闭着眼一直点那一行就能连对，白送分。
+  /// 为什么不再「空位挪一格」：以前的实现每配一对都让空位上下挪动，
+  /// 于是整块牌桌跟着重排一次 —— 用户刚记住的位置全乱，
+  /// 观感就是「卡一下、然后全部卡片刷新」。
+  /// 现在位置完全固定，只换文字，眼睛不用重新扫桌面。
   ///
-  /// 为什么不是重排整列：那太乱。这里一次只让一张卡换个格子（每列一张），
-  /// 视觉上就是「轻轻动了一下」，但位置不再能靠记忆锚定。
-  void _nudgeHoles(int enHole, int zhHole) {
-    // 能搬过来的格子：上下各两格以内、且还有词。
-    // 往外看两格是为了绕开「唯一邻居恰好跟本行另一半同词」的死锁 ——
-    // 那种时候一格内怎么挪都会凑成一对，挪两格就只搬一张卡，照样能错开。
-    List<int> adj(int hole, List<_Card> list) => [
-          for (var d = 1; d <= 2; d++) ...[
-            if (hole - d >= 0 && list[hole - d].w != null) hole - d,
-            if (hole + d < kPairs && list[hole + d].w != null) hole + d,
-          ],
-        ];
-
-    final enAdj = adj(enHole, _en);
-    final zhAdj = adj(zhHole, _zh);
-    // 候选里带上「不挪」本身：某一列只有一个邻居、挪过去又正好凑成一对时，
-    // 宁可这一列不动，也不能造出一个白送格子。
-    final enAll = [enHole, ...enAdj];
-    final zhAll = [zhHole, ...zhAdj];
-
-    // 只要两列新空位不重合，就不会有「同一行白送」的格子
-    final safe = <List<int>>[
-      for (final a in enAll)
-        for (final b in zhAll)
-          if (a != b && !_wouldPair(enHole, a, zhHole, b)) [a, b],
-    ];
-    // 怎么挪都会凑成一对时，退一步只要求两列空位错开：
-    // 至少别让新词的两半补在同一行（那也是白送）。
-    final combos = safe.isNotEmpty
-        ? safe
-        : <List<int>>[
-            for (final a in enAll)
-              for (final b in zhAll)
-                if (a != b) [a, b],
-          ];
-    if (combos.isEmpty) return;
-
-    // 优先两列都挪一步，其次至少挪一列；只有实在没法时才原地不动
-    var pool = combos.where((c) => c[0] != enHole && c[1] != zhHole).toList();
-    if (pool.isEmpty) {
-      pool = combos.where((c) => c[0] != enHole || c[1] != zhHole).toList();
+  /// 唯一需要错位的情况是 `ei == zi`（用户点的左右两张恰好同一行）：
+  /// 两个空位在同一行，直接把同一个词补回去就又造出一个「同行白送」格子。
+  /// 那就把右列这一格跟**相邻一格**换个位置（只动一张卡，仍然不是重排）。
+  void _fillPair(int ei, int zi) {
+    final w = _nextWord();
+    if (w == null) {
+      // 队列空了（收尾阶段）：清成虚线空格。_checkEnd 靠 w == null 判断收尾，
+      // 这里如果只是「不补」，卡片会一直留着旧词，整局永远结算不了。
+      _wipe(_en[ei]);
+      _wipe(_zh[zi]);
+      return;
     }
-    if (pool.isEmpty) pool = combos;
-    final pick = pool[_rnd.nextInt(pool.length)];
 
-    _moveHole(_en, enHole, pick[0]);
-    _moveHole(_zh, zhHole, pick[1]);
+    if (ei != zi) {
+      _paint(_en[ei], w, isEn: true);
+      _paint(_zh[zi], w, isEn: false);
+      return;
+    }
+
+    final j = _pickShiftRow(zi);
+    if (j == null) {
+      // 棋盘快空了、周围没有可挪的卡：宁可这一行成对（马上就结算了），
+      // 也不能让左列多出一张永远配不上的孤儿卡。
+      _paint(_en[ei], w, isEn: true);
+      _paint(_zh[zi], w, isEn: false);
+      return;
+    }
+    // 把 j 格的内容搬到 zi 格，j 腾空后补新词
+    _moveHole(_zh, zi, j);
+    _paint(_en[ei], w, isEn: true);
+    _paint(_zh[j], w, isEn: false);
   }
 
-  /// 按「en 空位挪到 [a]、zh 空位挪到 [b]」算一遍，会不会有哪一行左右凑成一对。
+  /// 给 [zi] 找一个可以「搬家」的右列邻格，让补位行跟 `ei` 错开。
   ///
-  /// 必须有这一步：那张卡是从隔壁行搬过来的，它可能正好和落脚那一行的
-  /// 另一半是同一个词 —— 那就又造出一个白送格子。
-  bool _wouldPair(int enHole, int a, int zhHole, int b) {
-    Word? enAt(int i) => i == enHole ? _en[a].w : (i == a ? null : _en[i].w);
-    Word? zhAt(int i) => i == zhHole ? _zh[b].w : (i == b ? null : _zh[i].w);
-    for (var i = 0; i < kPairs; i++) {
-      final e = enAt(i), z = zhAt(i);
-      if (e != null && z != null && e.en == z.en) return true;
+  /// 只往上下一两格看：幅度小，视觉上像卡片轻轻滑了一下。
+  /// 空槽和正在退场的槽都要跳过 —— 搬一个空槽过去等于把空格挪个位置，
+  /// 左列那一格就成孤儿了。
+  int? _pickShiftRow(int zi) {
+    for (final d in const [1, -1, 2, -2]) {
+      final j = zi + d;
+      if (j < 0 || j >= kPairs) continue;
+      // 用户此刻正选着这一格的话不能搬：搬走等于把他选中的卡偷偷换掉
+      if (j == _selZh) continue;
+      final c = _zh[j];
+      if (c.w == null || c.retired) continue;
+      return j;
     }
-    return false;
+    return null;
   }
 
   void _moveHole(List<_Card> list, int hole, int nb) {
     if (nb == hole) return;
     final dst = list[hole];
     dst.absorb(list[nb]);
-    list[nb].reset(); // 邻格腾空，等下由 _refill 填新词
+    list[nb].reset(); // 邻格腾空，随后由 _fillPair 补新词
     dst.slideFrom = nb;
     dst.play(CardFx.slide);
   }
 
   Word? _nextWord() => _queue.isEmpty ? null : _queue.removeAt(0);
 
-  void _refill() {
-    final enEmpty = <int>[
-      for (var i = 0; i < kPairs; i++)
-        if (_en[i].w == null) i,
-    ];
-    final zhEmpty = <int>[
-      for (var i = 0; i < kPairs; i++)
-        if (_zh[i].w == null) i,
-    ];
-    if (enEmpty.isEmpty || zhEmpty.isEmpty) return;
-
-    // 同一个词的两半绝不能补在同一行：那一行就是现成的一对，
-    // 用户闭着眼一直点这一行就能连对。
-    //
-    // 注意不能「填一个算一个」地挑空位 —— 挑到最后可能只剩同一行的两个空位，
-    // 那个词就只能同行。所以整体找一个错排：先打乱中文列的空位，
-    // 只要有一格撞行，就把整串循环移位一格再试（n>1 时必有解）。
-    var zs = [...zhEmpty]..shuffle(_rnd);
-    for (var shift = 0; shift < zs.length; shift++) {
-      final rot = [...zs.sublist(shift), ...zs.sublist(0, shift)];
-      var ok = true;
-      for (var i = 0; i < enEmpty.length && i < rot.length; i++) {
-        if (enEmpty[i] == rot[i]) {
-          ok = false;
-          break;
-        }
-      }
-      if (ok) {
-        zs = rot;
-        break;
-      }
-    }
-
-    final n = math.min(enEmpty.length, zs.length);
-    for (var i = 0; i < n; i++) {
-      final w = _nextWord();
-      if (w == null) break;
-      _paint(_en[enEmpty[i]], w, isEn: true);
-      _paint(_zh[zs[i]], w, isEn: false);
-    }
-  }
-
   // ------------------------------------------------------------ 交互
 
   void _tap(bool isEn, int i) {
     if (_lock || _over || _finished) return;
     final c = isEn ? _en[i] : _zh[i];
-    if (c.w == null) return;
+    // retired 的卡词还在（绿卡停留中），必须在方法里也拦一道：
+    // 解锁那一帧渲染层还没重建，光靠 onTap 置 null 会有个空窗。
+    if (c.w == null || c.retired) return;
     final sel = isEn ? _selEn : _selZh;
 
     if (sel == i) {
@@ -467,13 +443,19 @@ class _MatchPageState extends State<MatchPage> {
     if (!mounted || _over) return;
 
     if (ok) {
-      await _onMatch(ei, zi, w1);
+      _onMatch(ei, zi, w1);
     } else {
       await _onMiss(ei, zi, w1, w2);
     }
   }
 
-  Future<void> _onMatch(int ei, int zi, Word w) async {
+  /// 配对成功：记账 → 两张卡变绿出局 → **立刻解锁**，退场交给 [_retire]。
+  ///
+  /// 解锁必须在这里做，不能等退场动画跑完。以前一路 await 到补位结束才放锁，
+  /// 中间 1.7 秒用户点什么都没反应 —— 手快的人会觉得卡死，
+  /// 点下去的卡还会在补位时被换掉，所以「选中了也会消失」。
+  /// 现在 `_lock` 只覆盖 [judge] 那一下，绿卡在背景里自己走完退场。
+  void _onMatch(int ei, int zi, Word w) {
     _done++;
     _combo++;
     _maxCombo = math.max(_maxCombo, _combo);
@@ -482,22 +464,32 @@ class _MatchPageState extends State<MatchPage> {
     HapticFeedback.mediumImpact();
 
     setState(() {
-      _en[ei]
-        ..sel = false
-        ..ok = true
-        ..play(CardFx.hop);
-      _zh[zi]
-        ..sel = false
-        ..ok = true
-        ..play(CardFx.hop);
+      for (final c in [_en[ei], _zh[zi]]) {
+        c
+          ..sel = false
+          ..ok = true
+          // 变绿的同一帧就出局：停留期间点它不会被选成「当前选中」
+          ..retired = true
+          ..play(CardFx.hop);
+      }
+      _selEn = _selZh = null;
+      _lock = false; // ← 本次改造的核心：判定完就放手
       _setHint(
         _combo >= 2 ? '连对 $_combo 对 · ${w.en} = ${w.zh}' : '✓ ${w.en} = ${w.zh}',
         kind: _FtKind.ok,
       );
     });
 
-    // 绿卡原地停一会儿：答对不代表真记住了，留时间再看一眼词形
-    await Future<void>.delayed(_T.burst);
+    _retire(ei, zi);
+  }
+
+  /// 绿卡退场：原地停一会儿（让用户再看一眼词形）→ 淡出 → 原地补新词。
+  ///
+  /// 全程**不持有 `_lock`**，用户可以在这期间继续配别的卡。
+  /// 连按很快时这里会有多份任务并行，但它们只碰各自的 (ei, zi) 两个槽，
+  /// 不会互相踩；取词是同线程的 `_queue.removeAt(0)`，也不会重复消费。
+  Future<void> _retire(int ei, int zi) async {
+    await Future<void>.delayed(_T.hold);
     if (!mounted || _over) return;
 
     final a = _center(_enKeys[ei]);
@@ -505,36 +497,17 @@ class _MatchPageState extends State<MatchPage> {
     setState(() {
       for (final c in [_en[ei], _zh[zi]]) {
         c
-          ..blasting = true
-          ..opacity = .12
-          ..opacityDur = const Duration(milliseconds: 800);
+          ..opacity = 0
+          ..opacityDur = _T.fade;
       }
     });
     if (a != null && b != null) _field.burstBetween(a, b);
     HapticFeedback.lightImpact();
 
-    await Future<void>.delayed(_T.gone);
+    await Future<void>.delayed(_T.fade);
     if (!mounted || _over) return;
-    setState(() {
-      for (final c in [_en[ei], _zh[zi]]) {
-        c
-          ..opacity = 0
-          ..opacityDur = const Duration(milliseconds: 300);
-      }
-    });
 
-    await Future<void>.delayed(_T.wipe);
-    if (!mounted || _over) return;
-    setState(() {
-      _wipe(_en[ei]);
-      _wipe(_zh[zi]);
-      // 空位各挪一格再补词：位置不再固定，且两列的补位行必然不同，
-      // 不会有「同一行左右现成一对」的白送分行。
-      _nudgeHoles(ei, zi);
-      _refill();
-      _selEn = _selZh = null;
-      _lock = false;
-    });
+    setState(() => _fillPair(ei, zi));
     _checkEnd();
   }
 
@@ -876,7 +849,7 @@ class _MatchPageState extends State<MatchPage> {
       card: c,
       boxKey: isEn ? _enKeys[i] : _zhKeys[i],
       slot: i,
-      onTap: (c.w == null || c.bad || c.blasting)
+      onTap: (c.w == null || c.bad || c.retired)
           ? null
           : () => _tap(isEn, i),
     );
@@ -931,6 +904,7 @@ class _MatchPageState extends State<MatchPage> {
   Widget _sheet() {
     final acc = _total == 0 ? 0 : (_firstTry / _total * 100).round();
     final wr = _wrong.toList();
+    final theme = widget.scene == MatchScene.theme;
     return Positioned.fill(
       child: Container(
         color: _bg,
@@ -939,8 +913,8 @@ class _MatchPageState extends State<MatchPage> {
           children: [
             const Text('🏆', style: TextStyle(fontSize: 56)),
             const SizedBox(height: 16),
-            const Text('本关完成',
-                style: TextStyle(
+            Text(theme ? '主题完成' : '本关完成',
+                style: const TextStyle(
                     fontSize: 21, fontWeight: FontWeight.w800, color: _ink)),
             const SizedBox(height: 7),
             Text('用时 ${_durationText()} · ${widget.title}',
@@ -966,9 +940,12 @@ class _MatchPageState extends State<MatchPage> {
               ),
               child: Text(
                 wr.isEmpty
-                    ? '🦌 一次全对，直接满星通关'
+                    ? (theme
+                        ? '🦌 一次全对，直接满星拿下这个主题'
+                        : '🦌 一次全对，直接满星通关')
                     : '🦌 ${wr.length} 个词配错过（${wr.take(6).join('、')}'
-                        '${wr.length > 6 ? '…' : ''}），本关内已反复重现直到配对正确',
+                        '${wr.length > 6 ? '…' : ''}），'
+                        '${theme ? '本主题' : '本关'}内已反复重现直到配对正确',
                 style: const TextStyle(fontSize: 11.5, height: 1.6, color: _ink2),
               ),
             ),
