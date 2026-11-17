@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../audio.dart';
 import '../auth.dart';
 import '../progress.dart';
+import '../progress_sync.dart';
 import '../ui.dart';
 import 'login.dart';
 
@@ -62,7 +63,10 @@ class _MePageState extends State<MePage> {
                   max: 40,
                   step: 5,
                   onChanged: (v) => setState(() => p.newPerDay = v),
-                  onEnd: p.save,
+                  onEnd: () {
+                    p.save();
+                    ProgressSync.I.markCurriculum();
+                  },
                 ),
                 const Divider(height: 1, color: kLine),
                 _slider(
@@ -72,7 +76,10 @@ class _MePageState extends State<MePage> {
                   max: 100,
                   step: 10,
                   onChanged: (v) => setState(() => p.reviewPerDay = v),
-                  onEnd: p.save,
+                  onEnd: () {
+                    p.save();
+                    ProgressSync.I.markCurriculum();
+                  },
                 ),
               ],
             ),
@@ -155,8 +162,14 @@ class _MePageState extends State<MePage> {
                           style: const TextStyle(
                               fontSize: 15, fontWeight: FontWeight.w700, color: kInk)),
                       const SizedBox(height: 2),
-                      Text('@${u.username}',
-                          style: const TextStyle(fontSize: 12, color: kMuted)),
+                      Row(
+                        children: [
+                          Text('@${u.username}',
+                              style: const TextStyle(fontSize: 12, color: kMuted)),
+                          const SizedBox(width: 8),
+                          Flexible(child: _syncLine()),
+                        ],
+                      ),
                     ],
                   ),
           ),
@@ -173,6 +186,42 @@ class _MePageState extends State<MePage> {
         ],
       ),
     );
+  }
+
+  /// 账号卡里的同步状态：同步中 / 已同步 · x 分钟前 / 失败可点重试
+  Widget _syncLine() {
+    return StreamBuilder<void>(
+      stream: ProgressSync.I.changes,
+      builder: (_, _) {
+        final s = ProgressSync.I.status;
+        if (s == ProgressSync.statusSyncing) {
+          return const Text('同步中…',
+              style: TextStyle(fontSize: 11, color: kMuted));
+        }
+        if (s == ProgressSync.statusError) {
+          return GestureDetector(
+            onTap: () => ProgressSync.I.syncNow(),
+            child: const Text('同步失败 · 点此重试',
+                style: TextStyle(fontSize: 11, color: kRed)),
+          );
+        }
+        if (s == ProgressSync.statusOk) {
+          return Text('已同步 · ${_ago(ProgressSync.I.lastAt)}',
+              style: const TextStyle(fontSize: 11, color: kMuted));
+        }
+        return const Text('本地进度',
+            style: TextStyle(fontSize: 11, color: kMuted));
+      },
+    );
+  }
+
+  String _ago(int ms) {
+    if (ms <= 0) return '刚刚';
+    final d = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(ms));
+    if (d.inMinutes < 1) return '刚刚';
+    if (d.inMinutes < 60) return '${d.inMinutes} 分钟前';
+    if (d.inHours < 24) return '${d.inHours} 小时前';
+    return '${d.inDays} 天前';
   }
 
   Future<void> _openLogin() async {
@@ -199,6 +248,7 @@ class _MePageState extends State<MePage> {
             onPressed: () async {
               final nav = Navigator.of(context);
               await Auth.I.logout();
+              ProgressSync.I.onAuthChanged();
               if (mounted) setState(() {});
               nav.pop();
             },
@@ -306,6 +356,7 @@ class _MePageState extends State<MePage> {
           TextButton(
             onPressed: () async {
               final nav = Navigator.of(context);
+              await ProgressSync.I.resetRemote();
               await Progress.I.reset();
               if (mounted) {
                 setState(() {});

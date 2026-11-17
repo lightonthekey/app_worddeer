@@ -27,6 +27,9 @@ class Auth {
 
   bool get loggedIn => user != null && _token.isNotEmpty;
 
+  /// 当前 token（进度同步等带鉴权请求用）；未登录为空串
+  String get token => _token;
+
   static const _kTokenKey = 'auth_token';
   static const _kUserKey = 'auth_user_json';
 

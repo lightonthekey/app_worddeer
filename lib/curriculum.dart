@@ -163,6 +163,13 @@ class Curriculum {
   int todayWords = 0;
   String dayKey = '';
 
+  /// 最后修改时间（epoch ms）：云同步时用来判断「谁的数据更新」。
+  /// 只在真正发生学习行为时更新，读档/存盘不碰，否则每次启动都会把自己变成"最新"。
+  int updatedAt = 0;
+
+  /// 进度变化回调（由 ProgressSync 注册，用于标记待同步）
+  void Function()? onChanged;
+
   final Map<String, List<Unit>> _cache = {};
   final Map<String, List<Word>> _themeCache = {};
 
@@ -195,6 +202,7 @@ class Curriculum {
         });
         todayWords = (m['todayWords'] as num?)?.toInt() ?? 0;
         dayKey = m['dayKey'] as String? ?? '';
+        updatedAt = (m['ts'] as num?)?.toInt() ?? 0;
       } catch (_) {
         // 存档损坏就当新用户
       }
@@ -215,8 +223,15 @@ class Curriculum {
         'themes': themes,
         'todayWords': todayWords,
         'dayKey': dayKey,
+        'ts': updatedAt,
       }),
     );
+  }
+
+  /// 标记「有改动」：更新时间戳 + 通知同步模块
+  void _touch() {
+    updatedAt = DateTime.now().millisecondsSinceEpoch;
+    onChanged?.call();
   }
 
   String get _today {
@@ -310,6 +325,7 @@ class Curriculum {
   void markPassed(String lv, String unitId) {
     passed[_key(lv, unitId)] = true;
     part.remove(_key(lv, unitId));
+    _touch();
     save();
   }
 
@@ -320,6 +336,7 @@ class Curriculum {
     final old = part[k] ?? 0;
     if (done > old) {
       part[k] = done;
+      _touch();
       save();
     }
   }
@@ -328,6 +345,7 @@ class Curriculum {
   void addToday(int n) {
     _rollDay();
     todayWords += n;
+    _touch();
     save();
   }
 
@@ -377,6 +395,7 @@ class Curriculum {
     final key = '$lv:t$i';
     if (learned > (themes[key] ?? 0)) {
       themes[key] = learned;
+      _touch();
       save();
     }
   }

@@ -11,6 +11,7 @@ import 'pages/home.dart';
 import 'pages/me.dart';
 import 'pages/review.dart';
 import 'progress.dart';
+import 'progress_sync.dart';
 import 'ui.dart';
 
 void main() async {
@@ -18,6 +19,7 @@ void main() async {
   await WordBank.I.load();
   await Progress.I.load();
   await Curriculum.I.load();
+  await ProgressSync.I.init();
   runApp(const EngApp());
   // 内容检查与会话恢复都放后台跑：不阻塞首屏，失败静默降级。
   // 下载到新版词库后热替换，正在进行的对局用的是旧数据，下一局生效。
@@ -27,7 +29,10 @@ void main() async {
       Curriculum.I.invalidateCache();
     }
   }));
-  unawaited(Auth.I.restore());
+  unawaited(Auth.I.restore().then((_) {
+    // 登录态恢复后再同步进度：游客启动时不会白发请求
+    if (Auth.I.loggedIn) ProgressSync.I.onAuthChanged();
+  }));
 }
 
 class EngApp extends StatelessWidget {
@@ -51,10 +56,29 @@ class Shell extends StatefulWidget {
   State<Shell> createState() => _ShellState();
 }
 
-class _ShellState extends State<Shell> {
+class _ShellState extends State<Shell> with WidgetsBindingObserver {
   int _idx = 0;
 
   static const _pages = [HomePage(), ReviewPage(), DictPage(), MePage()];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// 切后台前补一次同步：手机上用户很少主动 "退出"，
+  /// 趁着还在前台把没推的进度推掉，避免下次打开时数据落后太多
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) ProgressSync.I.syncNow();
+  }
 
   @override
   Widget build(BuildContext context) {

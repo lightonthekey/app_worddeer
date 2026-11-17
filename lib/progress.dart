@@ -34,6 +34,42 @@ class CardState {
         wrong: l[4] as int,
         last: l[5] as int,
       );
+
+  /// 云同步用的短键格式（与后台 learning_progress 一致，省流量）
+  Map<String, dynamic> toSyncJson(String word) => {
+        'w': word,
+        'b': box,
+        'd': due,
+        's': seen,
+        'r': right,
+        'x': wrong,
+        't': last,
+      };
+
+  factory CardState.fromSyncJson(Map<String, dynamic> j) => CardState(
+        box: (j['b'] as num?)?.toInt() ?? 0,
+        due: (j['d'] as num?)?.toInt() ?? 0,
+        seen: (j['s'] as num?)?.toInt() ?? 0,
+        right: (j['r'] as num?)?.toInt() ?? 0,
+        wrong: (j['x'] as num?)?.toInt() ?? 0,
+        last: (j['t'] as num?)?.toInt() ?? 0,
+      );
+
+  /// 合并两条记录（服务端与本地规则完全相同，见后台 service/progress）：
+  /// 计数取大（只增不减），档位/到期时间跟随「最后作答更晚」的一方 ——
+  /// 答错会把档位打回 0，不能取大，否则错题永远不会重来。
+  static CardState merge(CardState a, CardState b) {
+    final newer = a.last >= b.last ? a : b;
+    final older = a.last >= b.last ? b : a;
+    return CardState(
+      box: newer.box,
+      due: newer.due,
+      seen: newer.seen > older.seen ? newer.seen : older.seen,
+      right: newer.right > older.right ? newer.right : older.right,
+      wrong: newer.wrong > older.wrong ? newer.wrong : older.wrong,
+      last: newer.last,
+    );
+  }
 }
 
 /// 间隔表（分钟）：索引即目标 box
@@ -66,7 +102,14 @@ class Progress {
   int todayRight = 0;
   int todayWrong = 0;
 
+  /// 最后修改时间（epoch ms），云同步判断"谁更新"用；只有真正作答才更新
+  int updatedAt = 0;
+
   SharedPreferences? _sp;
+
+  /// 单词状态变化的回调（由 ProgressSync 注册，用于标记待同步）。
+  /// 用回调而不是直接 import：progress 保持零网络依赖，单测可以单独跑。
+  void Function(String en)? onChanged;
 
   Future<void> load() async {
     _sp = await SharedPreferences.getInstance();
@@ -91,6 +134,7 @@ class Progress {
       todayReview = p['todayReview'] as int? ?? 0;
       todayRight = p['todayRight'] as int? ?? 0;
       todayWrong = p['todayWrong'] as int? ?? 0;
+      updatedAt = (p['ts'] as num?)?.toInt() ?? 0;
     }
     _rollDay();
     await save();
@@ -128,6 +172,7 @@ class Progress {
         'todayReview': todayReview,
         'todayRight': todayRight,
         'todayWrong': todayWrong,
+        'ts': updatedAt,
       }),
     );
   }
@@ -159,6 +204,7 @@ class Progress {
       st.box = 0;
     }
     st.due = now + kIntervals[st.box.clamp(0, 6)] * 60 * 1000;
+    updatedAt = now;
 
     if (isNew) {
       todayNew += 1;
@@ -171,6 +217,17 @@ class Progress {
       todayWrong += 1;
     }
     _touchStreak();
+    onChanged?.call(w.en);
+  }
+
+  /// 合并一条服务端记录进本地（不写盘，调用方批量合并后 save 一次）
+  void mergeRemote(String en, CardState remote) {
+    final local = states[en];
+    if (local == null) {
+      if (remote.seen > 0 || remote.last > 0) states[en] = remote;
+      return;
+    }
+    states[en] = CardState.merge(local, remote);
   }
 
   /// 待复习：已学过且到期

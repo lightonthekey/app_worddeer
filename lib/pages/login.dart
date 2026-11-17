@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../auth.dart';
+import '../progress_sync.dart';
 import '../ui.dart';
 
 /// 登录 / 注册二合一页。
@@ -46,6 +47,8 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         await Auth.I.login(username, password);
       }
+      // 登录成功立刻同步一次：把本机已有的学习进度带到账号上
+      ProgressSync.I.onAuthChanged();
       if (mounted) Navigator.of(context).pop(true);
     } on AuthException catch (e) {
       setState(() {
