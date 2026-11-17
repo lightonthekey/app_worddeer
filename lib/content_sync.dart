@@ -8,6 +8,8 @@ import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'backend.dart';
+
 /// 内容包同步：启动后问一次后台"词库有没有新版"，有就下载、校验、原子替换本地文件。
 ///
 /// 三条铁律：
@@ -29,16 +31,6 @@ class ContentSync {
 
   static const _kVersionKey = 'content_version_wordbank';
   static const _fileName = 'wordbank.json';
-
-  /// 后台地址。上线前把域名反代到 admin_platform 服务，改这里即可。
-  /// Android 模拟器访问宿主机要用 10.0.2.2；真机调试时改成电脑的局域网 IP。
-  String get _base {
-    if (kReleaseMode) {
-      // TODO 上线前改为正式域名（https）
-      return Platform.isAndroid ? 'https://tooldeer.com' : 'https://tooldeer.com';
-    }
-    return Platform.isAndroid ? 'http://10.0.2.2:12445' : 'http://127.0.0.1:12445';
-  }
 
   /// 本地词库文件。null 表示还没有，用内置 asset。
   Future<File?> localFile() async {
@@ -104,7 +96,7 @@ class ContentSync {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
     try {
       final req = await client
-          .getUrl(Uri.parse('$_base/api/v1/worddeer/content/latest?version=$localVersion'))
+          .getUrl(Uri.parse('${backendBase()}/api/v1/worddeer/content/latest?version=$localVersion'))
           .timeout(const Duration(seconds: 6));
       final resp = await req.close().timeout(const Duration(seconds: 6));
       if (resp.statusCode != 200) return null;

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../audio.dart';
+import '../auth.dart';
 import '../progress.dart';
 import '../ui.dart';
+import 'login.dart';
 
 class MePage extends StatefulWidget {
   const MePage({super.key});
@@ -23,6 +25,7 @@ class _MePageState extends State<MePage> {
               style: TextStyle(
                   fontSize: 21, fontWeight: FontWeight.w700, color: kInk)),
           const SizedBox(height: 18),
+          _accountCard(),
           Container(
             padding: const EdgeInsets.symmetric(vertical: 22),
             decoration: BoxDecoration(
@@ -105,6 +108,101 @@ class _MePageState extends State<MePage> {
           const Center(
             child: Text('词鹿英语 v0.1 · MVP',
                 style: TextStyle(fontSize: 11, color: Color(0xFFC4C0D6))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 账号卡：未登录显示登录入口，已登录显示昵称与退出按钮
+  Widget _accountCard() {
+    final u = Auth.I.user;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: kLine),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 21,
+            backgroundColor: kPrimary50,
+            child: Text(
+              u == null ? '👤' : u.nickname.characters.first.toUpperCase(),
+              style: const TextStyle(fontSize: 16, color: kPrimary),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: u == null
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('未登录',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w700, color: kInk)),
+                      const SizedBox(height: 2),
+                      const Text('登录后学习进度换机不丢',
+                          style: TextStyle(fontSize: 12, color: kMuted)),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(u.nickname,
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w700, color: kInk)),
+                      const SizedBox(height: 2),
+                      Text('@${u.username}',
+                          style: const TextStyle(fontSize: 12, color: kMuted)),
+                    ],
+                  ),
+          ),
+          TextButton(
+            onPressed: u == null ? _openLogin : _confirmLogout,
+            child: Text(
+              u == null ? '登录 / 注册' : '退出登录',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: u == null ? kPrimary : kMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openLogin() async {
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+    );
+    if (ok == true && mounted) setState(() {});
+  }
+
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('退出登录？', style: TextStyle(fontSize: 16)),
+        content: const Text('学习进度仍保存在本机，下次登录可以继续同步。',
+            style: TextStyle(fontSize: 13, color: kMuted)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消', style: TextStyle(color: kMuted)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final nav = Navigator.of(context);
+              await Auth.I.logout();
+              if (mounted) setState(() {});
+              nav.pop();
+            },
+            child: const Text('退出', style: TextStyle(color: kRed)),
           ),
         ],
       ),

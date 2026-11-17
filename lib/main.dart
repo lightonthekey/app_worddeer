@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'auth.dart';
 import 'bank.dart';
 import 'content_sync.dart';
 import 'curriculum.dart';
@@ -18,14 +19,15 @@ void main() async {
   await Progress.I.load();
   await Curriculum.I.load();
   runApp(const EngApp());
-  // 内容检查放后台跑：不阻塞首屏。下载到新版词库后热替换，
-  // 正在进行的对局用的是旧数据，下一局生效。
+  // 内容检查与会话恢复都放后台跑：不阻塞首屏，失败静默降级。
+  // 下载到新版词库后热替换，正在进行的对局用的是旧数据，下一局生效。
   unawaited(ContentSync.I.sync().then((_) async {
     if (ContentSync.I.updated) {
       await WordBank.I.load();
       Curriculum.I.invalidateCache();
     }
   }));
+  unawaited(Auth.I.restore());
 }
 
 class EngApp extends StatelessWidget {
