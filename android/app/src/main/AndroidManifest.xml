@@ -1,7 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 词库内容同步需要联网；release 也声明（后台域名上线前为 http，需允许明文） -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="词鹿英语"
         android:name="${applicationName}"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

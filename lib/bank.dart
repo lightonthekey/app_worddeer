@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
+import 'content_sync.dart';
+
 /// 词条。id 直接用英文原形，作为进度表的主键（人类可读、跨端稳定）。
 class Word {
   final String en;
@@ -57,18 +59,60 @@ class WordBank {
 
   bool get ready => words.isNotEmpty;
 
+  /// 词库来源：后台下发的 wordbank.json 优先，读不到（还没同步过 / 文件损坏）
+  /// 就退回内置 assets/words.json —— 保证 App 永远可用。
+  /// 两种容器都认：内置是裸数组，后台包是 {"version":n,"words":[...]}。
   Future<void> load() async {
-    final raw = await rootBundle.loadString('assets/words.json');
-    final list = jsonDecode(raw) as List<dynamic>;
-    words.clear();
-    byEn.clear();
-    byLevel.clear();
+    String raw;
+    try {
+      final f = await ContentSync.I.localFile();
+      if (f != null) {
+        raw = await f.readAsString();
+      } else {
+        raw = await rootBundle.loadString('assets/words.json');
+      }
+    } catch (_) {
+      raw = await rootBundle.loadString('assets/words.json');
+    }
+    applyRaw(raw);
+  }
+
+  /// 解析并整体替换当前词库（load 与后台热更新共用）。
+  /// 解析失败抛异常也没关系：调用方不替换现有词库，App 继续用旧数据。
+  void applyRaw(String raw) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } catch (_) {
+      return; // 格式不对时保持现有词库不动
+    }
+    final List<dynamic> list;
+    if (decoded is List<dynamic>) {
+      list = decoded;
+    } else if (decoded is Map<String, dynamic> && decoded['words'] is List<dynamic>) {
+      list = decoded['words'] as List<dynamic>;
+    } else {
+      return; // 格式不对时保持现有词库不动
+    }
+    final nextWords = <Word>[];
+    final nextByEn = <String, Word>{};
+    final nextByLevel = <int, List<Word>>{};
     for (final r in list) {
       final w = Word.fromJson(r as List<dynamic>);
-      words.add(w);
-      byEn.putIfAbsent(w.en, () => w);
-      byLevel.putIfAbsent(w.lv, () => []).add(w);
+      nextWords.add(w);
+      nextByEn.putIfAbsent(w.en, () => w);
+      nextByLevel.putIfAbsent(w.lv, () => []).add(w);
     }
+    // 全部构建成功后才替换，解析中途抛异常不会留下半份词库
+    words
+      ..clear()
+      ..addAll(nextWords);
+    byEn
+      ..clear()
+      ..addAll(nextByEn);
+    byLevel
+      ..clear()
+      ..addAll(nextByLevel);
   }
 
   List<Word> search(String q, {int limit = 60}) {

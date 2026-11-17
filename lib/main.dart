@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'bank.dart';
+import 'content_sync.dart';
 import 'curriculum.dart';
 import 'pages/dict.dart';
 import 'pages/home.dart';
@@ -15,6 +18,13 @@ void main() async {
   await Progress.I.load();
   await Curriculum.I.load();
   runApp(const EngApp());
+  // 内容检查放后台跑：不阻塞首屏。下载到新版词库后热替换，
+  // 正在进行的对局用的是旧数据，下一局生效。
+  unawaited(ContentSync.I.sync().then((_) async {
+    if (ContentSync.I.updated) {
+      await WordBank.I.load();
+    }
+  }));
 }
 
 class EngApp extends StatelessWidget {
