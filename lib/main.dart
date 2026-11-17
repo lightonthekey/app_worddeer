@@ -6,6 +6,7 @@ import 'auth.dart';
 import 'bank.dart';
 import 'content_sync.dart';
 import 'curriculum.dart';
+import 'entitlement.dart';
 import 'pages/dict.dart';
 import 'pages/home.dart';
 import 'pages/me.dart';
@@ -20,6 +21,7 @@ void main() async {
   await Progress.I.load();
   await Curriculum.I.load();
   await ProgressSync.I.init();
+  await Ent.I.load();
   runApp(const EngApp());
   // 内容检查与会话恢复都放后台跑：不阻塞首屏，失败静默降级。
   // 下载到新版词库后热替换，正在进行的对局用的是旧数据，下一局生效。
@@ -29,9 +31,14 @@ void main() async {
       Curriculum.I.invalidateCache();
     }
   }));
+  // 权益与套餐：游客也要拉（付费墙得能显示价格与锁），失败沿用缓存
+  unawaited(Ent.I.refresh());
   unawaited(Auth.I.restore().then((_) {
-    // 登录态恢复后再同步进度：游客启动时不会白发请求
-    if (Auth.I.loggedIn) ProgressSync.I.onAuthChanged();
+    // 登录态恢复后再同步进度与权益：游客启动时不会白发进度请求
+    if (Auth.I.loggedIn) {
+      ProgressSync.I.onAuthChanged();
+      Ent.I.onAuthChanged();
+    }
   }));
 }
 

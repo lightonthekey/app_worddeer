@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:app_worddeer/bank.dart';
 import 'package:app_worddeer/curriculum.dart';
+import 'package:app_worddeer/entitlement.dart';
 import 'package:app_worddeer/main.dart';
 import 'package:app_worddeer/progress.dart';
 
@@ -14,6 +15,8 @@ void main() {
     await WordBank.I.load();
     await Progress.I.load();
     await Curriculum.I.load();
+    // 权益用内置免费档（后台不可达），保证断言稳定
+    Ent.I.ent = const Entitlement();
   });
 
   testWidgets('App 启动冒烟测试：底部导航与首页可见', (WidgetTester tester) async {
@@ -46,5 +49,22 @@ void main() {
     expect(find.text('ENGLISH'), findsOneWidget);
     expect(find.text('中文'), findsOneWidget);
     expect(find.textContaining('对配对'), findsOneWidget);
+  });
+
+  testWidgets('首页主题区：免费额度按权益显示，锁着的主题点开付费墙', (WidgetTester tester) async {
+    await tester.pumpWidget(const EngApp());
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+
+    await tester.tap(find.text('主题'));
+    await tester.pumpAndSettle();
+
+    // 免费档：每级 1 个主题（后台可改，这里读的是 Ent）
+    expect(find.textContaining('免费开放 1 /'), findsOneWidget);
+
+    // 点「解锁全部」→ 付费墙
+    await tester.ensureVisible(find.text('解锁全部'));
+    await tester.tap(find.text('解锁全部'));
+    await tester.pumpAndSettle();
+    expect(find.text('解锁全部课程'), findsOneWidget);
   });
 }

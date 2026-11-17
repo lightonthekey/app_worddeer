@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../bank.dart';
 import '../curriculum.dart';
+import '../entitlement.dart';
 import '../progress.dart';
 import '../ui.dart';
 import 'match.dart';
+import 'paywall.dart';
 import 'session.dart';
 
 /// 首页：学习信息（级别 / 今日目标 / 进度卡）+ 三种模式（关卡 / 主题 / 自由）
@@ -116,10 +118,15 @@ class _HomePageState extends State<HomePage> {
       final on = l.id == c.curLv;
       final dn = c.passedCount(l.id);
       final pct = dn / Curriculum.unitsPerLevel;
+      final locked = !Ent.I.canLevel(l.id);
 
       items.add(Expanded(
         child: GestureDetector(
           onTap: () {
+            if (locked) {
+              showPaywall(context, reason: '解锁 ${l.id} 级别全部内容');
+              return;
+            }
             setState(() => c.curLv = l.id);
             c.save();
           },
@@ -142,12 +149,27 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(l.id,
-                    style: TextStyle(
-                        fontSize: 12,
-                        height: 1.35,
-                        fontWeight: FontWeight.w700,
-                        color: on ? Colors.white : const Color(0xFF5B5772))),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l.id,
+                        style: TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            fontWeight: FontWeight.w700,
+                            color: on
+                                ? Colors.white
+                                : (locked
+                                    ? const Color(0xFFB0ACC4)
+                                    : const Color(0xFF5B5772)))),
+                    if (locked) ...[
+                      const SizedBox(width: 2),
+                      Icon(Icons.lock_rounded,
+                          size: 9,
+                          color: on ? Colors.white70 : const Color(0xFFB0ACC4)),
+                    ],
+                  ],
+                ),
                 Text(l.name,
                     style: TextStyle(
                         fontSize: 9,
@@ -270,6 +292,25 @@ class _HomePageState extends State<HomePage> {
     final u = units[idx];
     final done = c.partOf(lv, u.id);
     final allDone = c.passedCount(lv) == units.length;
+
+    // 免费额度里的关卡全部通关后，主卡片直接变成开通引导（而不是卡在第 3 关反复点）
+    if (c.lockedByPlan(lv, idx)) {
+      return [
+        _heroCard(
+          eyebrow: Ent.I.canLevel(lv) ? '免费额度已学完' : '$lv 需要会员',
+          title: '解锁 $lv 后续关卡',
+          sub: '会员可学完全部 ${Curriculum.unitsPerLevel} 关 · '
+              '${c.curThemes.length} 个主题',
+          done: 0,
+          total: 1,
+          onTap: () => showPaywall(context, reason: '解锁 $lv 后续关卡'),
+        ),
+        const SizedBox(height: 12),
+        _tree(c, units),
+        const SizedBox(height: 12),
+        _duoStats(),
+      ];
+    }
 
     return [
       _heroCard(
@@ -427,6 +468,7 @@ class _HomePageState extends State<HomePage> {
     final u = units[i];
     final done = c.isPassed(lv, u.id);
     final open = c.isOpen(lv, i);
+    final byPlan = c.lockedByPlan(lv, i);
     final cur = open && !done;
 
     final Color bg;
@@ -454,17 +496,25 @@ class _HomePageState extends State<HomePage> {
                     fontSize: 15, fontWeight: FontWeight.w700, color: fg))
             : Icon(Icons.lock_rounded, size: 17, color: fg));
 
-    final sub = u.review
-        ? '复习前 5 关 · ${u.total} 词'
-        : '学习关 · ${u.total} 词 · 约 ${_mins(u.total)} 分钟';
+    final sub = byPlan
+        ? '会员解锁 · ${u.total} 词'
+        : (u.review
+            ? '复习前 5 关 · ${u.total} 词'
+            : '学习关 · ${u.total} 词 · 约 ${_mins(u.total)} 分钟');
 
     return Opacity(
       opacity: open ? 1 : .55,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => open
-            ? _openLevel(i)
-            : _toast('完成 ${units[i - 1].id} 后解锁 ${u.id}'),
+        onTap: () {
+          if (byPlan) {
+            showPaywall(context, reason: '解锁 $lv 的 ${u.id} 及后续关卡');
+          } else if (!open) {
+            _toast('完成 ${units[i - 1].id} 后解锁 ${u.id}');
+          } else {
+            _openLevel(i);
+          }
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 5),
           child: Row(
@@ -589,12 +639,16 @@ class _HomePageState extends State<HomePage> {
         children: [
           Expanded(
             child: Text(
-              '${c.curLv} · 免费开放 1 / ${c.curThemes.length} 个主题',
+              Ent.I.vip
+                  ? '${c.curLv} · ${c.curThemes.length} 个主题全部解锁'
+                  : '${c.curLv} · 免费开放 '
+                      '${Ent.I.ent.limits.themesPerLevel} / ${c.curThemes.length} 个主题',
               style: const TextStyle(fontSize: 10.5, color: kMuted),
             ),
           ),
+          if (!Ent.I.vip)
           GestureDetector(
-            onTap: () => _toast('会员可解锁全部 ${c.curThemes.length} 个主题'),
+            onTap: () => showPaywall(context, reason: '解锁全部 ${c.curThemes.length} 个主题'),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
@@ -634,7 +688,9 @@ class _HomePageState extends State<HomePage> {
     final total = c.themeWords(i).length;
 
     return GestureDetector(
-      onTap: () => unlocked ? _openTheme(i) : _toast('「${t.name}」需要会员解锁'),
+      onTap: () => unlocked
+          ? _openTheme(i)
+          : showPaywall(context, reason: '解锁「${t.name}」及全部主题'),
       child: Container(
         padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
         decoration: BoxDecoration(
@@ -661,8 +717,8 @@ class _HomePageState extends State<HomePage> {
                       color: kGreen50,
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: const Text('免费',
-                        style: TextStyle(
+                    child: Text(Ent.I.vip ? '已解锁' : '免费',
+                        style: const TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
                             color: kGreen)),
@@ -828,6 +884,10 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _openFree() async {
     final c = Curriculum.I;
+    if (!Ent.I.canLevel(c.curLv)) {
+      await showPaywall(context, reason: '解锁 ${c.curLv} 的自由练习');
+      return;
+    }
     final info =
         kLevels.firstWhere((l) => l.id == c.curLv, orElse: () => kLevels[0]);
     final pool =

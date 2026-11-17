@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../audio.dart';
 import '../auth.dart';
+import '../entitlement.dart';
 import '../progress.dart';
 import '../progress_sync.dart';
 import '../ui.dart';
 import 'login.dart';
+import 'paywall.dart';
 
 class MePage extends StatefulWidget {
   const MePage({super.key});
@@ -27,6 +29,9 @@ class _MePageState extends State<MePage> {
                   fontSize: 21, fontWeight: FontWeight.w700, color: kInk)),
           const SizedBox(height: 18),
           _accountCard(),
+          const SizedBox(height: 12),
+          _memberBanner(),
+          const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(vertical: 22),
             decoration: BoxDecoration(
@@ -58,9 +63,9 @@ class _MePageState extends State<MePage> {
               children: [
                 _slider(
                   label: '每天新词',
-                  value: p.newPerDay,
+                  value: p.newPerDay.clamp(5, Ent.I.ent.limits.newPerDayMax),
                   min: 5,
-                  max: 40,
+                  max: Ent.I.ent.limits.newPerDayMax,
                   step: 5,
                   onChanged: (v) => setState(() => p.newPerDay = v),
                   onEnd: () {
@@ -71,9 +76,9 @@ class _MePageState extends State<MePage> {
                 const Divider(height: 1, color: kLine),
                 _slider(
                   label: '每次复习上限',
-                  value: p.reviewPerDay,
+                  value: p.reviewPerDay.clamp(10, Ent.I.ent.limits.reviewPerDayMax),
                   min: 10,
-                  max: 100,
+                  max: Ent.I.ent.limits.reviewPerDayMax,
                   step: 10,
                   onChanged: (v) => setState(() => p.reviewPerDay = v),
                   onEnd: () {
@@ -158,9 +163,35 @@ class _MePageState extends State<MePage> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(u.nickname,
-                          style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w700, color: kInk)),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(u.nickname,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: kInk)),
+                          ),
+                          if (Ent.I.vip) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: kAmber50,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(Ent.I.ent.tierName,
+                                  style: const TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: kAmber)),
+                            ),
+                          ],
+                        ],
+                      ),
                       const SizedBox(height: 2),
                       Row(
                         children: [
@@ -184,6 +215,74 @@ class _MePageState extends State<MePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 会员横幅：免费版是开通入口，会员是有效期说明。价格与权益全部来自后台。
+  Widget _memberBanner() {
+    final ent = Ent.I.ent;
+    final gold = ent.vip;
+    return GestureDetector(
+      onTap: () => showPaywall(context),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 13, 14, 13),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: gold
+                ? const [Color(0xFFFFF6E2), Color(0xFFFFEFD0)]
+                : const [Color(0xFF6D5AE0), Color(0xFF4A41C4)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.workspace_premium_rounded,
+                size: 22, color: gold ? kAmber : const Color(0xFFF7D488)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ent.vip ? ent.tierName : '开通会员',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: gold ? kInk : Colors.white),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    ent.vip
+                        ? (ent.expireAt.isEmpty
+                            ? '永久有效 · 全部内容已开放'
+                            : '有效期至 ${ent.expireAt}')
+                        : '5 个级别 · 60 个主题 · 全部关卡',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: gold ? kMuted : Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+              decoration: BoxDecoration(
+                color: gold ? Colors.white : const Color(0x33FFFFFF),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                ent.vip ? '查看权益' : '了解详情',
+                style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: gold ? kAmber : Colors.white),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -249,6 +348,7 @@ class _MePageState extends State<MePage> {
               final nav = Navigator.of(context);
               await Auth.I.logout();
               ProgressSync.I.onAuthChanged();
+              Ent.I.onAuthChanged();
               if (mounted) setState(() {});
               nav.pop();
             },

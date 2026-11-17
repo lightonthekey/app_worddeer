@@ -16,17 +16,34 @@ app_worddeer/
 │  ├─ bank.dart       词库加载（assets/words.json + words.db）
 │  ├─ progress.dart   SRS 间隔重复（7 档，10 分钟→30 天，box≥5 掌握）
 │  ├─ curriculum.dart 课程进度（级别/12 关/12 主题/今日目标，独立持久化）
+│  ├─ backend.dart    后台地址单点 + 统一 JSON 请求（{code,message,data}）
+│  ├─ auth.dart       账号（登录/注册/会话恢复/登出）
+│  ├─ content_sync.dart 词库内容包同步（改词不发版）
+│  ├─ progress_sync.dart 学习进度云同步（本地优先 + 异步增量）
+│  ├─ entitlement.dart 会员权益（付费墙唯一数据源）
 │  ├─ audio.dart      发音（默认 https://tooldeer.com，--dart-define=AUDIO_BASE 可覆盖）
 │  ├─ confetti.dart   配对成功的纸屑粒子（Canvas + Ticker，固定 1/60 步长）
 │  ├─ ui.dart         主题/配色
 │  ├─ preview.dart    无需首页直达各玩法（--dart-define 或路由 ?q=flash|choice|spell|listen）
 │  ├─ match_probe.dart 配对棋盘截图入口（跑自动演示并导出帧，仅开发用）
-│  └─ pages/          home / match（5对5配对棋盘）/ session / review / dict / me
+│  └─ pages/          home / match（5对5配对棋盘）/ session / review / dict / me / login / paywall
 ├─ windows/           桌面预览工程（430x900 手机比例窗口，仅用于快速看 UI）
 ├─ assets/            words.json（7201 词）、words.db（SQLite 索引）
 ├─ tools/asset_build/ 词库再生成脚本（build_db.py + TSV 源）
 └─ test/              冒烟测试 + 配对游戏回归（变绿停留 / 只 2 张红 / 整局到结算 / 补位换位）
 ```
+
+## 会员与付费墙（第 4 项）
+
+**App 里没有任何 `if (vip)` 的业务判断**，也没有硬编码"免费几关/几个主题"。
+锁不锁只问 `Ent`：`canLevel(lv)` / `canUnit(index)` / `canTheme(index)`，
+答案来自后台 `GET /api/v1/worddeer/entitlement` 的 `limits`（后台「会员套餐」页可改，不发版）。
+
+- 拉取时机：启动、登录/登出、打开付费墙前；失败沿用上次缓存
+- 离线兜底：没有缓存用内置保守免费档（A1/A2、每级 2 关、每级 1 个主题）
+- 缓存里记着到期时间的，本地判定已过期立即按免费算，不等服务器
+- 免费额度学完后，首页主卡片变成开通引导，而不是卡在第 3 关反复点
+- `pages/paywall.dart`：套餐对比 + 权益列表 + 开通/恢复购买占位；**第 5 项**接 IAP 时只改 `_buy`
 
 ## 已移植：5 对 5 配对棋盘（`lib/pages/match.dart`）
 

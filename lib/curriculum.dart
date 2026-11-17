@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'bank.dart';
+import 'entitlement.dart';
 
 /// 一个 CEFR 级别（A1..C1）
 class LvInfo {
@@ -142,8 +143,7 @@ class Curriculum {
   /// 每级别关卡数（第 6、12 关为复习关）
   static const int unitsPerLevel = 12;
 
-  /// 免费开放的关卡数（后续会员逻辑用）
-  static const int freeUnits = 1;
+  // 免费开放几关、几个主题由后台权益决定（Ent），这里不再写死
 
   static const int dailyGoal = 50;
 
@@ -304,11 +304,16 @@ class Curriculum {
         : (part[_key(lv, unitId)] ?? 0).clamp(0, u.total);
   }
 
-  /// 关卡是否已解锁（第一关永远开，其余要求上一关通关）
+  /// 关卡是否可以进：先看会员额度（级别 + 第几关），再看是否通关了上一关
   bool isOpen(String lv, int index) {
+    if (!Ent.I.canLevel(lv) || !Ent.I.canUnit(index)) return false;
     if (index <= 0) return true;
     return isPassed(lv, unitsOf(lv)[index - 1].id);
   }
+
+  /// 是否只是"会员额度不够"锁住的（区别于进度没到）
+  bool lockedByPlan(String lv, int index) =>
+      !Ent.I.canLevel(lv) || !Ent.I.canUnit(index);
 
   int passedCount(String lv) =>
       unitsOf(lv).where((u) => isPassed(lv, u.id)).length;
@@ -360,7 +365,7 @@ class Curriculum {
 
   String themeKey(int i) => '$curLv:t$i';
 
-  bool themeUnlocked(int i) => i == 0; // 每个级别默认只开第一个
+  bool themeUnlocked(int i) => Ent.I.canTheme(i);
 
   /// 某主题在某级别下的词：该级别优先，不够再往下补
   List<Word> themeWords(int i, {int limit = perUnit}) {
