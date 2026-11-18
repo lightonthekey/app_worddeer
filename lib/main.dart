@@ -84,14 +84,19 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> with WidgetsBindingObserver {
   int _idx = 0;
 
-  static const _pages = [HomePage(), ReviewPage(), DictPage(), MePage()];
+  /// 首页下拉面板里的「去复习」要能切到复习 tab，所以把切换入口传进去
+  late final List<Widget> _pages = [
+    HomePage(onNavigate: (i) => setState(() => _idx = i)),
+    const ReviewPage(),
+    const DictPage(),
+    const MePage(),
+  ];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
   }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);

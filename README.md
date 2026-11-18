@@ -15,7 +15,7 @@ app_worddeer/
 │  ├─ main.dart       入口，4 tab 壳（学习/复习/词典/我的）
 │  ├─ bank.dart       词库加载（assets/words.json + words.db）
 │  ├─ progress.dart   SRS 间隔重复（7 档，10 分钟→30 天，box≥5 掌握）
-│  ├─ curriculum.dart 课程进度（级别/12 关/12 主题/今日目标，独立持久化）
+│  ├─ curriculum.dart 课程进度（级别 / 每关 20 词 / 每 5 关复习 / 主题 / 今日目标）
 │  ├─ backend.dart    后台地址单点 + 统一 JSON 请求（{code,message,data}）
 │  ├─ auth.dart       账号（登录/注册/会话恢复/登出）
 │  ├─ content_sync.dart 词库内容包同步（改词不发版）
@@ -27,7 +27,7 @@ app_worddeer/
 │  ├─ ui.dart         主题/配色
 │  ├─ preview.dart    无需首页直达各玩法（--dart-define 或路由 ?q=flash|choice|spell|listen）
 │  ├─ match_probe.dart 配对棋盘截图入口（跑自动演示并导出帧，仅开发用）
-│  └─ pages/          home / match（配对棋盘 v2 + 巩固台）/ session / review / dict / me / login / paywall
+│  └─ pages/          home / match（配对棋盘 v2 + 巩固台）/ session / review / dict / me / login / paywall / checkin
 ├─ windows/           桌面预览工程（430x900 手机比例窗口，仅用于快速看 UI）
 ├─ assets/            words.json（7201 词）、words.db（SQLite 索引）
 ├─ tools/asset_build/ 词库再生成脚本（build_db.py + TSV 源）
@@ -56,6 +56,37 @@ app_worddeer/
 - 缓存里记着到期时间的，本地判定已过期立即按免费算，不等服务器
 - 免费额度学完后，首页主卡片变成开通引导，而不是卡在第 3 关反复点
 - `pages/paywall.dart`：套餐对比 + 权益列表 + 开通/恢复购买占位；**第 5 项**接 IAP 时只改 `_buy`
+
+## 已移植：首页 / 主题 / 打卡（对照 `design/home-pick.html`）
+
+原稿：`design/home-v3-terrace.html`（首页台地地图）、`theme-v2-ladder.html`（主题阶梯）、
+`checkin.html`（连胜日历）。
+
+**首页**（`lib/pages/home.dart`）
+- 三种模式共用顶栏：左上角级别胶囊 → **从顶栏下方滑出**的下拉面板（级别 / 本级别进度 /
+  今日目标 / 已掌握·待复习·易错 / 换主题·去复习·打卡）；右上角火焰直连打卡页。
+- 关卡沿一条正弦曲线向下（一个周期 5 关，幅度 ±68 且随屏宽收窄），
+  每 5 个学习关 + 1 个复习关裹进一块交替色带（台地），色块本身就是进度条。
+- 走过的段画实线、没走的画圆点虚线；当前关带柔光圈 + 🚩 + 侧面的「继续 · U9」标签。
+- 打开首页自动滚到当前关（`_autoScrolled` 记已滚过的目标，重建不会把人拽回去）。
+- 当前关的标签放在**节点侧面**而不是正下方：正下方会和下一关撞在一起（下一关常往那侧偏）。
+
+**关卡表**（`lib/curriculum.dart`）
+- `perUnit = 20`，`learnPerReview = 5`；关数**按词库算**（`ceil(词数/20)` 个学习关，
+  每 5 个之后插一关复习，复习关 = 这 5 关的 100 词）。A1 现在是 53 + 10 = 63 关。
+- 界面上的「x / y 关」「已学 x / y 词」全部走 `unitCountOf()` / `wordCountOf()`，不再有 12。
+
+**主题**（同一文件 `_themeBody`）
+- 卡牌左右交错（奇数张缩进 46）+ 卡间直角折线（`_LadderPainter`，几何确定，不依赖布局回调）。
+- 每张卡带 44dp 主题图标；四种状态：已学完 / 当前（紫卡 + 卡内进度条）/ 未开始 / 会员金锁。
+- 底部常驻「继续 · 主题名」，指向第一个没学完的主题。
+
+**打卡**（`lib/pages/checkin.dart` + `lib/checkin.dart`）
+- 数据源是 `Progress.days`（`Set<String>` 按天存），不再用计数器：
+  跨天/改系统时间都不会漂移，而且画得出历史。日历与「最长连胜」都从这一份算。
+- 学完任意一关就算打卡：`Curriculum.addToday()` → `Progress.markCheckin()`。
+- 算法（`MonthGrid` / `runsIn` / `longestRun` / `countInWeek`）单独放 `lib/checkin.dart`，
+  不依赖 Flutter，`test/checkin_test.dart` 直接测，不用起整棵树。
 
 ## 已移植：配对棋盘 v2（`lib/pages/match.dart`）
 
@@ -192,7 +223,7 @@ Android Studio 里想用绿色 ▶ 运行，需要先装 Flutter 插件：
   `storeFile` / `storePassword` / `keyAlias` / `keyPassword`），
   `app/build.gradle.kts` 会自动启用 `release` 签名；没有该文件时 release 包
   退回 debug 签名并在构建日志里警告 —— 这种包不能上架。
-- 设计原型中已定稿的规则（每关 50 词、4 对 4、错词回流、每 5 关复习、主题每级只开第一个…）见 `design/README.md`
+- 设计原型中已定稿的规则（每关 20 词、4 对 4、错词回流、每 5 关复习、主题每级只开第一个…）见 `design/README.md`
 
 ## 健壮性约定（改动时别破坏）
 
@@ -204,5 +235,8 @@ Android Studio 里想用绿色 ▶ 运行，需要先装 Flutter 插件：
 | `auth.dart` `UserInfo` | 昵称是选填的，界面一律用 `displayName` / `initial`，不要直接 `.characters.first` |
 | `progress_sync.dart` | 同步收尾只清「本轮确实推成功」的脏标记（按 `last` 快照比对），同步期间的新进度必须留下 |
 | `curriculum.dart` | debug 演示数据只留内存（`_demo`），用户真开始学时要 `_endDemo()` 清掉并落盘 |
+| `curriculum.dart` `unitsOf` | 关数按词库算，别写死；复习关取「最近 5 个学习关」，且整个级别学完不再补复习关 |
+| `progress.dart` `days` | 打卡按天存 `Set`，别改回计数器（跨天/改时间会漂移，且画不出日历） |
+| `entitlement.dart` `canUnit` | 会员直接放行：后台 `units_per_level` 还是「每级 12 关」时代的旧值，会把人挡在 U13 |
 | 界面文案 | 词数 / 主题数 / 版本号一律从 `bankSummary()` / `themeCount()` / `kAppVersion` 取，不写死 |
 

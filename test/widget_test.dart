@@ -42,10 +42,11 @@ void main() {
     await tester.pumpWidget(const EngApp());
     await tester.pumpAndSettle(const Duration(seconds: 2));
 
-    final row = find.textContaining('学习关 ·').first;
-    await tester.ensureVisible(row);
+    // 当前关旁边挂着「继续 · U3」标签，点它进关
+    final label = find.textContaining('继续 · U');
+    await tester.ensureVisible(label);
     await tester.pumpAndSettle();
-    await tester.tap(row);
+    await tester.tap(label);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 800));
 
@@ -62,11 +63,10 @@ void main() {
     await tester.tap(find.text('主题'));
     await tester.pumpAndSettle();
 
-    // 免费档第一个主题已解锁，点主卡片进入游戏
-    final hero = find.textContaining('继续学习');
-    await tester.ensureVisible(hero);
-    await tester.pumpAndSettle();
-    await tester.tap(hero);
+    // 阶梯底部的「继续 · 主题名」常驻按钮
+    final cta = find.textContaining('继续 ·');
+    expect(cta, findsOneWidget);
+    await tester.tap(cta);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 800));
 
@@ -141,7 +141,7 @@ void main() {
     expect(find.text('这个级别还没有主题'), findsOneWidget);
   });
 
-  testWidgets('主题英雄卡跟着「第一个没学完的主题」走，不再写死第 0 个', (WidgetTester tester) async {
+  testWidgets('主题阶梯当前的卡跟着「第一个没学完的主题」走，不再写死第 0 个', (WidgetTester tester) async {
     final savedLv = Curriculum.I.curLv;
     final savedThemes = Map<String, int>.from(Curriculum.I.themes);
     Curriculum.I.curLv = 'A1';
@@ -166,11 +166,10 @@ void main() {
     await tester.tap(find.text('主题'));
     await tester.pumpAndSettle();
 
-    // 英雄卡显示第 2 个主题 → 屏上出现两次（英雄卡 + 下面网格卡）；
-    // 已学完的第 1 个只剩网格里那一次
-    expect(find.text(all[1].name), findsNWidgets(2),
-        reason: '英雄卡应切到第一个没学完的主题');
-    expect(find.text(all[0].name), findsOneWidget,
-        reason: '已学完的主题不该再占英雄卡');
+    // 底部常驻按钮指向「第一个没学完的主题」，已学完的那个不再占位
+    expect(find.textContaining('继续 · ${all[1].name}'), findsOneWidget,
+        reason: '当前主题应切到第一个没学完的');
+    expect(find.textContaining('继续 · ${all[0].name}'), findsNothing,
+        reason: '已学完的主题不该再占当前位');
   });
 }

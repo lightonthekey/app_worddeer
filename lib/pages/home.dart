@@ -7,21 +7,54 @@ import '../curriculum.dart';
 import '../entitlement.dart';
 import '../progress.dart';
 import '../ui.dart';
+import 'checkin.dart';
 import 'match.dart';
 import 'paywall.dart';
 import 'session.dart';
 
-/// 首页：学习信息（级别 / 今日目标 / 进度卡）+ 三种模式（关卡 / 主题 / 自由）
+/// 首页：关卡路径（台地 + S 线）/ 主题阶梯 / 自由练习。
+///
+/// 三种模式共用一条顶栏：左上角级别胶囊点开是**从顶部滑下**的面板
+/// （级别 / 进度 / 今日 / 统计 / 快捷），比原来的底部半屏信息更全。
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.onNavigate});
+
+  /// 切换底部导航（0 学习 / 1 复习 / 2 词典 / 3 我的）。
+  /// 下拉面板里的「去复习」要用它，而不是自己 push 一个没有 Scaffold 的页面。
+  final ValueChanged<int>? onNavigate;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage>
+    with SingleTickerProviderStateMixin {
   /// 0=关卡 1=主题 2=自由
   int _mode = 0;
+
+  bool _dropOpen = false;
+  late final AnimationController _dropCtl;
+  final _pathScroll = ScrollController();
+
+  /// 已经自动滚到过哪个节点的标记（'A1:2'），避免每帧重建都把用户拽回去
+  String? _autoScrolled;
+
+  @override
+  void initState() {
+    super.initState();
+    _dropCtl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+      reverseDuration: const Duration(milliseconds: 240),
+    );
+  }
+
+  @override
+  void dispose() {
+    _dropCtl.dispose();
+    _pathScroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,604 +66,499 @@ class _HomePageState extends State<HomePage> {
 
   Widget _build(BuildContext context) {
     final c = Curriculum.I;
-    final lv = c.curLv;
-    final units = c.unitsOf(lv);
-
     return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+      child: Stack(
         children: [
-          _header(c, units.length),
-          const SizedBox(height: 14),
-          _levels(c),
-          const SizedBox(height: 12),
-          _goal(c),
-          const SizedBox(height: 12),
-          _modeBar(units.length),
-          const SizedBox(height: 10),
-          if (_mode == 0) ..._levelPanel(c, units),
-          if (_mode == 1) ..._themePanel(c),
-          if (_mode == 2) ..._freePanel(c),
+          Column(
+            children: [
+              _header(c),
+              _tabs(c),
+              Expanded(
+                child: switch (_mode) {
+                  1 => _themeBody(c),
+                  2 => _freeBody(c),
+                  _ => _pathBody(c),
+                },
+              ),
+            ],
+          ),
+          _dropLayer(c),
         ],
       ),
     );
   }
 
-  // ------------------------------------------------------------ 学习信息
+  // ------------------------------------------------------------ 顶栏
 
-  Widget _header(Curriculum c, int unitCount) {
-    final passed = c.passedCount(c.curLv);
-    final learned = _learnedWords(c, c.curLv);
-    final lvName =
-        kLevels.firstWhere((l) => l.id == c.curLv, orElse: () => kLevels[0]).name;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${greet()} 👋',
-                  style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: kInk,
-                      letterSpacing: .2)),
-              const SizedBox(height: 3),
-              Text(
-                '${c.curLv} $lvName · 已通关 $passed / $unitCount 关 · 已学 $learned 词',
-                style: const TextStyle(fontSize: 11.5, color: kMuted),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-          decoration: BoxDecoration(
-            color: kAmber50,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.local_fire_department_rounded,
-                  size: 15, color: kFlame),
-              const SizedBox(width: 3),
-              Text('${Progress.I.streak} 天',
-                  style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: kFlame)),
-            ],
-          ),
-        ),
-      ],
+  Widget _header(Curriculum c) {
+    final lv = kLevels.firstWhere((l) => l.id == c.curLv,
+        orElse: () => kLevels.first);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: Row(
+        children: [
+          _levelPill(lv),
+          const Spacer(),
+          _streakChip(),
+        ],
+      ),
     );
   }
 
-  Widget _levels(Curriculum c) {
-    final items = <Widget>[];
-    for (var i = 0; i < kLevels.length; i++) {
-      if (i > 0) items.add(const SizedBox(width: 6));
-      final l = kLevels[i];
-      final on = l.id == c.curLv;
-      final dn = c.passedCount(l.id);
-      // 分母用「当前权益能打的关数」，不是固定的 12 关：
-      // 免费用户只有前 2 关，按 12 算永远卡在 17%，看着像一直没开始。
-      final open = [
-        for (var k = 0; k < Curriculum.unitsPerLevel; k++)
-          if (Ent.I.canLevel(l.id) && Ent.I.canUnit(k)) k,
-      ].length;
-      final pct = open == 0 ? 0.0 : (dn / open).clamp(0.0, 1.0);
-      final locked = !Ent.I.canLevel(l.id);
-
-      items.add(Expanded(
-        child: GestureDetector(
-          onTap: () {
-            if (locked) {
-              showPaywall(context, reason: '解锁 ${l.id} 级别全部内容');
-              return;
-            }
-            setState(() => c.curLv = l.id);
-            c.save();
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            padding: const EdgeInsets.fromLTRB(0, 7, 0, 7),
-            decoration: BoxDecoration(
-              color: on ? kPrimary : Colors.white,
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: on ? kPrimary : kLine, width: 1.5),
-              boxShadow: on
-                  ? const [
-                      BoxShadow(
-                          color: Color(0x425A50E0),
-                          blurRadius: 14,
-                          offset: Offset(0, 6))
-                    ]
-                  : null,
+  Widget _levelPill(LvInfo lv) {
+    return GestureDetector(
+      onTap: _toggleDrop,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(7, 6, 12, 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .9),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.white),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x3D4A41C4),
+                blurRadius: 14,
+                offset: Offset(0, 4)),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 26,
+              height: 26,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [kHeroA, kHeroB],
+                ),
+              ),
+              child: Text(lv.id,
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white)),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            const SizedBox(width: 7),
+            Text(lv.name,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF2B2740))),
+            const SizedBox(width: 4),
+            AnimatedRotation(
+              turns: _dropOpen ? .5 : 0,
+              duration: const Duration(milliseconds: 250),
+              child: const Icon(Icons.expand_more_rounded,
+                  size: 18, color: Color(0xFFA9A5BC)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _streakChip() {
+    return GestureDetector(
+      onTap: _openCheckin,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .86),
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x334A41C4),
+                blurRadius: 14,
+                offset: Offset(0, 4)),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.local_fire_department_rounded,
+                size: 15, color: kFlame),
+            const SizedBox(width: 3),
+            Text('${Progress.I.streak} 天',
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: kFlame)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tabs(Curriculum c) {
+    const labels = ['关卡', '主题', '自由'];
+    final hint = switch (_mode) {
+      1 => '${c.curThemes.length} 个主题',
+      2 => '随机 ${Curriculum.perUnit} 词',
+      _ => '${_learnedWords(c, c.curLv)} / ${c.wordCountOf(c.curLv)} 词',
+    };
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < labels.length; i++) ...[
+            if (i > 0) const SizedBox(width: 18),
+            _tab(labels[i], i),
+          ],
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 11),
+            child: Text(hint,
+                style: const TextStyle(fontSize: 10.5, color: kMuted)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tab(String label, int i) {
+    final on = _mode == i;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _mode = i),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 9),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: on ? FontWeight.w800 : FontWeight.w600,
+                    color: on ? kInk : const Color(0xFFA6A2B8))),
+            const SizedBox(height: 6),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: on ? 18 : 0,
+              height: 3,
+              decoration: BoxDecoration(
+                color: kPrimary,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------ 关卡路径
+
+  Widget _pathBody(Curriculum c) {
+    final lv = c.curLv;
+    final units = c.unitsOf(lv);
+    if (units.isEmpty) {
+      return _emptyState('这个级别还没有词', '联网同步一次词库，或换一个级别看看');
+    }
+    final idx = c.currentIndex(lv);
+
+    return LayoutBuilder(
+      builder: (context, cons) {
+        final geo = _PathGeo(width: cons.maxWidth, count: units.length);
+        _scheduleAutoScroll(lv, idx, geo.y(idx));
+
+        return SingleChildScrollView(
+          controller: _pathScroll,
+          padding: const EdgeInsets.only(bottom: 12),
+          child: SizedBox(
+            height: geo.height,
+            child: Stack(
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(l.id,
-                        style: TextStyle(
-                            fontSize: 12,
-                            height: 1.35,
-                            fontWeight: FontWeight.w700,
-                            color: on
-                                ? Colors.white
-                                : (locked
-                                    ? const Color(0xFFB0ACC4)
-                                    : const Color(0xFF5B5772)))),
-                    if (locked) ...[
-                      const SizedBox(width: 2),
-                      Icon(Icons.lock_rounded,
-                          size: 9,
-                          color: on ? Colors.white70 : const Color(0xFFB0ACC4)),
-                    ],
-                  ],
-                ),
-                Text(l.name,
-                    style: TextStyle(
-                        fontSize: 9,
-                        height: 1.4,
-                        color: on ? Colors.white70 : kMuted)),
-                const SizedBox(height: 5),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(9),
-                    child: LinearProgressIndicator(
-                      value: pct <= 0 ? 0.04 : pct,
-                      minHeight: 3,
-                      backgroundColor: on
-                          ? Colors.white.withValues(alpha: .32)
-                          : const Color(0xFFEDEBF7),
-                      valueColor:
-                          AlwaysStoppedAnimation(on ? Colors.white : kPrimary),
-                    ),
-                  ),
-                ),
+                for (var s = 0;
+                    s * _PathGeo.perBand < units.length;
+                    s++)
+                  _band(geo, units, s),
+                Positioned.fill(
+                    child: CustomPaint(painter: _PathPainter(geo, idx))),
+                for (var i = 0; i < units.length; i++)
+                  ..._node(c, geo, units, i, idx),
               ],
             ),
           ),
-        ),
-      ));
-    }
-    return Row(children: items);
-  }
-
-  Widget _goal(Curriculum c) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kLine),
-      ),
-      child: Row(
-        children: [
-          Text.rich(
-            TextSpan(children: [
-              const TextSpan(text: '今日 '),
-              TextSpan(
-                  text: '${c.todayWords}/${Curriculum.dailyGoal}',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, color: kInk)),
-              const TextSpan(text: ' 词'),
-            ]),
-            style: const TextStyle(fontSize: 11, color: kMuted),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(99),
-              child: LinearProgressIndicator(
-                value: c.todayRatio,
-                minHeight: 6,
-                backgroundColor: kPrimary50,
-                valueColor: const AlwaysStoppedAnimation(kPrimary),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            c.todayLeft > 0 ? '还差 ${c.todayLeft} 词' : '今日达标 🎉',
-            style: const TextStyle(fontSize: 10.5, color: kMuted),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _modeBar(int unitCount) {
-    const labels = ['关卡', '主题', '自由'];
-    final hint = [
-      'U1–U$unitCount',
-      '${Curriculum.I.curThemes.length} 个主题',
-      '随机 ${Curriculum.perUnit} 词',
-    ][_mode];
-
-    return Row(
-      children: [
-        for (var i = 0; i < labels.length; i++) ...[
-          if (i > 0) const SizedBox(width: 6),
-          _modePill(labels[i], i),
-        ],
-        const Spacer(),
-        Text(hint, style: const TextStyle(fontSize: 10.5, color: kMuted)),
-      ],
-    );
-  }
-
-  Widget _modePill(String label, int i) {
-    final on = _mode == i;
-    return GestureDetector(
-      onTap: () => setState(() => _mode = i),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        decoration: BoxDecoration(
-          color: on ? kPrimary50 : Colors.white,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: on ? const Color(0xFFC9C5F5) : kLine),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: on ? kPrimaryDeep : const Color(0xFF6F6B85))),
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------ 关卡模式
-
-  List<Widget> _levelPanel(Curriculum c, List<Unit> units) {
-    final lv = c.curLv;
-    final idx = c.currentIndex(lv);
-    final u = units[idx];
-    final done = c.partOf(lv, u.id);
-    final allDone = c.passedCount(lv) == units.length;
-
-    // 免费额度里的关卡全部通关后，主卡片直接变成开通引导（而不是卡在第 3 关反复点）
-    if (c.lockedByPlan(lv, idx)) {
-      return [
-        _heroCard(
-          eyebrow: Ent.I.canLevel(lv) ? '免费额度已学完' : '$lv 需要会员',
-          title: '解锁 $lv 后续关卡',
-          sub: '会员可学完全部 ${Curriculum.unitsPerLevel} 关 · '
-              '${c.curThemes.length} 个主题',
-          done: 0,
-          total: 1,
-          onTap: () => showPaywall(context, reason: '解锁 $lv 后续关卡'),
-        ),
-        const SizedBox(height: 12),
-        _tree(c, units),
-        const SizedBox(height: 12),
-        _duoStats(),
-      ];
-    }
-
-    return [
-      _heroCard(
-        eyebrow: allDone ? '本级别全部通关' : '继续学习 · $lv 第 ${idx + 1} 关',
-        title: allDone ? '${u.id} 已完成 🎉' : u.title,
-        sub: allDone
-            ? '已通关 ${units.length} / ${units.length} 关 · 点这里重刷最后一关'
-            : '${u.total} 词 · 已学 $done 词 · 剩 ${u.total - done} 词',
-        done: done,
-        total: u.total,
-        onTap: () => _openLevel(idx),
-      ),
-      const SizedBox(height: 12),
-      _tree(c, units),
-      const SizedBox(height: 12),
-      _duoStats(),
-    ];
-  }
-
-  Widget _heroCard({
-    required String eyebrow,
-    required String title,
-    required String sub,
-    required int done,
-    required int total,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
+  /// 台地色块：每 5 个学习关 + 1 个复习关裹成一块，色块本身就是进度条
+  Widget _band(_PathGeo geo, List<Unit> units, int s) {
+    final from = s * _PathGeo.perBand;
+    final to = min(from + _PathGeo.perBand - 1, units.length - 1);
+    final top = geo.y(from) - 62;
+    final bottom = geo.y(to) + 70;
+    return Positioned(
+      left: 12,
+      right: 12,
+      top: top,
+      height: bottom - top,
       child: Container(
-        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [kHeroA, kHeroB],
-          ),
-          borderRadius: BorderRadius.circular(18),
+          color: s.isOdd ? const Color(0xFFF4F0FF) : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0x126D5AE0)),
           boxShadow: const [
             BoxShadow(
-                color: Color(0x425A50E0),
-                blurRadius: 22,
-                offset: Offset(0, 10)),
+                color: Color(0x14261E50),
+                blurRadius: 30,
+                offset: Offset(0, 14)),
           ],
         ),
-        child: Stack(
-          children: [
-            Positioned(
-              right: -26,
-              top: -38,
-              child: Container(
-                width: 112,
-                height: 112,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: .09),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(17, 15, 17, 15),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(eyebrow,
-                            style: TextStyle(
-                                fontSize: 10,
-                                letterSpacing: .7,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white.withValues(alpha: .82))),
-                        const SizedBox(height: 4),
-                        Text(title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                                letterSpacing: .2)),
-                        const SizedBox(height: 5),
-                        Text(sub,
-                            style: TextStyle(
-                                fontSize: 11.5,
-                                height: 1.45,
-                                color: Colors.white.withValues(alpha: .86))),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  _ring(done, total),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _ring(int done, int total) {
-    final v = total == 0 ? 0.0 : (done / total).clamp(0.0, 1.0);
-    return SizedBox(
-      width: 58,
-      height: 58,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox(
-            width: 58,
-            height: 58,
-            child: CircularProgressIndicator(
-              value: v,
-              strokeWidth: 5,
-              strokeCap: StrokeCap.round,
-              backgroundColor: Colors.white.withValues(alpha: .26),
-              valueColor: const AlwaysStoppedAnimation(Colors.white),
-            ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text('第 ${s + 1} 段',
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .6,
+                      color: Color(0xFF5B5772))),
+              const SizedBox(width: 6),
+              Text('U${from + 1}–U${to + 1}',
+                  style: const TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFB0ACC4))),
+            ],
           ),
-          Text('$done/$total',
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -.2,
-                  color: Colors.white)),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _tree(Curriculum c, List<Unit> units) {
+  List<Widget> _node(
+      Curriculum c, _PathGeo geo, List<Unit> units, int i, int cur) {
     final lv = c.curLv;
-    return Stack(
-      children: [
-        Positioned(
-          left: 25,
-          top: 16,
-          bottom: 34,
-          width: 2,
-          child: CustomPaint(painter: _DashPainter()),
-        ),
-        Column(
-          children: [
-            for (var i = 0; i < units.length; i++) _unitRow(c, lv, units, i),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _unitRow(Curriculum c, String lv, List<Unit> units, int i) {
     final u = units[i];
     final done = c.isPassed(lv, u.id);
     final open = c.isOpen(lv, i);
     final byPlan = c.lockedByPlan(lv, i);
-    final cur = open && !done;
+    final isCur = i == cur;
+    final size = isCur ? 70.0 : 56.0;
 
+    final Gradient? grad;
     final Color bg;
     final Color border;
     final Color fg;
-    if (u.review) {
-      bg = done ? const Color(0xFFEF9F27) : kAmber50;
-      border = done ? const Color(0xFFEF9F27) : const Color(0xFFEFC97E);
-      fg = done ? Colors.white : const Color(0xFFB26A0B);
-    } else if (done) {
-      bg = kPrimary;
-      border = kPrimary;
+    final Color shadow;
+
+    if (u.review && done) {
+      grad = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF0B450), Color(0xFFDE9418)]);
+      bg = Colors.transparent;
+      border = Colors.transparent;
       fg = Colors.white;
+      shadow = const Color(0xFFB7790D);
+    } else if (done) {
+      grad = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [kHeroA, kHeroB]);
+      bg = Colors.transparent;
+      border = Colors.transparent;
+      fg = Colors.white;
+      shadow = const Color(0xFF3B33A6);
+    } else if (isCur) {
+      grad = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [kHeroA, kHeroB]);
+      bg = Colors.transparent;
+      border = Colors.transparent;
+      fg = Colors.white;
+      shadow = const Color(0xFF3B33A6);
+    } else if (u.review) {
+      grad = null;
+      bg = kAmber50;
+      border = const Color(0xFFEFC97E);
+      fg = const Color(0xFFB26A0B);
+      shadow = const Color(0xFFEDEAF7);
     } else {
+      grad = null;
       bg = Colors.white;
-      border = cur ? kPrimary : kLine;
-      fg = cur ? kPrimaryDeep : const Color(0xFFA9A5BC);
+      border = const Color(0xFFE4E0F2);
+      fg = const Color(0xFFB3AFC4);
+      shadow = const Color(0xFFEDEAF7);
     }
 
-    final Widget nodeChild = done
-        ? const Icon(Icons.check_rounded, size: 24, color: Colors.white)
-        : (open
-            ? Text('${i + 1}',
-                style: TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w700, color: fg))
-            : Icon(Icons.lock_rounded, size: 17, color: fg));
-
-    final sub = byPlan
-        ? '会员解锁 · ${u.total} 词'
+    final glyph = done
+        ? Icon(Icons.check_rounded,
+            size: isCur ? 28 : 24, color: Colors.white)
         : (u.review
-            ? '复习前 5 关 · ${u.total} 词'
-            : '学习关 · ${u.total} 词 · 约 ${_mins(u.total)} 分钟');
+            ? Icon(Icons.auto_stories_rounded,
+                size: isCur ? 24 : 20, color: fg)
+            : Text('${i + 1}',
+                style: TextStyle(
+                    fontSize: isCur ? 21 : 15,
+                    fontWeight: FontWeight.w800,
+                    color: fg)));
 
-    return Opacity(
-      opacity: open ? 1 : .55,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          if (byPlan) {
-            showPaywall(context, reason: '解锁 $lv 的 ${u.id} 及后续关卡');
-          } else if (!open) {
-            _toast('完成 ${units[i - 1].id} 后解锁 ${u.id}');
-          } else {
-            _openLevel(i);
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          child: Row(
+    return [
+      Positioned(
+        left: geo.x(i) - size / 2,
+        top: geo.y(i) - size / 2,
+        width: size,
+        height: size,
+        child: GestureDetector(
+          onTap: () {
+            if (byPlan) {
+              showPaywall(context, reason: '解锁 $lv 的 ${u.id} 及后续关卡');
+            } else if (!open) {
+              _toast('完成 ${units[i - 1].id} 后解锁 ${u.id}');
+            } else {
+              _openLevel(i);
+            }
+          },
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: bg,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: border, width: 2),
-                  boxShadow: cur
-                      ? const [
-                          BoxShadow(
-                              color: Color(0x226D5AE0),
-                              blurRadius: 0,
-                              spreadRadius: 5)
-                        ]
-                      : null,
+              // 当前关：一圈静态柔光（不做无限呼吸动画，省电也省测试时间）
+              if (isCur && !done)
+                Positioned(
+                  left: -9,
+                  top: -9,
+                  width: size + 18,
+                  height: size + 18,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: const Color(0xFFC7BEF5), width: 2),
+                    ),
+                  ),
                 ),
-                child: Center(child: nodeChild),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(u.id,
-                            style: const TextStyle(
-                                fontSize: 13.5, fontWeight: FontWeight.w700)),
-                        if (u.review) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: kFlame,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text('复习',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white)),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      done ? '$sub · 已完成' : sub,
-                      style:
-                          TextStyle(fontSize: 11, color: done ? kGreen : kMuted),
-                    ),
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: grad == null ? bg : null,
+                  gradient: grad,
+                  border: Border.all(
+                      color: border, width: grad == null ? 2 : 0),
+                  boxShadow: [
+                    BoxShadow(
+                        color: shadow, offset: const Offset(0, 4)),
+                    if (isCur)
+                      const BoxShadow(
+                          color: Color(0x8C4A41C4),
+                          blurRadius: 26,
+                          offset: Offset(0, 10)),
                   ],
                 ),
+                alignment: Alignment.center,
+                child: glyph,
               ),
-              if (open)
-                const Icon(Icons.chevron_right_rounded,
-                    size: 20, color: Color(0xFFA9A5BC)),
+              if (isCur && !done)
+                const Positioned(
+                  right: -3,
+                  top: -13,
+                  child: Text('🚩', style: TextStyle(fontSize: 16)),
+                ),
             ],
           ),
+        ),
+      ),
+      if (isCur) _bubble(geo, i, done, size),
+    ];
+  }
+
+  /// 当前关旁边的「继续 · U9」标签。
+  ///
+  /// 原来放在节点正下方，会和下一关撞在一起（下一关往往就往那一侧偏），
+  /// 改成贴在节点侧面、垂直居中：既不挡下一关，也不会盖住曲线。
+  Widget _bubble(_PathGeo geo, int i, bool done, double size) {
+    const w = 112.0;
+    const h = 32.0;
+    final x = geo.x(i);
+    final rightRoom = geo.width - 16 - (x + size / 2 + 8);
+    final leftRoom = (x - size / 2 - 8) - 16;
+    final toRight = rightRoom >= w || rightRoom >= leftRoom;
+    final left = toRight ? x + size / 2 + 8 : x - size / 2 - 8 - w;
+    final top = geo.y(i) - h / 2;
+
+    return Positioned(
+      left: left,
+      top: top,
+      width: w,
+      height: h,
+      child: GestureDetector(
+        onTap: () => _openLevel(i),
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: kHeroB,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: const [
+              BoxShadow(
+                  color: Color(0xB34A41C4),
+                  blurRadius: 22,
+                  offset: Offset(0, 10)),
+            ],
+          ),
+          child: Text(done ? '重刷 · U${i + 1}' : '继续 · U${i + 1}',
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white)),
         ),
       ),
     );
   }
 
-  Widget _duoStats() {
-    final stats = [
-      ('${Progress.I.masteredCount}', '已掌握词汇'),
-      ('+${Progress.I.todayNew + Progress.I.todayReview}', '今日学习词数'),
-      ('${Progress.I.wrongBook().length}', '易错词待攻克'),
-    ];
-    return Row(
+  void _scheduleAutoScroll(String lv, int idx, double nodeY) {
+    final key = '$lv:$idx';
+    if (_autoScrolled == key) return;
+    _autoScrolled = key;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pathScroll.hasClients) return;
+      final max = _pathScroll.position.maxScrollExtent;
+      final target = (nodeY - 240).clamp(0.0, max);
+      if ((_pathScroll.offset - target).abs() > 2) {
+        _pathScroll.jumpTo(target);
+      }
+    });
+  }
+
+  // ------------------------------------------------------------ 主题阶梯
+
+  Widget _themeBody(Curriculum c) {
+    final themes = c.curThemes;
+    if (themes.isEmpty) {
+      return _emptyState('这个级别还没有主题', '换一个级别看看，或稍后联网同步一次内容');
+    }
+    final hero = _heroThemeIndex(c);
+    return Column(
       children: [
-        for (var i = 0; i < stats.length; i++) ...[
-          if (i > 0) const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: kLine),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(stats[i].$1,
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text(stats[i].$2,
-                      style: const TextStyle(fontSize: 10.5, color: kMuted)),
-                ],
-              ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 4),
+            child: Column(
+              children: [
+                _themeHead(c),
+                const SizedBox(height: 12),
+                _ladder(c, hero),
+              ],
             ),
           ),
-        ],
+        ),
+        if (hero >= 0) _themeFooter(c, hero),
       ],
     );
   }
 
-  // ------------------------------------------------------------ 主题模式
-
-  /// 英雄卡显示「第一个还没学完的主题」。
-  /// 写死第 0 个的话，用户学到第 6 个主题时这张卡还停在第一个，点进去也是它。
-  /// 全部学完则回到第一个，让「继续学习」有个落点。
+  /// 当前的（第一个没学完的）主题。全部学完时落回第一个，让「继续」有个落点。
   int _heroThemeIndex(Curriculum c) {
     final n = c.curThemes.length;
     if (n == 0) return -1;
@@ -640,46 +568,22 @@ class _HomePageState extends State<HomePage> {
     return 0;
   }
 
-  List<Widget> _themePanel(Curriculum c) {
-    final hi = _heroThemeIndex(c);
-    // 主题列表为空不能直接取 [0]：后台 topics 表漏配某个级别时
-    // curThemes 会返回空列表，那一下就是 RangeError 把首页打空。
-    if (hi < 0) {
-      return [
-        const _EmptyCard(
-          emoji: '🦌',
-          title: '这个级别还没有主题',
-          sub: '换一个级别看看，或稍后联网同步一次内容',
-        ),
-        const SizedBox(height: 10),
-      ];
-    }
-    final ws = c.themeWords(hi);
-    final learned = c.themeLearned(hi);
-    return [
-      _heroCard(
-        eyebrow: '继续学习 · ${c.curLv} 主题',
-        title: c.curThemes[hi].name,
-        sub: '${ws.length} 词 · 已学 $learned 词 · 剩 ${ws.length - learned} 词',
-        done: learned,
-        total: ws.length,
-        onTap: () => _openTheme(hi),
-      ),
-      const SizedBox(height: 10),
-      Row(
-        children: [
-          Expanded(
-            child: Text(
-              Ent.I.vip
-                  ? '${c.curLv} · ${c.curThemes.length} 个主题全部解锁'
-                  : '${c.curLv} · 免费开放 '
-                      '${Ent.I.ent.limits.themesPerLevel} / ${c.curThemes.length} 个主题',
-              style: const TextStyle(fontSize: 10.5, color: kMuted),
-            ),
+  Widget _themeHead(Curriculum c) {
+    final total = c.curThemes.length;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            Ent.I.vip
+                ? '${c.curLv} · $total 个主题全部解锁'
+                : '${c.curLv} · 免费开放 '
+                    '${min(Ent.I.ent.limits.themesPerLevel, total)} / $total 个主题',
+            style: const TextStyle(fontSize: 10.5, color: kMuted),
           ),
-          if (!Ent.I.vip)
+        ),
+        if (!Ent.I.vip)
           GestureDetector(
-            onTap: () => showPaywall(context, reason: '解锁全部 ${c.curThemes.length} 个主题'),
+            onTap: () => showPaywall(context, reason: '解锁全部 $total 个主题'),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
@@ -694,92 +598,552 @@ class _HomePageState extends State<HomePage> {
                       color: kPrimaryDeep)),
             ),
           ),
-        ],
-      ),
-      const SizedBox(height: 10),
-      GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: EdgeInsets.zero,
-        itemCount: c.curThemes.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          mainAxisExtent: 98,
-        ),
-        itemBuilder: (context, i) => _themeCard(c, i),
-      ),
-    ];
+      ],
+    );
   }
 
-  Widget _themeCard(Curriculum c, int i) {
+  Widget _ladder(Curriculum c, int hero) {
+    final n = c.curThemes.length;
+    const cardH = _ThemeCardGeo.cardH;
+    const gap = _ThemeCardGeo.gap;
+    final h = n * cardH + (n - 1) * gap;
+    return SizedBox(
+      height: h,
+      child: LayoutBuilder(
+        builder: (context, cons) {
+          final geo = _ThemeCardGeo(width: cons.maxWidth, count: n);
+          return Stack(
+            children: [
+              Positioned.fill(
+                  child: CustomPaint(painter: _LadderPainter(geo))),
+              Column(
+                children: [
+                  for (var i = 0; i < n; i++)
+                    Padding(
+                      padding: EdgeInsets.only(
+                        left: geo.insetOf(i),
+                        right: geo.insetOf(i) == 0 ? _ThemeCardGeo.inset : 0,
+                        bottom: i == n - 1 ? 0 : gap,
+                      ),
+                      child: _themeCard(c, i, hero),
+                    ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _themeCard(Curriculum c, int i, int hero) {
     final t = c.curThemes[i];
-    final unlocked = c.themeUnlocked(i);
     final total = c.themeWords(i).length;
+    final learned = c.themeLearned(i);
+    final locked = !c.themeUnlocked(i);
+    final isCur = !locked && i == hero;
+    final done = !locked && !isCur && total > 0 && learned >= total;
+
+    final sub = isCur
+        ? '$total 词 · 已学 $learned 词 · 约 ${_mins(total)} 分钟'
+        : (locked
+            ? '会员解锁 · $total 词'
+            : (done ? '$total 词 · 全部掌握' : '$total 词'));
 
     return GestureDetector(
-      onTap: () => unlocked
-          ? _openTheme(i)
-          : showPaywall(context, reason: '解锁「${t.name}」及全部主题'),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+      onTap: () => locked
+          ? showPaywall(context, reason: '解锁「${t.name}」及全部主题')
+          : _openTheme(i),
+      child: SizedBox(
+        height: _ThemeCardGeo.cardH,
+        child: Container(
+          decoration: BoxDecoration(
+            color: isCur
+                ? null
+                : (locked
+                    ? const Color(0xFFFCFBFE)
+                    : (done ? const Color(0xFFFBFAFF) : Colors.white)),
+            gradient: isCur
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [kHeroA, kHeroB])
+                : null,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+                color: isCur ? Colors.transparent : const Color(0xFFE8E5F4)),
+            boxShadow: isCur
+                ? const [
+                    BoxShadow(color: Color(0xFF3B33A6), offset: Offset(0, 5)),
+                    BoxShadow(
+                        color: Color(0x994A41C4),
+                        blurRadius: 30,
+                        offset: Offset(0, 16)),
+                  ]
+                : const [
+                    BoxShadow(color: Color(0xFFEAE7F6), offset: Offset(0, 2)),
+                    BoxShadow(
+                        color: Color(0x33261E50),
+                        blurRadius: 22,
+                        offset: Offset(0, 10)),
+                  ],
+          ),
+          child: Stack(
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(
+                    horizontal: isCur ? 14 : 13, vertical: 11),
+                child: Row(
+                  children: [
+                    Opacity(
+                      opacity: locked ? .62 : 1,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isCur
+                              ? Colors.white.withValues(alpha: .2)
+                              : (locked
+                                  ? const Color(0xFFF7F6FB)
+                                  : const Color(0xFFF4F1FE)),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(t.emoji,
+                            style: const TextStyle(fontSize: 23, height: 1)),
+                      ),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(t.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: isCur ? 14 : 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -.1,
+                                  color: isCur
+                                      ? Colors.white
+                                      : (locked
+                                          ? kMuted
+                                          : (done
+                                              ? const Color(0xFF4B475E)
+                                              : kInk)))),
+                          const SizedBox(height: 2),
+                          Text(sub,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: isCur
+                                      ? Colors.white.withValues(alpha: .8)
+                                      : kMuted)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _themeRight(locked, done, isCur),
+                  ],
+                ),
+              ),
+              if (isCur)
+                Positioned(
+                  left: 14,
+                  right: 14,
+                  bottom: 7,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(9),
+                    child: LinearProgressIndicator(
+                      value: total == 0 ? 0 : (learned / total).clamp(0.0, 1.0),
+                      minHeight: 3,
+                      backgroundColor: Colors.white.withValues(alpha: .26),
+                      valueColor: const AlwaysStoppedAnimation(Colors.white),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _themeRight(bool locked, bool done, bool isCur) {
+    if (isCur) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
         decoration: BoxDecoration(
-          color: unlocked ? Colors.white : const Color(0xFFFBFAFE),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: kLine),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: const [
+            BoxShadow(color: Color(0x1F000000), offset: Offset(0, 2)),
+          ],
+        ),
+        child: const Text('继续',
+            style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: kPrimaryDeep)),
+      );
+    }
+    if (locked) {
+      return Container(
+        width: 24,
+        height: 24,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          gradient:
+              LinearGradient(colors: [Color(0xFFF7D488), Color(0xFFE0A02A)]),
+        ),
+        child: const Icon(Icons.lock_rounded, size: 12, color: Colors.white),
+      );
+    }
+    if (done) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: kGreen50,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: const Text('✓ 已学完',
+            style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.w800, color: kGreen)),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F2FB),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: const Text('未开始',
+          style: TextStyle(
+              fontSize: 10, fontWeight: FontWeight.w800, color: kMuted)),
+    );
+  }
+
+  Widget _themeFooter(Curriculum c, int hero) {
+    final t = c.curThemes[hero];
+    final total = c.themeWords(hero).length;
+    final learned = c.themeLearned(hero);
+    final allDone = learned >= total && total > 0;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+      color: kBg,
+      child: SizedBox(
+        height: 48,
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: () => _openTheme(hero),
+          style: FilledButton.styleFrom(
+            padding: EdgeInsets.zero,
+            backgroundColor: kPrimaryDeep,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('${allDone ? '重刷' : '继续'} · ${t.name}',
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 7),
+              Text('已学 $learned / $total',
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xCCFFFFFF))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------ 自由练习
+
+  Widget _freeBody(Curriculum c) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 24),
+      children: [
+        Text(
+          '${c.curLv} · 从整级词库随机抽 ${Curriculum.perUnit} 词，不限次数',
+          style: const TextStyle(fontSize: 11.5, color: kMuted, height: 1.5),
+        ),
+        const SizedBox(height: 11),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: kLine),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('🎲', style: TextStyle(fontSize: 24)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('每轮 ${Curriculum.perUnit} 词 · 混合题型',
+                        style: const TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '选择、拼写、听音三种题型混排，答错的词会再次出现，直到答对为止。',
+                      style: TextStyle(
+                          fontSize: 11.5, color: Color(0xFF6F6B85), height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 50,
+          child: FilledButton(
+            onPressed: _openFree,
+            style: FilledButton.styleFrom(
+              backgroundColor: kPrimary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
+            child: const Text('开始自由练习',
+                style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ------------------------------------------------------------ 顶部下拉
+
+  Widget _dropLayer(Curriculum c) {
+    return AnimatedBuilder(
+      animation: _dropCtl,
+      builder: (context, _) {
+        final t = _dropCtl.value;
+        if (t <= 0.001) return const SizedBox.shrink();
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _closeDrop,
+                child: ColoredBox(
+                  color: const Color(0xFF18142C).withValues(alpha: .36 * t),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 46,
+              child: FractionalTranslation(
+                translation: Offset(0, -(1 - t)),
+                child: _dropPanel(c),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _dropPanel(Curriculum c) {
+    final maxH = MediaQuery.of(context).size.height * .68;
+    final lv = kLevels.firstWhere((l) => l.id == c.curLv,
+        orElse: () => kLevels.first);
+    final units = c.unitCountOf(c.curLv);
+    final passed = c.passedCount(c.curLv);
+    final totalWords = c.wordCountOf(c.curLv);
+    final learned = _learnedWords(c, c.curLv);
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
+        boxShadow: [
+          BoxShadow(
+              color: Color(0x8C261E50),
+              blurRadius: 40,
+              offset: Offset(0, 22)),
+        ],
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxH),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      const Text('选择级别',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w800)),
+                      const SizedBox(width: 7),
+                      Text('每关 ${Curriculum.perUnit} 词 · '
+                          '每 ${Curriculum.learnPerReview} 关一次复习',
+                          style: const TextStyle(
+                              fontSize: 10.5, color: kMuted)),
+                    ],
+                  ),
+                  const SizedBox(height: 9),
+                  Row(
+                    children: [
+                      for (var i = 0; i < kLevels.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 7),
+                        Expanded(child: _dropLevelCard(c, kLevels[i])),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _dropBar(
+                    left: '${lv.id} ${lv.name} · 已学 $learned / $totalWords 词',
+                    right: '$passed / $units 关',
+                    value: units == 0 ? 0 : passed / units,
+                    colors: const [kHeroA, kHeroB],
+                    boxed: true,
+                  ),
+                  const SizedBox(height: 12),
+                  _dropBar(
+                    left: '今天已学',
+                    right: '${c.todayWords} / ${Curriculum.dailyGoal} 词',
+                    value: c.todayRatio,
+                    colors: const [Color(0xFF5BBF8A), Color(0xFF2E9E63)],
+                    boxed: false,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _dropStat('${Progress.I.masteredCount}', '已掌握'),
+                      const SizedBox(width: 8),
+                      _dropStat('${Progress.I.dueWords().length}', '待复习'),
+                      const SizedBox(width: 8),
+                      _dropStat('${Progress.I.wrongBook().length}', '易错词'),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _dropQuick('📚', '换主题', () {
+                        _closeDrop();
+                        setState(() => _mode = 1);
+                      }),
+                      const SizedBox(width: 8),
+                      _dropQuick('↻', '去复习', () {
+                        _closeDrop();
+                        widget.onNavigate?.call(1);
+                      }),
+                      const SizedBox(width: 8),
+                      _dropQuick('🔥', '打卡记录', () {
+                        _closeDrop();
+                        _openCheckin();
+                      }),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dropLevelCard(Curriculum c, LvInfo l) {
+    final on = l.id == c.curLv;
+    final locked = !Ent.I.canLevel(l.id);
+    final units = c.unitCountOf(l.id);
+    final passed = c.passedCount(l.id);
+    final pct = units == 0 ? 0.0 : (passed / units).clamp(0.0, 1.0);
+
+    return GestureDetector(
+      onTap: () {
+        if (locked) {
+          _closeDrop();
+          showPaywall(context, reason: '解锁 ${l.id} 级别全部内容');
+          return;
+        }
+        if (on) {
+          _closeDrop();
+          return;
+        }
+        setState(() {
+          c.curLv = l.id;
+          _autoScrolled = null;
+        });
+        c.save();
+        _closeDrop();
+        _toast('已切换到 ${l.id} ${l.name}');
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+        decoration: BoxDecoration(
+          color: on ? kPrimary50 : (locked ? const Color(0xFFFCFBFE) : Colors.white),
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(
+              color: on ? kPrimary : kLine, width: on ? 1.5 : 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Row(
               children: [
-                Opacity(
-                  opacity: unlocked ? 1 : .4,
-                  child: Text(t.emoji, style: const TextStyle(fontSize: 19)),
+                Flexible(
+                  child: Text(l.id,
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      style: TextStyle(
+                          fontSize: 14,
+                          height: 1.1,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -.3,
+                          color: on
+                              ? kPrimaryDeep
+                              : (locked ? const Color(0xFFC0BCD0) : kInk))),
                 ),
-                const Spacer(),
-                if (unlocked)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: kGreen50,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(Ent.I.vip ? '已解锁' : '免费',
-                        style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: kGreen)),
-                  )
-                else
-                  Container(
-                    width: 22,
-                    height: 22,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                          colors: [Color(0xFFF7D488), Color(0xFFE0A02A)]),
-                    ),
-                    child: const Icon(Icons.lock_rounded,
-                        size: 12, color: Colors.white),
-                  ),
+                if (locked) ...[
+                  const SizedBox(width: 2),
+                  const Icon(Icons.lock_rounded,
+                      size: 9, color: Color(0xFFC0BCD0)),
+                ],
               ],
             ),
-            const SizedBox(height: 7),
-            Text(t.name,
+            const SizedBox(height: 2),
+            Text(l.name,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: unlocked ? kInk : kMuted)),
-            const SizedBox(height: 3),
-            Text(
-              unlocked ? '$total 词 · 约 ${_mins(total)} 分钟' : '会员解锁 · $total 词',
-              style: const TextStyle(fontSize: 10.5, color: kMuted),
+                style: const TextStyle(fontSize: 9.5, color: kMuted)),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(9),
+              child: LinearProgressIndicator(
+                value: pct <= 0 ? 0.04 : pct,
+                minHeight: 4,
+                backgroundColor: const Color(0xFFEDEBF7),
+                valueColor: AlwaysStoppedAnimation(
+                    locked ? const Color(0xFFC0BCD0) : kPrimary),
+              ),
             ),
           ],
         ),
@@ -787,67 +1151,145 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ------------------------------------------------------------ 自由模式
-
-  List<Widget> _freePanel(Curriculum c) {
-    return [
-      Text(
-        '${c.curLv} · 从整级词库随机抽 ${Curriculum.perUnit} 词，不限次数',
-        style: const TextStyle(fontSize: 11.5, color: kMuted, height: 1.5),
-      ),
-      const SizedBox(height: 11),
-      Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: kLine),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _dropBar({
+    required String left,
+    required String right,
+    required double value,
+    required List<Color> colors,
+    required bool boxed,
+  }) {
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
           children: [
-            const Text('🎲', style: TextStyle(fontSize: 24)),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('每轮 ${Curriculum.perUnit} 词 · 混合题型',
-                      style: const TextStyle(
-                          fontSize: 12.5, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  const Text(
-                    '选择、拼写、听音三种题型混排，答错的词会再次出现，直到答对为止。',
-                    style: TextStyle(
-                        fontSize: 11.5, color: Color(0xFF6F6B85), height: 1.5),
-                  ),
-                ],
+              child: Text(left,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11.5, color: kMuted)),
+            ),
+            const SizedBox(width: 8),
+            Text(right,
+                style:
+                    const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
+          ],
+        ),
+        const SizedBox(height: 9),
+        _gradientBar(value, colors, 6),
+      ],
+    );
+    if (!boxed) return content;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: kLine),
+      ),
+      child: content,
+    );
+  }
+
+  /// 渐变进度条（LinearProgressIndicator 只支持单色）
+  Widget _gradientBar(double value, List<Color> colors, double height) {
+    return SizedBox(
+      height: height,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(9),
+        child: Stack(
+          children: [
+            const Positioned.fill(
+                child: ColoredBox(color: Color(0xFFEFEDF8))),
+            FractionallySizedBox(
+              widthFactor: value.clamp(0.0, 1.0),
+              heightFactor: 1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: colors),
+                ),
               ),
             ),
           ],
         ),
       ),
-      const SizedBox(height: 16),
-      SizedBox(
-        width: double.infinity,
-        height: 50,
-        child: FilledButton(
-          onPressed: () => _openFree(),
-          style: FilledButton.styleFrom(
-            backgroundColor: kPrimary,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-          child: const Text('开始自由练习',
-              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+    );
+  }
+
+  Widget _dropStat(String v, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFBFAFE),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kLine),
+        ),
+        child: Column(
+          children: [
+            Text(v,
+                style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.3)),
+            const SizedBox(height: 1),
+            Text(label,
+                style: const TextStyle(fontSize: 9.5, color: kMuted)),
+          ],
         ),
       ),
-    ];
+    );
+  }
+
+  Widget _dropQuick(String emoji, String label, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFBFAFE),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: kLine),
+          ),
+          child: Column(
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 16, height: 1.1)),
+              const SizedBox(height: 4),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF5B5772))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _toggleDrop() {
+    _dropOpen ? _closeDrop() : _openDrop();
+  }
+
+  void _openDrop() {
+    setState(() => _dropOpen = true);
+    _dropCtl.forward();
+  }
+
+  void _closeDrop() {
+    if (!_dropOpen) return;
+    setState(() => _dropOpen = false);
+    _dropCtl.reverse();
   }
 
   // ------------------------------------------------------------ 跳转
+
+  Future<void> _openCheckin() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CheckinPage()),
+    );
+    if (mounted) setState(() {});
+  }
 
   Future<void> _runSession({
     required List<Word> words,
@@ -891,7 +1333,9 @@ class _HomePageState extends State<HomePage> {
   Future<void> _openLevel(int i) async {
     final c = Curriculum.I;
     final lv = c.curLv;
-    final u = c.unitsOf(lv)[i];
+    final units = c.unitsOf(lv);
+    if (i < 0 || i >= units.length) return;
+    final u = units[i];
     await _runSession(
       words: u.words,
       title: u.title,
@@ -907,6 +1351,10 @@ class _HomePageState extends State<HomePage> {
     final c = Curriculum.I;
     final lv = c.curLv;
     final ws = c.themeWords(i);
+    if (ws.isEmpty) {
+      _toast('这个主题还没有词');
+      return;
+    }
     await _runSession(
       words: ws,
       title: c.curThemes[i].name,
@@ -923,7 +1371,7 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     final info =
-        kLevels.firstWhere((l) => l.id == c.curLv, orElse: () => kLevels[0]);
+        kLevels.firstWhere((l) => l.id == c.curLv, orElse: () => kLevels.first);
     final pool =
         List<Word>.from(WordBank.I.byLevel[info.code] ?? WordBank.I.words)
           ..shuffle(Random());
@@ -946,7 +1394,8 @@ class _HomePageState extends State<HomePage> {
       ));
   }
 
-  String _mins(int words) => '${max(1, (words / 12).round())}';
+  /// 20 词一关，按每分钟 7 个词估
+  String _mins(int words) => '${max(1, (words / 7).round())}';
 
   /// 该级别累计学过的词数（通关算满，半程按已答数）
   int _learnedWords(Curriculum c, String lv) {
@@ -957,29 +1406,156 @@ class _HomePageState extends State<HomePage> {
     }
     return n;
   }
+
+  Widget _emptyState(String title, String sub) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 24, 18, 24),
+      children: [
+        _EmptyCard(emoji: '🦌', title: title, sub: sub),
+      ],
+    );
+  }
 }
 
-/// 关卡树左侧的虚线连接线
-class _DashPainter extends CustomPainter {
+// ---------------------------------------------------------------- 几何与画笔
+
+/// S 形关卡路径的坐标。正弦曲线一个周期铺 5 关（周期取 6 会让相邻两关
+/// 落在同一条纵线上，连起来是一根直柱子）。
+class _PathGeo {
+  _PathGeo({required this.width, required this.count});
+
+  static const double gap = 92;
+  static const double top = 78;
+  static const double segGap = 52;
+  static const double ampMax = 68;
+  static const int perBand = 6; // 5 学习关 + 1 复习关
+
+  final double width;
+  final int count;
+
+  double get center => width / 2;
+
+  /// 窄屏时收幅度，保证节点不出界
+  double get amp => min(ampMax, max(26.0, width / 2 - 46));
+
+  double x(int i) => center + sin(2 * pi * i / 5) * amp;
+
+  double y(int i) => top + i * gap + (i ~/ perBand) * segGap;
+
+  /// 最后一个节点下面留出气泡和台地底边
+  double get height => y(max(0, count - 1)) + 150;
+}
+
+class _PathPainter extends CustomPainter {
+  _PathPainter(this.geo, this.cur);
+
+  final _PathGeo geo;
+  final int cur;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFD9D5F0)
-      ..strokeWidth = size.width.clamp(1, 2);
-    var y = 0.0;
-    while (y < size.height) {
-      final h = (y + 5 > size.height) ? size.height - y : 5.0;
-      canvas.drawLine(
-          Offset(size.width / 2, y), Offset(size.width / 2, y + h), paint);
-      y += 11;
+    final rest = Path();
+    final done = Path();
+    for (var i = 0; i < geo.count - 1; i++) {
+      final x0 = geo.x(i), y0 = geo.y(i);
+      final x1 = geo.x(i + 1), y1 = geo.y(i + 1);
+      final d = (y1 - y0) * .42;
+      final p = Path()
+        ..moveTo(x0, y0)
+        ..cubicTo(x0, y0 + d, x1, y1 - d, x1, y1);
+      (i < cur ? done : rest).addPath(p, Offset.zero);
     }
+
+    // 没走到的：圆点虚线
+    final dotPaint = Paint()..color = const Color(0xFFDAD4EE);
+    for (final m in rest.computeMetrics()) {
+      var d = 0.0;
+      while (d < m.length) {
+        final tan = m.getTangentForOffset(d);
+        if (tan != null) canvas.drawCircle(tan.position, 3.5, dotPaint);
+        d += 14;
+      }
+    }
+    // 走过的：实线
+    canvas.drawPath(
+      done,
+      Paint()
+        ..color = const Color(0xFFA79CF0)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 7
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _PathPainter old) =>
+      old.cur != cur ||
+      old.geo.count != geo.count ||
+      old.geo.width != geo.width;
 }
 
-/// 空态卡片：主题列表拿不到数据时占位，避免首页出现空白或报错
+/// 主题卡片的错落几何：奇数张往右缩进 46
+class _ThemeCardGeo {
+  _ThemeCardGeo({required this.width, required this.count});
+
+  static const double cardH = 72;
+  static const double gap = 26;
+  static const double inset = 46;
+
+  final double width;
+  final int count;
+
+  double insetOf(int i) => i.isOdd ? inset : 0;
+
+  double centerOf(int i) => insetOf(i) + (width - inset) / 2;
+
+  double bottomOf(int i) => i * (cardH + gap) + cardH;
+
+  double topOf(int i) => i * (cardH + gap);
+}
+
+class _LadderPainter extends CustomPainter {
+  _LadderPainter(this.geo);
+
+  final _ThemeCardGeo geo;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path();
+    for (var i = 0; i < geo.count - 1; i++) {
+      final ax = geo.centerOf(i), bx = geo.centerOf(i + 1);
+      final ay = geo.bottomOf(i), by = geo.topOf(i + 1);
+      final my = (ay + by) / 2;
+      if ((bx - ax).abs() < 4) {
+        path.moveTo(ax, ay);
+        path.lineTo(bx, by);
+      } else {
+        final s = (bx - ax).sign;
+        final r = min(9.0, (bx - ax).abs() / 2);
+        path.moveTo(ax, ay);
+        path.lineTo(ax, my - r);
+        path.quadraticBezierTo(ax, my, ax + s * r, my);
+        path.lineTo(bx - s * r, my);
+        path.quadraticBezierTo(bx, my, bx, my + r);
+        path.lineTo(bx, by);
+      }
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFFDBD5EE)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _LadderPainter old) =>
+      old.geo.count != geo.count || old.geo.width != geo.width;
+}
+
+/// 空态卡片：词库/主题为空时占位，避免首页出现空白或报错
 class _EmptyCard extends StatelessWidget {
   const _EmptyCard({
     required this.emoji,
