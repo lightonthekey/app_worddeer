@@ -5,6 +5,7 @@ import 'package:app_worddeer/bank.dart';
 import 'package:app_worddeer/pages/match.dart';
 
 import 'package:app_worddeer/confetti.dart';
+import 'package:app_worddeer/ui.dart';
 
 Word _w(int i) => Word(
       en: 'w$i',
@@ -20,8 +21,8 @@ Word _w(int i) => Word(
 const ok50 = Color(0xFFEAF9EF);
 const bad50 = Color(0xFFFCECEC);
 
-/// 收尾置灰的卡（和 lib 里的 _cardBox 保持一致）
-const doneBg = Color(0xFFF2F1F7);
+/// 收尾置灰的卡（和 lib 里的 _cardBox 保持一致；走主题中性阶 k1）
+Color get doneBg => kN1;
 
 /// 某一格现在是哪个词（返回序号，空格返回 -1）
 int _slotWord(WidgetTester t, bool en, int slot) {

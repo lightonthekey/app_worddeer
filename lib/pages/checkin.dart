@@ -48,7 +48,7 @@ class _CheckinPageState extends State<CheckinPage> {
                 children: [
                   _hero(streak),
                   _note(days, streak),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(2, 18, 2, 10),
                     child: Text('连胜日历',
                         style: TextStyle(
@@ -77,7 +77,7 @@ class _CheckinPageState extends State<CheckinPage> {
           const SizedBox(width: 8),
           IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.close_rounded, size: 21, color: kInk),
+            icon: Icon(Icons.close_rounded, size: 21, color: kInk),
             tooltip: '关闭',
           ),
         ],
@@ -117,7 +117,7 @@ class _CheckinPageState extends State<CheckinPage> {
                 shaderCallback: (r) => const LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFFF5335F), _red, _redDeep],
+                  colors: [kFlame, _red, _redDeep],
                 ).createShader(r),
                 child: Text('$streak',
                     style: const TextStyle(
@@ -170,8 +170,8 @@ class _CheckinPageState extends State<CheckinPage> {
           const SizedBox(width: 11),
           Expanded(
             child: Text(text,
-                style: const TextStyle(
-                    fontSize: 12.5, height: 1.72, color: Color(0xFF4B475E))),
+                style: TextStyle(
+                    fontSize: 12.5, height: 1.72, color: kN5)),
           ),
         ],
       ),
@@ -198,7 +198,7 @@ class _CheckinPageState extends State<CheckinPage> {
                 width: 108,
                 child: Text('${_grid.year}年${_grid.month}月',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         letterSpacing: .2,
@@ -214,10 +214,10 @@ class _CheckinPageState extends State<CheckinPage> {
                 Expanded(
                   child: Text(w,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFFB6B2C8))),
+                          color: kN3)),
                 ),
             ],
           ),
@@ -290,7 +290,7 @@ class _CheckinPageState extends State<CheckinPage> {
     } else if (today) {
       color = kPrimary;
     } else {
-      color = const Color(0xFFDCD8E8);
+      color = kN2;
     }
     return Center(
       child: Text('$day',
@@ -310,7 +310,7 @@ class _CheckinPageState extends State<CheckinPage> {
       child: IconButton(
         padding: EdgeInsets.zero,
         onPressed: () => setState(() => _grid = _grid.shift(delta)),
-        icon: Icon(icon, size: 20, color: const Color(0xFFB6B2C8)),
+        icon: Icon(icon, size: 20, color: kN3),
       ),
     );
   }
@@ -344,7 +344,7 @@ class _CheckinPageState extends State<CheckinPage> {
                             color: items[i].$3)),
                     const SizedBox(height: 2),
                     Text(items[i].$2,
-                        style: const TextStyle(fontSize: 10, color: kMuted)),
+                        style: TextStyle(fontSize: 10, color: kMuted)),
                   ],
                 ),
               ),
@@ -362,7 +362,7 @@ class _CheckinPageState extends State<CheckinPage> {
       padding: const EdgeInsets.fromLTRB(18, 6, 18, 16),
       child: Column(
         children: [
-          const Text('学完任意一关即算打卡 · 断一天连击归零',
+          Text('学完任意一关即算打卡 · 断一天连击归零',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 11, color: kMuted)),
           const SizedBox(height: 10),
@@ -373,10 +373,10 @@ class _CheckinPageState extends State<CheckinPage> {
                 ? Container(
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF4F2FA),
+                      color: kBg,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.check_rounded,

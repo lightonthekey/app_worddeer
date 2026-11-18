@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../bank.dart';
+import '../ui.dart';
 import '../confetti.dart';
 
 /// 4 对 4 配对棋盘 —— design/game-v2.html 的 Flutter 版。
@@ -31,21 +32,21 @@ import '../confetti.dart';
 
 const int kPairs = 4; // 棋盘行数（原型从 5 行收到 4 行，给巩固台腾位置）
 
-const _bg = Color(0xFFF4F3FB);
-const _line = Color(0xFFE7E5F2);
-const _primary = Color(0xFF5A50E0);
-const _primaryDeep = Color(0xFF463CBE);
-const _primary50 = Color(0xFFEEEDFE);
-const _ink = Color(0xFF211E3B);
-const _ink2 = Color(0xFF6E6B8A);
-const _ink3 = Color(0xFF9B98B5);
+Color get _bg => kN1;
+Color get _line => kN1;
+Color get _primary => kPrimary;
+Color get _primaryDeep => kPrimaryDeep;
+Color get _primary50 => kPrimary50;
+Color get _ink => kInk;
+Color get _ink2 => kN4;
+Color get _ink3 => kN4;
 const _okColor = Color(0xFF58CC02);
 const _ok50 = Color(0xFFEAF9EF);
 const _okInk = Color(0xFF237A00);
 const _okInk2 = Color(0xFF3E8F76);
-const _badColor = Color(0xFFE24B4A);
+Color get _badColor => kRed;
 const _bad50 = Color(0xFFFCECEC);
-const _shelfBg = Color(0xFFF3F1F9);
+Color get _shelfBg => kN1;
 
 class _T {
   /// 判定停顿：两张都选中到给结果之间的留白，太短看不出点了哪两张。
@@ -845,7 +846,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                     shape: BoxShape.circle,
                     border: Border.all(color: _line, width: 1),
                   ),
-                  child: const Icon(Icons.close_rounded, size: 17, color: _ink2),
+                  child: Icon(Icons.close_rounded, size: 17, color: _ink2),
                 ),
               ),
               const SizedBox(width: 10),
@@ -857,7 +858,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                       widget.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         letterSpacing: .2,
@@ -870,14 +871,14 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                         widget.subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 10.5, color: _ink3),
+                        style: TextStyle(fontSize: 10.5, color: _ink3),
                       ),
                     ],
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                padding: EdgeInsets.symmetric(horizontal: 11, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(999),
@@ -886,11 +887,11 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.schedule_rounded, size: 12, color: _ink2),
-                    const SizedBox(width: 5),
+                    Icon(Icons.schedule_rounded, size: 12, color: _ink2),
+                    SizedBox(width: 5),
                     Text(
                       _clockText(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: _ink2,
@@ -902,7 +903,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -910,13 +911,13 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                   borderRadius: BorderRadius.circular(99),
                   child: TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0, end: _total == 0 ? 0 : _done / _total),
-                    duration: const Duration(milliseconds: 420),
+                    duration: Duration(milliseconds: 420),
                     curve: Curves.easeOutCubic,
                     builder: (context, v, child) => LinearProgressIndicator(
                       value: v,
                       minHeight: 6,
-                      backgroundColor: const Color(0xFFE7E3F4),
-                      valueColor: const AlwaysStoppedAnimation(_primary),
+                      backgroundColor: kN1,
+                      valueColor: AlwaysStoppedAnimation(_primary),
                     ),
                   ),
                 ),
@@ -927,7 +928,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                   children: [
                     TextSpan(
                       text: '$_done',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: _primary,
@@ -936,7 +937,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                     ),
                     TextSpan(
                       text: ' / $_total',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                         color: _ink2,
@@ -960,11 +961,11 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
     final count = math.max(3, _shelf.length);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+      padding: EdgeInsets.fromLTRB(18, 12, 18, 0),
       child: Container(
-        key: const ValueKey('shelf'),
+        key: ValueKey('shelf'),
         height: 76,
-        padding: const EdgeInsets.all(6),
+        padding: EdgeInsets.all(6),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: _shelfBg,
@@ -977,7 +978,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
             final w = (box.maxWidth - gap * 2) / 3;
             return ScrollConfiguration(
               // 桌面端默认会给可滚动区域画滚动条，这里整个关掉
-              behavior: const _NoBarScrollBehavior(),
+              behavior: _NoBarScrollBehavior(),
               child: NotificationListener<UserScrollNotification>(
                 onNotification: (n) {
                   final m = n.metrics;
@@ -989,9 +990,9 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                   key: _shelfInnerKey,
                   controller: _shelfCtrl,
                   scrollDirection: Axis.horizontal,
-                  physics: const ClampingScrollPhysics(),
+                  physics: ClampingScrollPhysics(),
                   itemCount: count,
-                  separatorBuilder: (_, _) => const SizedBox(width: gap),
+                  separatorBuilder: (_, _) => SizedBox(width: gap),
                   itemBuilder: (context, i) {
                     final it = i < _shelf.length ? _shelf[i] : null;
                     return SizedBox(
@@ -1023,23 +1024,23 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
             ? _ok50
             : Colors.white;
     final Color border = !filled
-        ? const Color(0xFFDCD7EC)
+        ? kN2
         : fresh
             ? _okColor
-            : const Color(0xFFE4DFF3);
+            : kN2;
 
     Widget content = Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: EdgeInsets.symmetric(horizontal: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
+              duration: Duration(milliseconds: 200),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle())
+              style: (Theme.of(context).textTheme.bodyMedium ?? TextStyle())
                     .merge(TextStyle(
                     fontSize: fresh ? 15 : 12.5,
                     fontWeight: FontWeight.w700,
@@ -1048,17 +1049,17 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                   )),
               child: Text(it?.w.en ?? ''),
             ),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
+              duration: Duration(milliseconds: 200),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle())
+              style: (Theme.of(context).textTheme.bodyMedium ?? TextStyle())
                     .merge(TextStyle(
                     fontSize: fresh ? 12.5 : 11,
                     height: 1.15,
-                    color: fresh ? _okInk2 : const Color(0xFF86809C),
+                    color: fresh ? _okInk2 : kN4,
                   )),
               child: Text(it?.w.zh ?? ''),
             ),
@@ -1071,7 +1072,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
       content = TweenAnimationBuilder<double>(
         key: ValueKey(it!.seq),
         tween: Tween(begin: 0, end: 1),
-        duration: const Duration(milliseconds: 420),
+        duration: Duration(milliseconds: 420),
         builder: (context, t, child) => Transform.scale(
           scale: .72 + .28 * Curves.easeOutBack.transform(t),
           child: child,
@@ -1084,13 +1085,13 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
       fit: StackFit.expand,
       children: [
         AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
+          duration: Duration(milliseconds: 220),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(9),
             border: filled ? Border.all(color: border, width: 1) : null,
             boxShadow: fresh
-                ? const [
+                ? [
                     BoxShadow(
                         color: Color(0x2E58CC02),
                         blurRadius: 12,
@@ -1108,19 +1109,19 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
           ),
         // 空态第一格就是台子的名字：字压在背景卡上，不占额外一行
         if (!filled && placeholder)
-          const Center(
+          Center(
             child: Text(
               '巩固台',
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w400,
                 letterSpacing: 1.2,
-                color: Color(0xFFACA6C1),
+                color: kN4,
               ),
             ),
           ),
         if (fresh)
-          const Positioned(
+          Positioned(
             top: 3,
             right: 4,
             child: Text('✓', style: TextStyle(fontSize: 9, color: _okColor)),
@@ -1133,9 +1134,9 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
 
   Widget _desk() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 6),
+      padding: EdgeInsets.fromLTRB(18, 14, 18, 6),
       child: Column(
-        key: const ValueKey('desk'),
+        key: ValueKey('desk'),
         children: [
           for (var i = 0; i < kPairs; i++)
             Expanded(
@@ -1150,7 +1151,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                         child: _cardView(_en[i], i, true),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Expanded(
                       child: KeyedSubtree(
                         key: ValueKey('zh$i'),
@@ -1198,31 +1199,31 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
     Color textColor = _ink;
     Color subColor = _ink3;
     var dashed = false;
-    List<BoxShadow> shadow = const [
-      BoxShadow(color: Color(0xFFE4E0F4), offset: Offset(0, 2.5)),
-      BoxShadow(color: Color(0x0F463CBE), offset: Offset(0, 8), blurRadius: 16),
+    List<BoxShadow> shadow = [
+      BoxShadow(color: kN2, offset: Offset(0, 2.5)),
+      BoxShadow(color: ta(kPrimaryDeep, 0x0F), offset: Offset(0, 8), blurRadius: 16),
     ];
     var borderWidth = 1.5;
 
     if (blank) {
       bg = Colors.transparent;
-      border = const Color(0xFFDEDAF0);
+      border = kN2;
       dashed = true;
-      shadow = const [];
+      shadow = [];
     } else if (c.done) {
       // 收尾置灰：这一盘都学完了，词留在原位当背景
-      bg = const Color(0xFFF2F1F7);
-      border = const Color(0xFFE6E3EF);
-      textColor = const Color(0xFFA9A5BB);
-      subColor = const Color(0xFFC0BCCC);
-      shadow = const [];
+      bg = kN1;
+      border = kN2;
+      textColor = kN4;
+      subColor = kN3;
+      shadow = [];
     } else if (c.ok) {
       bg = _ok50;
       border = _okColor;
       textColor = _okInk;
       subColor = _okInk2;
-      shadow = const [
-        BoxShadow(color: Color(0xFFB7E2D2), offset: Offset(0, 3.5)),
+      shadow = [
+        BoxShadow(color: kN2, offset: Offset(0, 3.5)),
         BoxShadow(
             color: Color(0x2E58CC02),
             blurRadius: 20,
@@ -1232,16 +1233,16 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
     } else if (c.bad) {
       bg = _bad50;
       border = _badColor;
-      textColor = const Color(0xFFA32D2D);
-      subColor = const Color(0xFFA32D2D);
+      textColor = Color(0xFFA32D2D);
+      subColor = Color(0xFFA32D2D);
     } else if (c.sel) {
       bg = _primary50;
       border = _primary;
       textColor = _primaryDeep;
       subColor = _primaryDeep;
-      shadow = const [
-        BoxShadow(color: Color(0xFFCFC8FA), offset: Offset(0, 4.5)),
-        BoxShadow(color: Color(0x385A50E0), blurRadius: 22, offset: Offset(0, 14)),
+      shadow = [
+        BoxShadow(color: kDash, offset: Offset(0, 4.5)),
+        BoxShadow(color: ta(kPrimary, 0x38), blurRadius: 22, offset: Offset(0, 14)),
       ];
     }
 
@@ -1250,10 +1251,10 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
 
     return AnimatedOpacity(
       opacity: c.gone ? 0 : 1,
-      duration: const Duration(milliseconds: 140),
+      duration: Duration(milliseconds: 140),
       child: AnimatedContainer(
         key: isEn ? _enKeys[i] : _zhKeys[i],
-        duration: const Duration(milliseconds: 160),
+        duration: Duration(milliseconds: 160),
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(15),
@@ -1273,7 +1274,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                   splashColor: _primary.withValues(alpha: .06),
                   highlightColor: _primary.withValues(alpha: .03),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                    padding: EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                     child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -1292,7 +1293,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                             ),
                           ),
                           if (sub.isNotEmpty) ...[
-                            const SizedBox(height: 3),
+                            SizedBox(height: 3),
                             // 中文释义保留（自己玩的时候要看），太长就截断加省略号
                             Text(
                               sub,
@@ -1320,11 +1321,11 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
               ),
             // 收尾置灰的卡右上角一个淡对勾：这一对已经学过、不用再管
             if (c.done)
-              const Positioned(
+              Positioned(
                 top: 6,
                 right: 9,
                 child: Text('✓',
-                    style: TextStyle(fontSize: 11, color: Color(0xFFB4AFC6))),
+                    style: TextStyle(fontSize: 11, color: kN3)),
               ),
           ],
         ),
@@ -1388,7 +1389,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
 
     return Positioned.fill(
       child: Container(
-        color: const Color(0x6B1C1638),
+        color: ta(kInk, 0x6B),
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 26),
         child: TweenAnimationBuilder<double>(
@@ -1414,7 +1415,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(theme ? '主题完成' : '本关完成',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 21, fontWeight: FontWeight.w800, color: _ink)),
                 const SizedBox(height: 6),
                 Text(
@@ -1422,7 +1423,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                       ? (theme ? '一次全对，直接满星拿下这个主题' : '一次全对，整关满星')
                       : '${_durationText()} · ${wr.length} 个词配错过',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12.5, color: _ink2),
+                  style: TextStyle(fontSize: 12.5, color: _ink2),
                 ),
                 const SizedBox(height: 18),
                 Row(
@@ -1430,30 +1431,30 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                     _stat('$_total', '配对'),
                     const SizedBox(width: 9),
                     _stat('$acc%', '一次选对'),
-                    const SizedBox(width: 9),
+                    SizedBox(width: 9),
                     _stat('$_maxCombo', '最高连击'),
                   ],
                 ),
-                const SizedBox(height: 18),
+                SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () => Navigator.of(context).pop(true),
                     style: FilledButton.styleFrom(
                       backgroundColor: _primary,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      padding: EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15)),
                       elevation: 0,
                     ),
                     child: Text(widget.nextTitle ?? '完成',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 14.5, fontWeight: FontWeight.w700)),
                   ),
                 ),
                 TextButton(
                   onPressed: _start,
-                  child: const Text('再来一局',
+                  child: Text('再来一局',
                       style: TextStyle(fontSize: 12.5, color: _ink3)),
                 ),
               ],
@@ -1467,22 +1468,22 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
   Widget _stat(String value, String label) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF6F5FC),
+          color: kN1,
           borderRadius: BorderRadius.circular(13),
         ),
         child: Column(
           children: [
             Text(value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 19,
                   fontWeight: FontWeight.w800,
                   color: _ink,
                   fontFeatures: [FontFeature.tabularFigures()],
                 )),
             const SizedBox(height: 3),
-            Text(label, style: const TextStyle(fontSize: 10, color: _ink3)),
+            Text(label, style: TextStyle(fontSize: 10, color: _ink3)),
           ],
         ),
       ),

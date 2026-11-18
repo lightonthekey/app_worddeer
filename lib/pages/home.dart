@@ -119,9 +119,9 @@ class _HomePageState extends State<HomePage>
           color: Colors.white.withValues(alpha: .9),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: Colors.white),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-                color: Color(0x3D4A41C4),
+                color: ta(kPrimaryDeep, 0x3D),
                 blurRadius: 14,
                 offset: Offset(0, 4)),
           ],
@@ -133,7 +133,7 @@ class _HomePageState extends State<HomePage>
               width: 26,
               height: 26,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -149,16 +149,16 @@ class _HomePageState extends State<HomePage>
             ),
             const SizedBox(width: 7),
             Text(lv.name,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF2B2740))),
+                    color: kInk)),
             const SizedBox(width: 4),
             AnimatedRotation(
               turns: _dropOpen ? .5 : 0,
               duration: const Duration(milliseconds: 250),
-              child: const Icon(Icons.expand_more_rounded,
-                  size: 18, color: Color(0xFFA9A5BC)),
+              child: Icon(Icons.expand_more_rounded,
+                  size: 18, color: kN4),
             ),
           ],
         ),
@@ -174,9 +174,9 @@ class _HomePageState extends State<HomePage>
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: .86),
           borderRadius: BorderRadius.circular(999),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-                color: Color(0x334A41C4),
+                color: ta(kPrimaryDeep, 0x33),
                 blurRadius: 14,
                 offset: Offset(0, 4)),
           ],
@@ -218,7 +218,7 @@ class _HomePageState extends State<HomePage>
           Padding(
             padding: const EdgeInsets.only(bottom: 11),
             child: Text(hint,
-                style: const TextStyle(fontSize: 10.5, color: kMuted)),
+                style: TextStyle(fontSize: 10.5, color: kMuted)),
           ),
         ],
       ),
@@ -239,7 +239,7 @@ class _HomePageState extends State<HomePage>
                 style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: on ? FontWeight.w800 : FontWeight.w600,
-                    color: on ? kInk : const Color(0xFFA6A2B8))),
+                    color: on ? kInk : kN4)),
             const SizedBox(height: 6),
             AnimatedContainer(
               duration: const Duration(milliseconds: 180),
@@ -307,12 +307,12 @@ class _HomePageState extends State<HomePage>
       height: bottom - top,
       child: Container(
         decoration: BoxDecoration(
-          color: s.isOdd ? const Color(0xFFF4F0FF) : Colors.white,
+          color: s.isOdd ? kPrimary50 : Colors.white,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0x126D5AE0)),
-          boxShadow: const [
+          border: Border.all(color: ta(kPrimary, 0x12)),
+          boxShadow: [
             BoxShadow(
-                color: Color(0x14261E50),
+                color: ta(kInk, 0x14),
                 blurRadius: 30,
                 offset: Offset(0, 14)),
           ],
@@ -324,17 +324,17 @@ class _HomePageState extends State<HomePage>
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text('第 ${s + 1} 段',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       letterSpacing: .6,
-                      color: Color(0xFF5B5772))),
+                      color: kN5)),
               const SizedBox(width: 6),
               Text('U${from + 1}–U${to + 1}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFFB0ACC4))),
+                      color: kN3)),
             ],
           ),
         ),
@@ -368,35 +368,35 @@ class _HomePageState extends State<HomePage>
       fg = Colors.white;
       shadow = const Color(0xFFB7790D);
     } else if (done) {
-      grad = const LinearGradient(
+      grad = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [kHeroA, kHeroB]);
       bg = Colors.transparent;
       border = Colors.transparent;
       fg = Colors.white;
-      shadow = const Color(0xFF3B33A6);
+      shadow = kPrimary;
     } else if (isCur) {
-      grad = const LinearGradient(
+      grad = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [kHeroA, kHeroB]);
       bg = Colors.transparent;
       border = Colors.transparent;
       fg = Colors.white;
-      shadow = const Color(0xFF3B33A6);
+      shadow = kPrimary;
     } else if (u.review) {
       grad = null;
       bg = kAmber50;
       border = const Color(0xFFEFC97E);
       fg = const Color(0xFFB26A0B);
-      shadow = const Color(0xFFEDEAF7);
+      shadow = kLine;
     } else {
       grad = null;
       bg = Colors.white;
-      border = const Color(0xFFE4E0F2);
-      fg = const Color(0xFFB3AFC4);
-      shadow = const Color(0xFFEDEAF7);
+      border = kN2;
+      fg = kN3;
+      shadow = kLine;
     }
 
     final glyph = done
@@ -441,7 +441,7 @@ class _HomePageState extends State<HomePage>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                          color: const Color(0xFFC7BEF5), width: 2),
+                          color: kDash, width: 2),
                     ),
                   ),
                 ),
@@ -456,8 +456,8 @@ class _HomePageState extends State<HomePage>
                     BoxShadow(
                         color: shadow, offset: const Offset(0, 4)),
                     if (isCur)
-                      const BoxShadow(
-                          color: Color(0x8C4A41C4),
+                      BoxShadow(
+                          color: ta(kPrimaryDeep, 0x8C),
                           blurRadius: 26,
                           offset: Offset(0, 10)),
                   ],
@@ -505,9 +505,9 @@ class _HomePageState extends State<HomePage>
           decoration: BoxDecoration(
             color: kHeroB,
             borderRadius: BorderRadius.circular(999),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
-                  color: Color(0xB34A41C4),
+                  color: ta(kPrimaryDeep, 0xB3),
                   blurRadius: 22,
                   offset: Offset(0, 10)),
             ],
@@ -606,7 +606,7 @@ class _HomePageState extends State<HomePage>
                 ? '${c.curLv} · $total 个主题全部解锁'
                 : '${c.curLv} · 免费开放 '
                     '${min(Ent.I.ent.limits.themesPerLevel, total)} / $total 个主题',
-            style: const TextStyle(fontSize: 10.5, color: kMuted),
+            style: TextStyle(fontSize: 10.5, color: kMuted),
           ),
         ),
         if (!Ent.I.vip)
@@ -619,7 +619,7 @@ class _HomePageState extends State<HomePage>
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(color: kLine),
               ),
-              child: const Text('解锁全部',
+              child: Text('解锁全部',
                   style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
@@ -704,11 +704,11 @@ class _HomePageState extends State<HomePage>
     final titleColor = isCur
         ? Colors.white
         : (done
-            ? const Color(0xFF3F37AE)
-            : (locked ? const Color(0xFF8B879C) : const Color(0xFF5F5B72)));
+            ? kPrimaryDeep
+            : (locked ? kN4 : kN5));
     final subColor = isCur
         ? Colors.white.withValues(alpha: .85)
-        : (done ? const Color(0xFF8E86C6) : kMuted);
+        : (done ? kN4 : kMuted);
 
     return GestureDetector(
       onTap: () => locked
@@ -716,15 +716,15 @@ class _HomePageState extends State<HomePage>
           : _openTheme(i),
       child: CustomPaint(
         foregroundPainter: locked
-            ? const _DashedBorderPainter(radius: 20, color: Color(0xFFE2DFEC))
+            ? _DashedBorderPainter(radius: 20, color: kN2)
             : null,
         child: Container(
           decoration: BoxDecoration(
             color: isCur
                 ? null
-                : (done ? const Color(0xFFF2EEFE) : const Color(0xFFF1F0F6)),
+                : (done ? kPrimary50 : kN1),
             gradient: isCur
-                ? const LinearGradient(
+                ? LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [kHeroA, kHeroB])
@@ -734,17 +734,17 @@ class _HomePageState extends State<HomePage>
               color: isCur
                   ? Colors.transparent
                   : (done
-                      ? const Color(0xFFE1DAFB)
+                      ? kPriLine
                       : (locked
                           ? Colors.transparent
-                          : const Color(0xFFE8E6F0))),
+                          : kN1)),
             ),
             boxShadow: isCur
-                ? const [
-                    BoxShadow(color: Color(0xFF3B33A6), offset: Offset(0, 4)),
-                    BoxShadow(color: Color(0x226D5AE0), spreadRadius: 7),
+                ? [
+                    BoxShadow(color: kPrimary, offset: Offset(0, 4)),
+                    BoxShadow(color: ta(kPrimary, 0x22), spreadRadius: 7),
                     BoxShadow(
-                        color: Color(0x664A41C4),
+                        color: ta(kPrimaryDeep, 0x66),
                         blurRadius: 26,
                         offset: Offset(0, 14)),
                   ]
@@ -753,11 +753,11 @@ class _HomePageState extends State<HomePage>
                     : [
                         BoxShadow(
                             color: done
-                                ? const Color(0xFFE9E5F7)
-                                : const Color(0xFFE5E2EE),
+                                ? kN1
+                                : kN2,
                             offset: const Offset(0, 3)),
-                        const BoxShadow(
-                            color: Color(0x2E261E50),
+                        BoxShadow(
+                            color: ta(kInk, 0x2E),
                             blurRadius: 20,
                             offset: Offset(0, 10)),
                       ],
@@ -824,7 +824,7 @@ class _HomePageState extends State<HomePage>
         height: 16,
         alignment: Alignment.center,
         decoration:
-            const BoxDecoration(shape: BoxShape.circle, color: kPrimary),
+            BoxDecoration(shape: BoxShape.circle, color: kPrimary),
         child: const Icon(Icons.check_rounded, size: 10, color: Colors.white),
       );
 
@@ -848,7 +848,7 @@ class _HomePageState extends State<HomePage>
       children: [
         Text(
           '${c.curLv} · 从整级词库随机抽 ${Curriculum.perUnit} 词，不限次数',
-          style: const TextStyle(fontSize: 11.5, color: kMuted, height: 1.5),
+          style: TextStyle(fontSize: 11.5, color: kMuted, height: 1.5),
         ),
         const SizedBox(height: 11),
         Container(
@@ -871,10 +871,10 @@ class _HomePageState extends State<HomePage>
                         style: const TextStyle(
                             fontSize: 12.5, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       '选择、拼写、听音三种题型混排，答错的词会再次出现，直到答对为止。',
                       style: TextStyle(
-                          fontSize: 11.5, color: Color(0xFF6F6B85), height: 1.5),
+                          fontSize: 11.5, color: kN4, height: 1.5),
                     ),
                   ],
                 ),
@@ -917,7 +917,7 @@ class _HomePageState extends State<HomePage>
                 behavior: HitTestBehavior.opaque,
                 onTap: _closeDrop,
                 child: ColoredBox(
-                  color: const Color(0xFF18142C).withValues(alpha: .36 * t),
+                  color: kInk.withValues(alpha: .36 * t),
                 ),
               ),
             ),
@@ -946,12 +946,12 @@ class _HomePageState extends State<HomePage>
     final learned = _learnedWords(c, c.curLv);
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
         boxShadow: [
           BoxShadow(
-              color: Color(0x8C261E50),
+              color: ta(kInk, 0x8C),
               blurRadius: 40,
               offset: Offset(0, 22)),
         ],
@@ -977,7 +977,7 @@ class _HomePageState extends State<HomePage>
                       const SizedBox(width: 7),
                       Text('每关 ${Curriculum.perUnit} 词 · '
                           '每 ${Curriculum.learnPerReview} 关一次复习',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 10.5, color: kMuted)),
                     ],
                   ),
@@ -995,7 +995,7 @@ class _HomePageState extends State<HomePage>
                     left: '${lv.id} ${lv.name} · 已学 $learned / $totalWords 词',
                     right: '$passed / $units 关',
                     value: units == 0 ? 0 : passed / units,
-                    colors: const [kHeroA, kHeroB],
+                    colors: [kHeroA, kHeroB],
                     boxed: true,
                   ),
                   const SizedBox(height: 12),
@@ -1073,7 +1073,7 @@ class _HomePageState extends State<HomePage>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
         decoration: BoxDecoration(
-          color: on ? kPrimary50 : (locked ? const Color(0xFFFCFBFE) : Colors.white),
+          color: on ? kPrimary50 : (locked ? kBg : Colors.white),
           borderRadius: BorderRadius.circular(13),
           border: Border.all(
               color: on ? kPrimary : kLine, width: on ? 1.5 : 1),
@@ -1094,28 +1094,28 @@ class _HomePageState extends State<HomePage>
                           letterSpacing: -.3,
                           color: on
                               ? kPrimaryDeep
-                              : (locked ? const Color(0xFFC0BCD0) : kInk))),
+                              : (locked ? kN3 : kInk))),
                 ),
                 if (locked) ...[
                   const SizedBox(width: 2),
-                  const Icon(Icons.lock_rounded,
-                      size: 9, color: Color(0xFFC0BCD0)),
+                  Icon(Icons.lock_rounded,
+                      size: 9, color: kN3),
                 ],
               ],
             ),
             const SizedBox(height: 2),
             Text(l.name,
                 maxLines: 1,
-                style: const TextStyle(fontSize: 9.5, color: kMuted)),
+                style: TextStyle(fontSize: 9.5, color: kMuted)),
             const SizedBox(height: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(9),
               child: LinearProgressIndicator(
                 value: pct <= 0 ? 0.04 : pct,
                 minHeight: 4,
-                backgroundColor: const Color(0xFFEDEBF7),
+                backgroundColor: kN1,
                 valueColor: AlwaysStoppedAnimation(
-                    locked ? const Color(0xFFC0BCD0) : kPrimary),
+                    locked ? kN3 : kPrimary),
               ),
             ),
           ],
@@ -1140,7 +1140,7 @@ class _HomePageState extends State<HomePage>
               child: Text(left,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11.5, color: kMuted)),
+                  style: TextStyle(fontSize: 11.5, color: kMuted)),
             ),
             const SizedBox(width: 8),
             Text(right,
@@ -1171,8 +1171,8 @@ class _HomePageState extends State<HomePage>
         borderRadius: BorderRadius.circular(9),
         child: Stack(
           children: [
-            const Positioned.fill(
-                child: ColoredBox(color: Color(0xFFEFEDF8))),
+            Positioned.fill(
+                child: ColoredBox(color: kN1)),
             FractionallySizedBox(
               widthFactor: value.clamp(0.0, 1.0),
               heightFactor: 1,
@@ -1193,7 +1193,7 @@ class _HomePageState extends State<HomePage>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 9),
         decoration: BoxDecoration(
-          color: const Color(0xFFFBFAFE),
+          color: kBg,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: kLine),
         ),
@@ -1206,7 +1206,7 @@ class _HomePageState extends State<HomePage>
                     letterSpacing: -.3)),
             const SizedBox(height: 1),
             Text(label,
-                style: const TextStyle(fontSize: 9.5, color: kMuted)),
+                style: TextStyle(fontSize: 9.5, color: kMuted)),
           ],
         ),
       ),
@@ -1220,7 +1220,7 @@ class _HomePageState extends State<HomePage>
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: const Color(0xFFFBFAFE),
+            color: kBg,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: kLine),
           ),
@@ -1229,10 +1229,10 @@ class _HomePageState extends State<HomePage>
               Text(emoji, style: const TextStyle(fontSize: 16, height: 1.1)),
               const SizedBox(height: 4),
               Text(label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF5B5772))),
+                      color: kN5)),
             ],
           ),
         ),
@@ -1362,7 +1362,7 @@ class _HomePageState extends State<HomePage>
       ..showSnackBar(SnackBar(
         content: Text(msg, style: const TextStyle(fontSize: 13)),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF3A3550),
+        backgroundColor: kInk,
         duration: const Duration(seconds: 2),
       ));
   }
@@ -1437,7 +1437,7 @@ class _PathPainter extends CustomPainter {
     }
 
     // 没走到的：圆点虚线
-    final dotPaint = Paint()..color = const Color(0xFFDAD4EE);
+    final dotPaint = Paint()..color = kN2;
     for (final m in rest.computeMetrics()) {
       var d = 0.0;
       while (d < m.length) {
@@ -1450,7 +1450,7 @@ class _PathPainter extends CustomPainter {
     canvas.drawPath(
       done,
       Paint()
-        ..color = const Color(0xFFA79CF0)
+        ..color = kPrimary
         ..style = PaintingStyle.stroke
         ..strokeWidth = 7
         ..strokeCap = StrokeCap.round,
@@ -1523,7 +1523,7 @@ class _BowPainter extends CustomPainter {
 
     // 未走到的段用细虚线（圆点太大会把浅弧读成一串珠子、像斜线）
     final dashPaint = Paint()
-      ..color = const Color(0xFFC9C0E8)
+      ..color = kDash
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.2
       ..strokeCap = StrokeCap.round;
@@ -1539,7 +1539,7 @@ class _BowPainter extends CustomPainter {
     canvas.drawPath(
       walked,
       Paint()
-        ..color = const Color(0xFF8F82E8)
+        ..color = kPrimary
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3.6
         ..strokeCap = StrokeCap.round,
@@ -1609,19 +1609,19 @@ class _RoundFab extends StatelessWidget {
             color: Colors.white.withValues(alpha: .94),
             shape: BoxShape.circle,
             border: Border.all(color: kLine),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
-                  color: Color(0x33261E50),
+                  color: ta(kInk, 0x33),
                   blurRadius: 20,
                   offset: Offset(0, 8)),
-              BoxShadow(color: Color(0xFFECE9F7), offset: Offset(0, 2)),
+              BoxShadow(color: kN1, offset: Offset(0, 2)),
             ],
           ),
           child: AnimatedRotation(
             turns: up ? .5 : 0,
             duration: const Duration(milliseconds: 220),
-            child: const Icon(Icons.keyboard_arrow_down_rounded,
-                size: 22, color: Color(0xFF5B5772)),
+            child: Icon(Icons.keyboard_arrow_down_rounded,
+                size: 22, color: kN5),
           ),
         ),
       ),
@@ -1659,13 +1659,13 @@ class _EmptyCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: kInk)),
                 const SizedBox(height: 3),
                 Text(sub,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11.5, color: kMuted, height: 1.4)),
               ],
             ),

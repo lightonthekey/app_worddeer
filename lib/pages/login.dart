@@ -73,9 +73,9 @@ class _LoginPageState extends State<LoginPage> {
         backgroundColor: kBg,
         elevation: 0,
         title: Text(_isRegister ? '注册账号' : '登录',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: kInk)),
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: kInk)),
         centerTitle: true,
-        iconTheme: const IconThemeData(color: kInk),
+        iconTheme: IconThemeData(color: kInk),
       ),
       body: SafeArea(
         child: ListView(
@@ -93,10 +93,10 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   Text(
                     _isRegister ? '创建账号，学习进度云端同步' : '欢迎回来 👋',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kInk),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kInk),
                   ),
                   const SizedBox(height: 4),
-                  const Text('进度会存在本地，登录是为换机同步做准备',
+                  Text('进度会存在本地，登录是为换机同步做准备',
                       style: TextStyle(fontSize: 12, color: kMuted)),
                   const SizedBox(height: 18),
                   _field(
@@ -148,7 +148,7 @@ class _LoginPageState extends State<LoginPage> {
                     },
                     child: Text(
                       _isRegister ? '已有账号？去登录' : '没有账号？注册一个',
-                      style: const TextStyle(fontSize: 13, color: kPrimary, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 13, color: kPrimary, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -169,12 +169,12 @@ class _LoginPageState extends State<LoginPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: kMuted)),
+        Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: kMuted)),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
           textInputAction: inputAction,
-          style: const TextStyle(fontSize: 15, color: kInk),
+          style: TextStyle(fontSize: 15, color: kInk),
           decoration: _deco(hint),
         ),
       ],
@@ -185,13 +185,13 @@ class _LoginPageState extends State<LoginPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('密码', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: kMuted)),
+        Text('密码', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: kMuted)),
         const SizedBox(height: 6),
         TextField(
           controller: _password,
           obscureText: !_showPassword,
           onSubmitted: (_) => _submit(),
-          style: const TextStyle(fontSize: 15, color: kInk),
+          style: TextStyle(fontSize: 15, color: kInk),
           decoration: _deco('至少 6 位').copyWith(
             suffixIcon: IconButton(
               onPressed: () => setState(() => _showPassword = !_showPassword),
@@ -206,21 +206,21 @@ class _LoginPageState extends State<LoginPage> {
 
   InputDecoration _deco(String hint) => InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(fontSize: 12.5, color: kMuted),
+        hintStyle: TextStyle(fontSize: 12.5, color: kMuted),
         filled: true,
         fillColor: kBg,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: kLine),
+          borderSide: BorderSide(color: kLine),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: kLine),
+          borderSide: BorderSide(color: kLine),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: kPrimary, width: 1.4),
+          borderSide: BorderSide(color: kPrimary, width: 1.4),
         ),
       );
 }

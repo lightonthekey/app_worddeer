@@ -26,7 +26,7 @@ class ReviewPage extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         children: [
-          const Text('复习',
+          Text('复习',
               style: TextStyle(
                   fontSize: 21, fontWeight: FontWeight.w700, color: kInk)),
           const SizedBox(height: 4),
@@ -48,11 +48,11 @@ class ReviewPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('${due.length}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 30,
                               fontWeight: FontWeight.w700,
                               color: kPrimary)),
-                      const Text('个词待复习',
+                      Text('个词待复习',
                           style: TextStyle(fontSize: 12, color: kMuted)),
                     ],
                   ),
@@ -71,7 +71,7 @@ class ReviewPage extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kPrimary,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: const Color(0xFFF0EEF8),
+                    disabledBackgroundColor: kN2,
                     disabledForegroundColor: kMuted,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(
@@ -89,12 +89,12 @@ class ReviewPage extends StatelessWidget {
           const SizedBox(height: 24),
           Row(
             children: [
-              const Text('易错词',
+              Text('易错词',
                   style: TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w600, color: kInk)),
               const Spacer(),
               Text('${wrong.length} 个',
-                  style: const TextStyle(fontSize: 11, color: kMuted)),
+                  style: TextStyle(fontSize: 11, color: kMuted)),
             ],
           ),
           const SizedBox(height: 12),
@@ -106,7 +106,7 @@ class ReviewPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: kLine),
               ),
-              child: const Column(
+              child: Column(
                 children: [
                   Icon(Icons.emoji_events_outlined, size: 28, color: kMuted),
                   SizedBox(height: 8),
@@ -121,14 +121,14 @@ class ReviewPage extends StatelessWidget {
             const SizedBox(height: 24),
             Row(
               children: [
-                const Text('排队中',
+                Text('排队中',
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: kInk)),
                 const Spacer(),
                 Text('${due.length} 个',
-                    style: const TextStyle(fontSize: 11, color: kMuted)),
+                    style: TextStyle(fontSize: 11, color: kMuted)),
               ],
             ),
             const SizedBox(height: 12),
@@ -139,7 +139,7 @@ class ReviewPage extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Text('还有 ${due.length - 30} 个在队列里，学完这批再继续',
-                    style: const TextStyle(fontSize: 11, color: kMuted)),
+                    style: TextStyle(fontSize: 11, color: kMuted)),
               ),
           ],
         ],
@@ -166,21 +166,21 @@ class ReviewPage extends StatelessWidget {
                 Row(
                   children: [
                     Text(w.en,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: kInk)),
                     const SizedBox(width: 6),
                     if (w.phUs.isNotEmpty)
                       Text(w.phUs,
-                          style: const TextStyle(fontSize: 11, color: kMuted)),
+                          style: TextStyle(fontSize: 11, color: kMuted)),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Text(w.zh,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: kMuted)),
+                    style: TextStyle(fontSize: 12, color: kMuted)),
               ],
             ),
           ),
@@ -196,7 +196,7 @@ class ReviewPage extends StatelessWidget {
             ),
           IconButton(
             onPressed: () => Voice.say(w.en),
-            icon: const Icon(Icons.volume_up_rounded, size: 18, color: kPrimary),
+            icon: Icon(Icons.volume_up_rounded, size: 18, color: kPrimary),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
           ),

@@ -16,7 +16,9 @@
 | `theme-v3-arc.html` | 主题页 **B 版**：弓形弧线（左右两列严格交替、每两格一段弧）+ 同款小方块 |
 | `theme-pick.html` | **主题页两版对比**（连线形态差异 + 观感取舍），选型用 |
 | `checkin.html` | **打卡页**：连胜大数字 + 月历（连续打卡串成渐变胶囊） |
-| `me.html` | **「我的」/ 用户中心**：账号区 + 三宫格统计 + **6 套主题选择器** + 学习设置 + 记录与数据 |
+| `me.html` | **「我的」/ 用户中心**：账号区 + 三宫格统计 + **6 套主题选择器** + 学习设置 + 记录与数据；右上角齿轮进设置 |
+| `settings.html` | **设置页**：昵称 / 用户名 / 会员、云端同步 / 清除记录 / 注销账号、关于、退出登录 |
+| `themes.html` | **6 套主题总览**（「我的」页逐套截图并排，核对配色用） |
 | `wb-theme.js` | **主题引擎**（被上面 5 个页面共用）：6 套色板 + 派生色公式 + `?t=` 预览 + localStorage 记忆 |
 | `color-pick.html` | **主题色六方案选型**（靛蓝 / 青绿 / 竹绿 / 暖橙 / 珊瑚 / 经典紫，各带一块真实结构预览），定色用 |
 | `home-v1-trail.html` | 首页备选方案 V1 · 蜿蜒小径（未采用） |
@@ -68,6 +70,19 @@
 | `WB.apply(key)` | 写入 `:root` 变量 + `data-theme` + 落地 `localStorage['wb.theme']` |
 | `WB.mount(el)` | 渲染 6 个圆点选项（结构由页面 CSS 决定），选中态带勾 |
 | `?t=orange` | 临时用某套主题预览（截图用），优先级高于本地记忆 |
+
+### Flutter 侧（2026-11-18 已同步）
+
+| 文件 | 作用 |
+|---|---|
+| `lib/theme.dart` | `AppPalette`（同一套 8 基准色 + 派生公式）、`kPalettes` 6 套、`AppTheme`（ChangeNotifier + SharedPreferences `ui.theme`） |
+| `lib/ui.dart` | `kPrimary/kInk/kMuted/...` 由 `const` 改成读当前主题的 getter；`buildTheme(pal)` 吃调色板 |
+| `lib/main.dart` | `_boot` 里读主题；`AnimatedBuilder(AppTheme.I)` 重建 MaterialApp + Shell；`_buildPages()` 每次重建，保证页面颜色跟着换 |
+| `lib/pages/me.dart` | 右上角齿轮 → 设置页；新增「外观主题」6 宫格（`_ThemeTile`） |
+| `lib/pages/settings.dart` | 设置页：改昵称（本地生效，`Auth.renameLocal`）、云端同步、清除记录、注销账号、关于、退出登录 |
+| `test/theme_probe.dart` | 主题视觉探针：`flutter test test/theme_probe.dart --update-goldens` 出 4 套「我的」页 + 设置页截图 |
+
+注意：`kXxx` 现在是 getter，**不能再写进 `const` 构造**（写 `const TextStyle(color: kInk)` 会编译报错）。
 
 约定：
 - **语义色不跟主题走**：配对成功的绿 `#58CC02`、打卡的连胜火焰红橙，换主题也保持原样；

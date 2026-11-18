@@ -95,6 +95,26 @@ class Auth {
     _changes.add(null);
   }
 
+  /// 改昵称。后台暂时没有改名接口，先本地生效：
+  /// 写进缓存的 user json，下次启动恢复会话时带出来。
+  /// 接上接口后把这里换成 _post('/user/nickname', ...) 即可。
+  Future<void> renameLocal(String nickname) async {
+    final u = user;
+    if (u == null) return;
+    final next = UserInfo(
+      id: u.id,
+      username: u.username,
+      nickname: nickname.trim(),
+      role: u.role,
+    );
+    user = next;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kUserKey, jsonEncode(next.toJson()));
+    } catch (_) {}
+    _changes.add(next);
+  }
+
   /// 只清本地登录态，不调后台（离线登出 / 单测隔离用）
   Future<void> resetLocal() async {
     final prefs = await SharedPreferences.getInstance();

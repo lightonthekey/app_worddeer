@@ -13,6 +13,7 @@ import 'pages/me.dart';
 import 'pages/review.dart';
 import 'progress.dart';
 import 'progress_sync.dart';
+import 'theme.dart';
 import 'ui.dart';
 
 void main() async {
@@ -50,6 +51,7 @@ Future<void> _boot() async {
     '课程进度': Curriculum.I.load,
     '进度同步': ProgressSync.I.init,
     '会员权益': Ent.I.load,
+    '外观主题': AppTheme.I.load,
   };
   for (final e in steps.entries) {
     try {
@@ -65,11 +67,15 @@ class EngApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '词鹿英语',
-      debugShowCheckedModeBanner: false,
-      theme: buildTheme(),
-      home: const Shell(),
+    // 主题一变，整棵树重建：颜色 token 都是 getter，重建即换色
+    return AnimatedBuilder(
+      animation: AppTheme.I,
+      builder: (_, _) => MaterialApp(
+        title: '词鹿英语',
+        debugShowCheckedModeBanner: false,
+        theme: buildTheme(AppTheme.I.pal),
+        home: const Shell(),
+      ),
     );
   }
 }
@@ -84,13 +90,15 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> with WidgetsBindingObserver {
   int _idx = 0;
 
-  /// 首页下拉面板里的「去复习」要能切到复习 tab，所以把切换入口传进去
-  late final List<Widget> _pages = [
-    HomePage(onNavigate: (i) => setState(() => _idx = i)),
-    const ReviewPage(),
-    const DictPage(),
-    const MePage(),
-  ];
+  /// 首页下拉面板里的「去复习」要能切到复习 tab，所以把切换入口传进去。
+  /// 每次 build 重新构造（而不是存成 late final）：切主题时要让每个页面
+  /// 都重新 build 一次，颜色 token 才会跟着换。
+  List<Widget> _buildPages() => [
+        HomePage(onNavigate: (i) => setState(() => _idx = i)),
+        const ReviewPage(),
+        const DictPage(),
+        const MePage(),
+      ];
 
   @override
   void initState() {
@@ -112,12 +120,19 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: AppTheme.I,
+      builder: (_, _) => _scaffold(context),
+    );
+  }
+
+  Widget _scaffold(BuildContext context) {
     return Scaffold(
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
-          child: IndexedStack(index: _idx, children: _pages),
+          child: IndexedStack(index: _idx, children: _buildPages()),
         ),
       ),
       bottomNavigationBar: NavigationBar(
@@ -127,7 +142,7 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
         indicatorColor: kPrimary.withValues(alpha: 0.12),
         height: 62,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
+        destinations: [
           NavigationDestination(
             icon: Icon(Icons.local_fire_department_outlined),
             selectedIcon: Icon(Icons.local_fire_department, color: kPrimary),

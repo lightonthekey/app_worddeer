@@ -43,7 +43,7 @@ class _DictPageState extends State<DictPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
             child: Text('词典',
                 style: TextStyle(
@@ -57,12 +57,12 @@ class _DictPageState extends State<DictPage> {
               style: const TextStyle(fontSize: 15),
               decoration: InputDecoration(
                 hintText: '输入英文或中文，如 abandon / 放弃',
-                hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFB8B4C8)),
-                prefixIcon: const Icon(Icons.search, size: 20, color: kMuted),
+                hintStyle: TextStyle(fontSize: 13, color: kN3),
+                prefixIcon: Icon(Icons.search, size: 20, color: kMuted),
                 suffixIcon: _kw.isEmpty
                     ? null
                     : IconButton(
-                        icon: const Icon(Icons.clear, size: 18, color: kMuted),
+                        icon: Icon(Icons.clear, size: 18, color: kMuted),
                         onPressed: () {
                           _ctl.clear();
                           _search('');
@@ -73,15 +73,15 @@ class _DictPageState extends State<DictPage> {
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: kLine),
+                  borderSide: BorderSide(color: kLine),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: kLine),
+                  borderSide: BorderSide(color: kLine),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: kPrimary),
+                  borderSide: BorderSide(color: kPrimary),
                 ),
               ),
             ),
@@ -112,20 +112,20 @@ class _DictPageState extends State<DictPage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
       children: [
-        const Text('随便看看',
+        Text('随便看看',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kInk)),
         const SizedBox(height: 10),
         ...picks.map((w) => _tile(w)),
         const SizedBox(height: 18),
         Text('词库共 ${bankSummary()}',
-            style: const TextStyle(fontSize: 11, color: kMuted)),
+            style: TextStyle(fontSize: 11, color: kMuted)),
       ],
     );
   }
 
   Widget _list() {
     if (_res.isEmpty) {
-      return const Center(
+      return Center(
         child: Text('没找到，换个词试试',
             style: TextStyle(fontSize: 13, color: kMuted)),
       );
@@ -158,7 +158,7 @@ class _DictPageState extends State<DictPage> {
                   Row(
                     children: [
                       Text(w.en,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: kInk)),
@@ -167,11 +167,11 @@ class _DictPageState extends State<DictPage> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 1),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF0EEF8),
+                          color: kN2,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(w.levelName,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w700,
                                 color: kMuted)),
@@ -182,13 +182,13 @@ class _DictPageState extends State<DictPage> {
                   Text(w.zh,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12.5, color: kMuted)),
+                      style: TextStyle(fontSize: 12.5, color: kMuted)),
                 ],
               ),
             ),
             IconButton(
               onPressed: () => Voice.say(w.en),
-              icon: const Icon(Icons.volume_up_rounded,
+              icon: Icon(Icons.volume_up_rounded,
                   size: 18, color: kPrimary),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
@@ -217,24 +217,24 @@ class _DictPageState extends State<DictPage> {
             Row(
               children: [
                 Text(w.en,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w700,
                         color: kInk)),
                 const SizedBox(width: 10),
                 if (w.phUs.isNotEmpty)
                   Text(w.phUs,
-                      style: const TextStyle(fontSize: 13, color: kMuted)),
+                      style: TextStyle(fontSize: 13, color: kMuted)),
                 const Spacer(),
                 IconButton(
                   onPressed: () => Voice.say(w.en),
-                  icon: const Icon(Icons.volume_up_rounded, color: kPrimary),
+                  icon: Icon(Icons.volume_up_rounded, color: kPrimary),
                 ),
               ],
             ),
             const SizedBox(height: 6),
             Text(w.zh,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
                     color: kInk)),
@@ -242,7 +242,7 @@ class _DictPageState extends State<DictPage> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(w.detail,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13, color: kMuted, height: 1.6)),
               ),
             const SizedBox(height: 14),
@@ -260,11 +260,11 @@ class _DictPageState extends State<DictPage> {
               st == null
                   ? '还没学这个词'
                   : '已练 ${st.seen} 次 · 对 ${st.right} 错 ${st.wrong} · ${st.mastered ? "已掌握" : "巩固中"}',
-              style: const TextStyle(fontSize: 12, color: kMuted),
+              style: TextStyle(fontSize: 12, color: kMuted),
             ),
             const SizedBox(height: 6),
-            const Text('例句与词形变化尚未录入，是下一步要补的内容。',
-                style: TextStyle(fontSize: 11, color: Color(0xFFB8B4C8))),
+            Text('例句与词形变化尚未录入，是下一步要补的内容。',
+                style: TextStyle(fontSize: 11, color: kN3)),
           ],
         ),
       ),

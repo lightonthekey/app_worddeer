@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' show Ticker;
 
+import 'ui.dart';
+
 /// 配对成功时的纸屑爆炸（Canvas 粒子）。
 ///
 /// 移植自 design/game-a-desk.html 里那套（本身参考了 engmatch.html 的 fireConfetti）：
@@ -12,18 +14,19 @@ import 'package:flutter/scheduler.dart' show Ticker;
 /// 时间用固定 1/60 秒的物理步长推进，120Hz 屏和掉帧设备上飘落速度一致。
 /// 用法见 [ConfettiOverlay]；想手动推进帧（截图/测试）用 [advanceFrames]。
 
-const kConfettiColors = <Color>[
-  Color(0xFF16A34A),
-  Color(0xFF34D399),
-  Color(0xFF0EA5A4),
-  Color(0xFF5A50E0),
-  Color(0xFF8B7CF6),
-  Color(0xFFF59E0B),
-  Color(0xFFFBBF24),
-  Color(0xFFEF4444),
-  Color(0xFFFFFFFF),
-  Color(0xFFCDEBDE),
-];
+/// 纸屑配色：品牌色那两颗跟着主题走，其余是固定的绿/黄/红
+List<Color> get kConfettiColors => [
+      const Color(0xFF16A34A),
+      const Color(0xFF34D399),
+      const Color(0xFF0EA5A4),
+      kPrimary,
+      kPriLine,
+      const Color(0xFFF59E0B),
+      const Color(0xFFFBBF24),
+      const Color(0xFFEF4444),
+      Colors.white,
+      const Color(0xFFCDEBDE),
+    ];
 
 /// 每帧竖直加速度（px / frame²，60fps 基准）
 const double kConfettiGravity = .062;

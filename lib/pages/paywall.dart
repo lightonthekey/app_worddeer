@@ -130,7 +130,7 @@ class _PaywallSheetState extends State<_PaywallSheet> {
             children: [
               Text(
                 ent.vip ? '你已是${ent.tierName}' : '解锁全部课程',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 18, fontWeight: FontWeight.w800, color: kInk),
               ),
               const SizedBox(height: 3),
@@ -139,14 +139,14 @@ class _PaywallSheetState extends State<_PaywallSheet> {
                     (ent.vip
                         ? '感谢支持，所有内容已为你开放'
                         : '5 个级别 · ${themeCount()} 个主题 · 全部关卡'),
-                style: const TextStyle(fontSize: 12, color: kMuted),
+                style: TextStyle(fontSize: 12, color: kMuted),
               ),
             ],
           ),
         ),
         IconButton(
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.close_rounded, size: 20, color: kMuted),
+          icon: Icon(Icons.close_rounded, size: 20, color: kMuted),
         ),
       ],
     );
@@ -182,7 +182,7 @@ class _PaywallSheetState extends State<_PaywallSheet> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(s,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13, height: 1.35, color: kInk)),
                 ),
               ],
@@ -203,13 +203,13 @@ class _PaywallSheetState extends State<_PaywallSheet> {
         ),
         child: Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text('暂时拿不到套餐信息，请检查网络后重试',
                   style: TextStyle(fontSize: 12.5, color: kMuted)),
             ),
             TextButton(
               onPressed: () => Ent.I.refresh(),
-              child: const Text('重试', style: TextStyle(color: kPrimary)),
+              child: Text('重试', style: TextStyle(color: kPrimary)),
             ),
           ],
         ),
@@ -243,7 +243,7 @@ class _PaywallSheetState extends State<_PaywallSheet> {
                   ? Icons.radio_button_checked_rounded
                   : Icons.radio_button_off_rounded,
               size: 19,
-              color: on ? kPrimary : const Color(0xFFC8C4DA),
+              color: on ? kPrimary : kN3,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -253,7 +253,7 @@ class _PaywallSheetState extends State<_PaywallSheet> {
                   Row(
                     children: [
                       Text(p.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                               color: kInk)),
@@ -280,13 +280,13 @@ class _PaywallSheetState extends State<_PaywallSheet> {
                     p.perMonthText.isEmpty
                         ? p.periodText
                         : '${p.periodText} · ${p.perMonthText}',
-                    style: const TextStyle(fontSize: 11, color: kMuted),
+                    style: TextStyle(fontSize: 11, color: kMuted),
                   ),
                 ],
               ),
             ),
             Text(p.priceText,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 17, fontWeight: FontWeight.w800, color: kInk)),
           ],
         ),
@@ -310,7 +310,7 @@ class _PaywallSheetState extends State<_PaywallSheet> {
             const SizedBox(height: 4),
             Text(
               ent.expireAt.isEmpty ? '永久有效' : '有效期至 ${ent.expireAt}',
-              style: const TextStyle(fontSize: 12, color: kMuted),
+              style: TextStyle(fontSize: 12, color: kMuted),
             ),
           ],
         ),
@@ -348,7 +348,7 @@ class _PaywallSheetState extends State<_PaywallSheet> {
       ..showSnackBar(SnackBar(
         content: Text(msg, style: const TextStyle(fontSize: 13)),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: ok ? kGreen : const Color(0xFF3A3550),
+        backgroundColor: ok ? kGreen : kInk,
       ));
   }
 
@@ -420,12 +420,12 @@ class _PaywallSheetState extends State<_PaywallSheet> {
               ? '到期后自动回到免费版，学习记录不受影响'
               : '开通即表示同意《会员服务协议》；虚拟商品不支持退款',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 10.5, color: Color(0xFFB8B4C8), height: 1.5),
+          style: TextStyle(fontSize: 10.5, color: kN3, height: 1.5),
         ),
         if (!ent.vip)
           TextButton(
             onPressed: _busy ? null : () => _restore(),
-            child: const Text('恢复购买',
+            child: Text('恢复购买',
                 style: TextStyle(fontSize: 12, color: kMuted)),
           ),
       ],

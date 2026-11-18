@@ -3,6 +3,7 @@ import 'package:app_worddeer/entitlement.dart';
 import 'package:app_worddeer/pages/me.dart';
 import 'package:app_worddeer/progress.dart';
 import 'package:app_worddeer/progress_sync.dart';
+import 'package:app_worddeer/theme.dart';
 import 'package:app_worddeer/ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +25,8 @@ void main() {
     Ent.I.ent = const Entitlement();
   });
 
+  tearDown(() => AppTheme.I.set('indigo'));
+
   testWidgets('未登录：显示登录入口与同步承诺', (tester) async {
     await pump(tester);
     expect(find.text('未登录'), findsOneWidget);
@@ -41,7 +44,7 @@ void main() {
     expect(find.text('小鹿'), findsOneWidget);
     expect(find.text('@deer'), findsOneWidget);
     expect(find.text('已同步 · 2 小时前'), findsOneWidget);
-    expect(find.text('退出登录'), findsOneWidget);
+    expect(find.text('编辑资料'), findsOneWidget, reason: '退出登录已收进设置页');
   });
 
   testWidgets('已登录：同步失败可点重试', (tester) async {
@@ -130,5 +133,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('你已是年度会员'), findsOneWidget);
     expect(find.textContaining('立即开通'), findsNothing);
+  });
+
+  testWidgets('外观主题：点青绿整套换掉，重启别的页面也跟着走', (tester) async {
+    await pump(tester);
+    expect(AppTheme.I.key, 'indigo');
+
+    await tester.tap(find.text('青绿'));
+    await tester.pumpAndSettle();
+
+    expect(AppTheme.I.key, 'teal');
+    expect(AppTheme.I.pal.pri, const Color(0xFF109E90));
+    // 派生色跟着换：已学底不再是靛蓝那套
+    expect(AppTheme.I.pal.doneBg, isNot(kPalettes.first.doneBg));
+    // 选中的那颗圆点带勾
+    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+  });
+
+  testWidgets('设置入口：改昵称 / 清除记录 / 注销账号都在设置页', (tester) async {
+    Auth.I.user = const UserInfo(id: 7, username: 'deer', nickname: '小鹿');
+    await pump(tester);
+
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置'), findsOneWidget);
+    expect(find.text('昵称'), findsOneWidget);
+    expect(find.text('清除学习记录'), findsOneWidget);
+    expect(find.text('注销账号'), findsOneWidget);
+
+    // 改昵称：弹窗里保存后账号卡跟着变
+    await tester.tap(find.text('昵称'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '新小鹿');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(Auth.I.user!.displayName, '新小鹿');
+
+    // 退出登录在最底下，滚到底才在树里
+    await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+    await tester.pumpAndSettle();
+    expect(find.text('退出登录'), findsOneWidget);
   });
 }

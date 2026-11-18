@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>6 套主题总览</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#EDF0F6;padding:24px 26px 28px;color:#1C2231;
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+h1{margin:0 0 4px;font-size:17px;font-weight:800}
+p.lead{margin:0 0 18px;font-size:12px;color:#7C87A3}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1120px}
+.opt{background:#fff;border:1px solid #E4EAF8;border-radius:16px;padding:11px 11px 9px}
+.hd{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.hd i{width:13px;height:13px;border-radius:50%;display:block;flex:none}
+.hd b{font-size:12.5px;font-weight:800}
+.hd s{font-size:10px;color:#7C87A3;text-decoration:none;margin-left:auto;font-variant-numeric:tabular-nums}
+img{display:block;width:100%;border-radius:10px;border:1px solid #EDF1FA}
+</style></head><body>
+<h1>6 套主题 · 在「我的」里切换</h1>
+<p class="lead">同一页只换一组配色变量；HTML 原型与 Flutter 版共用同一套色值（design/wb-theme.js ↔ lib/theme.dart）。</p>
+<div class="grid" id="grid"></div>
+<script>
+const T = [
+  ['indigo','靛蓝 · 默认','#4B6FF0'],
+  ['teal','青绿','#109E90'],
+  ['bamboo','竹绿','#4FA845'],
+  ['orange','暖橙','#EE7A2B'],
+  ['coral','珊瑚','#E8604C'],
+  ['purple','经典紫 · 原版','#6D5AE0']
+];
+document.getElementById('grid').innerHTML = T.map(([k,n,c]) => `
+  <div class="opt">
+    <div class="hd"><i style="background:${c}"></i><b>${n}</b><s>${c}</s></div>
+    <img src="shots/me-${k}.png">
+  </div>`).join('');
+</script>
+</body></html>

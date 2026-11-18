@@ -197,10 +197,10 @@ class _SessionPageState extends State<SessionPage> {
         backgroundColor: kBg,
         elevation: 0,
         title: Text(_finished ? '本次完成' : widget.title,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 16, fontWeight: FontWeight.w600, color: kInk)),
         leading: IconButton(
-          icon: const Icon(Icons.close, color: kMuted),
+          icon: Icon(Icons.close, color: kMuted),
           onPressed: () {
             Progress.I.save();
             Navigator.of(context).pop();
@@ -233,14 +233,14 @@ class _SessionPageState extends State<SessionPage> {
                   child: LinearProgressIndicator(
                     value: _idx / total,
                     minHeight: 7,
-                    backgroundColor: const Color(0xFFE8E4F7),
-                    valueColor: const AlwaysStoppedAnimation(kPrimary),
+                    backgroundColor: kN1,
+                    valueColor: AlwaysStoppedAnimation(kPrimary),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Text('${_idx + 1}/$total',
-                  style: const TextStyle(fontSize: 12, color: kMuted)),
+                  style: TextStyle(fontSize: 12, color: kMuted)),
             ],
           ),
         ),
@@ -286,18 +286,18 @@ class _SessionPageState extends State<SessionPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
           decoration: BoxDecoration(
-            color: const Color(0xFFF0EEF8),
+            color: kN2,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(w.levelName,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11, fontWeight: FontWeight.w600, color: kMuted)),
         ),
         const Spacer(),
         if (_item.type != QType.listen)
           IconButton(
             onPressed: () => Voice.say(w.en),
-            icon: const Icon(Icons.volume_up_rounded, color: kPrimary, size: 22),
+            icon: Icon(Icons.volume_up_rounded, color: kPrimary, size: 22),
             tooltip: '发音',
           ),
       ],
@@ -324,7 +324,7 @@ class _SessionPageState extends State<SessionPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFEDEAF7)),
+        border: Border.all(color: kLine),
       ),
       child: child,
     );
@@ -339,31 +339,31 @@ class _SessionPageState extends State<SessionPage> {
           const SizedBox(height: 8),
           Text(w.en,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 38, fontWeight: FontWeight.w700, color: kInk)),
           if (w.phUs.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(w.phUs,
-                style: const TextStyle(fontSize: 14, color: kMuted)),
+                style: TextStyle(fontSize: 14, color: kMuted)),
           ],
           const SizedBox(height: 6),
           TextButton.icon(
             onPressed: () => Voice.say(w.en),
-            icon: const Icon(Icons.volume_up_rounded, size: 18, color: kPrimary),
-            label: const Text('听发音',
+            icon: Icon(Icons.volume_up_rounded, size: 18, color: kPrimary),
+            label: Text('听发音',
                 style: TextStyle(fontSize: 13, color: kPrimary)),
           ),
           if (_showBack) ...[
-            const Divider(height: 26, color: Color(0xFFF0EEF8)),
+            Divider(height: 26, color: kN2),
             Text(w.zh,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 22, fontWeight: FontWeight.w600, color: kInk)),
             if (w.detail.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(w.detail,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12.5, color: kMuted, height: 1.5)),
+                  style: TextStyle(fontSize: 12.5, color: kMuted, height: 1.5)),
             ],
           ] else
             Padding(
@@ -389,13 +389,13 @@ class _SessionPageState extends State<SessionPage> {
             children: [
               Text(w.en,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 32, fontWeight: FontWeight.w700, color: kInk)),
               if (w.phUs.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(w.phUs,
-                      style: const TextStyle(fontSize: 13, color: kMuted)),
+                      style: TextStyle(fontSize: 13, color: kMuted)),
                 ),
             ],
           ),
@@ -425,12 +425,12 @@ class _SessionPageState extends State<SessionPage> {
                     color: kPrimary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.volume_up_rounded,
+                  child: Icon(Icons.volume_up_rounded,
                       size: 36, color: kPrimary),
                 ),
               ),
               const SizedBox(height: 10),
-              const Text('点击重听',
+              Text('点击重听',
                   style: TextStyle(fontSize: 12, color: kMuted)),
             ],
           ),
@@ -442,7 +442,7 @@ class _SessionPageState extends State<SessionPage> {
   }
 
   Widget _optionTile(String text, bool isAnswer) {
-    Color border = const Color(0xFFEDEAF7);
+    Color border = kLine;
     Color bg = Colors.white;
     Color fg = kInk;
     if (_revealed) {
@@ -494,14 +494,14 @@ class _SessionPageState extends State<SessionPage> {
             children: [
               Text(w.zh,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 26, fontWeight: FontWeight.w600, color: kInk)),
               if (w.detail.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(w.detail,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 12, color: kMuted, height: 1.5)),
+                      style: TextStyle(fontSize: 12, color: kMuted, height: 1.5)),
                 ),
               const SizedBox(height: 10),
               Row(
@@ -509,11 +509,11 @@ class _SessionPageState extends State<SessionPage> {
                 children: [
                   IconButton(
                     onPressed: () => Voice.say(w.en),
-                    icon: const Icon(Icons.volume_up_rounded,
+                    icon: Icon(Icons.volume_up_rounded,
                         size: 20, color: kPrimary),
                   ),
                   Text('${w.en.length} 个字母',
-                      style: const TextStyle(fontSize: 12, color: kMuted)),
+                      style: TextStyle(fontSize: 12, color: kMuted)),
                 ],
               ),
             ],
@@ -539,22 +539,22 @@ class _SessionPageState extends State<SessionPage> {
           onSubmitted: (v) => _checkSpell(),
           decoration: InputDecoration(
             hintText: '输入英文单词',
-            hintStyle: const TextStyle(
-                fontSize: 16, letterSpacing: 0, color: Color(0xFFC4C0D6)),
+            hintStyle: TextStyle(
+                fontSize: 16, letterSpacing: 0, color: kN3),
             filled: true,
             fillColor: Colors.white,
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFFEDEAF7)),
+              borderSide: BorderSide(color: kLine),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFFEDEAF7)),
+              borderSide: BorderSide(color: kLine),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: kPrimary),
+              borderSide: BorderSide(color: kPrimary),
             ),
           ),
         ),
@@ -563,7 +563,7 @@ class _SessionPageState extends State<SessionPage> {
           Align(
             alignment: Alignment.centerLeft,
             child: Text('首字母：${w.en[0].toUpperCase()}',
-                style: const TextStyle(fontSize: 12, color: kMuted)),
+                style: TextStyle(fontSize: 12, color: kMuted)),
           ),
       ],
     );
@@ -607,16 +607,16 @@ class _SessionPageState extends State<SessionPage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(w.en,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w700, color: kInk)),
               const SizedBox(width: 8),
               if (w.phUs.isNotEmpty)
                 Text(w.phUs,
-                    style: const TextStyle(fontSize: 12, color: kMuted)),
+                    style: TextStyle(fontSize: 12, color: kMuted)),
               const SizedBox(width: 4),
               InkWell(
                 onTap: () => Voice.say(w.en),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(4),
                   child: Icon(Icons.volume_up_rounded, size: 16, color: kPrimary),
                 ),
@@ -625,12 +625,12 @@ class _SessionPageState extends State<SessionPage> {
           ),
           const SizedBox(height: 4),
           Text(w.zh,
-              style: const TextStyle(fontSize: 14, color: kInk, height: 1.4)),
+              style: TextStyle(fontSize: 14, color: kInk, height: 1.4)),
           if (w.detail.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 3),
               child: Text(w.detail,
-                  style: const TextStyle(fontSize: 12, color: kMuted, height: 1.5)),
+                  style: TextStyle(fontSize: 12, color: kMuted, height: 1.5)),
             ),
         ],
       ),
@@ -736,7 +736,7 @@ class _SessionPageState extends State<SessionPage> {
               child: const Icon(Icons.check_rounded, size: 46, color: kGreen),
             ),
             const SizedBox(height: 18),
-            const Text('今天又前进了一步',
+            Text('今天又前进了一步',
                 style: TextStyle(
                     fontSize: 20, fontWeight: FontWeight.w700, color: kInk)),
             const SizedBox(height: 22),
@@ -745,7 +745,7 @@ class _SessionPageState extends State<SessionPage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFEDEAF7)),
+                border: Border.all(color: kLine),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -785,10 +785,10 @@ class _SessionPageState extends State<SessionPage> {
     return Column(
       children: [
         Text(v,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 19, fontWeight: FontWeight.w700, color: kInk)),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 11, color: kMuted)),
+        Text(label, style: TextStyle(fontSize: 11, color: kMuted)),
       ],
     );
   }
