@@ -13,8 +13,9 @@ String? debugBaseOverride;
 String backendBase() {
   if (debugBaseOverride != null) return debugBaseOverride!;
   if (kReleaseMode) {
-    // TODO 上线前改为正式域名（https）
-    return 'https://tooldeer.com';
+    // 正式环境：后台服务（admin_platform_v2）独立域名，不要指向主站 tooldeer.com，
+    // 主站只提供发音接口，没有 /api/v1/worddeer/* 这套路由。
+    return 'https://platform.tooldeer.com';
   }
   return Platform.isAndroid ? 'http://10.0.2.2:12445' : 'http://127.0.0.1:12445';
 }
