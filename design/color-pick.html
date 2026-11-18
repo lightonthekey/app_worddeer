@@ -22,8 +22,8 @@
 
   /* ---------------- 卡片 ---------------- */
   .grid {
-    max-width: 1420px; margin: 0 auto;
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;
+    max-width: 1180px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
   }
   .opt {
     background: #fff; border-radius: 18px; padding: 14px 14px 14px;
@@ -134,7 +134,7 @@
 <div class="head">
   <h1>词鹿 · 主题色选型</h1>
   <p>
-    五套方案，全部套在真实的界面结构上：顶部级别胶囊 → 进度条 → S 形学习动线 → 巩固台 → 配对卡片。
+    五套配色，全部套在真实的界面结构上：顶部级别胶囊 → 进度条 → S 形学习动线 → 巩固台 → 配对卡片。
     每张卡片里的<b>配对成功绿</b>（<b>#58CC02</b>）保持不动，这样能直接看出主色和它对不对付 —— 绿系方案会撞色，蓝橙系完全不会。
   </p>
 </div>
@@ -142,8 +142,9 @@
 <div class="grid" id="grid"></div>
 
 <div class="foot">
-  <b>已选 A 靛蓝</b>（2026-11-18）：首页 / 主题 / 打卡 / 游戏四个页面的 HTML 已全部换色；Flutter 待同步。<br>
-  保留没换的两处语义色：<b>配对成功绿 #58CC02</b>、<b>打卡页的连胜火焰红橙</b>。
+  <b>6 套全部落地</b>（2026-11-18）：A 靛蓝为默认，加上 B–E 和 F 经典紫（原来的紫色版），
+  在 <a href="me.html" target="_blank">「我的」页</a>里实时切换，选完写进本地、其他页面跟着变；Flutter 待同步。<br>
+  保留不换的两处语义色：<b>配对成功绿 #58CC02</b>、<b>打卡页的连胜火焰红橙</b>。
 </div>
 
 <script>
@@ -177,6 +178,12 @@ const THEMES = [
     pri: '#E8604C', deep: '#C4432F', soft: '#FDECE9', bg: '#FDF5F3',
     line: '#F2E0DC', dash: '#F4C9C3', ink: '#33221F', muted: '#9B8078',
     note: '红调最容易在应用列表里被认出来，但红也容易被读成「错误/危险」，配错反馈要避开红色系。'
+  },
+  {
+    key: 'F', name: '经典紫', desc: '原来那版，留档',
+    pri: '#6D5AE0', deep: '#4A41C4', soft: '#F1EFFC', bg: '#F4F2FA',
+    line: '#E8E5F4', dash: '#CFC8F3', ink: '#22202B', muted: '#8A86A0',
+    note: '改版前的主色，作为「经典」保留。紫在背单词类产品里少见，辨识度高，但偏冷偏醒，长时间看不如蓝稳。'
   }
 ];
 

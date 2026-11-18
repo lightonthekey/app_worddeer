@@ -13,7 +13,7 @@
 html,body{margin:0;height:100%}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
-  background:#E3E8F3;color:var(--ink);
+  background:var(--edge);color:var(--ink);
   display:grid;place-items:center;overflow:hidden;
 }
 #app{
@@ -31,7 +31,7 @@ body{
   display:grid;place-items:center;text-decoration:none;color:#525C74;
   width:34px;height:34px;border-radius:50%;font-size:17px;font-weight:300;
 }
-.bar a:active{background:#F7F9FF}
+.bar a:active{background:var(--n1)}
 
 .scroll{flex:1;overflow-y:auto;padding:0 18px 4px}
 .scroll::-webkit-scrollbar{width:0}
@@ -72,20 +72,20 @@ h3{margin:18px 0 10px;font-size:16px;font-weight:800;letter-spacing:-.2px}
 .cal{border:1px solid var(--line);border-radius:18px;padding:12px 12px 10px;background:#fff}
 .calhead{display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:12px}
 .calhead button{
-  border:0;background:none;color:#A7B0C4;font-size:17px;cursor:pointer;
+  border:0;background:none;color:var(--muted);font-size:17px;cursor:pointer;
   width:26px;height:26px;border-radius:50%;font-family:inherit;
 }
-.calhead button:active{background:#F7F9FF}
+.calhead button:active{background:var(--n1)}
 .calhead b{font-size:13px;font-weight:800;letter-spacing:.2px}
 
 .week{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:5px}
-.week span{text-align:center;font-size:10.5px;font-weight:700;color:#A7B0C4}
+.week span{text-align:center;font-size:10.5px;font-weight:700;color:var(--muted)}
 
 .days{position:relative}
 .row{position:relative;height:34px}
 .cell{
   position:absolute;top:0;width:14.2857%;height:34px;display:grid;place-items:center;
-  font-size:12.5px;font-weight:700;color:#A7B0C4;
+  font-size:12.5px;font-weight:700;color:var(--muted);
 }
 .cell.on{color:#fff}
 .cell.today{font-weight:900;font-size:13.5px}
@@ -123,10 +123,11 @@ h3{margin:18px 0 10px;font-size:16px;font-weight:800;letter-spacing:-.2px}
   box-shadow:0 10px 20px -10px rgba(224,30,90,.7);
 }
 .cta.done{
-  background:#F7F9FF;color:#7C87A3;box-shadow:none;
+  background:var(--n1);color:#7C87A3;box-shadow:none;
   display:flex;align-items:center;justify-content:center;gap:6px;
 }
 </style>
+<script src="wb-theme.js"></script>
 </head>
 <body>
 <div id="app">
