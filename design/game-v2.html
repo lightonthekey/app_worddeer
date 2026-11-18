@@ -66,25 +66,33 @@
   /* ---------- 巩固台 ---------- */
   .shelfwrap { flex: none; padding: 12px 18px 0; }
   .shelflabel {
-    font-size: 10.5px; color: #A09BB4; letter-spacing: .3px;
-    margin-bottom: 5px; display: flex; justify-content: space-between;
+    font-size: 11px; color: #A09BB4; letter-spacing: .3px;
+    margin-bottom: 5px; padding-left: 8px;
+    display: flex; justify-content: space-between; align-items: baseline;
   }
+  /* 左边是台子名字（跟第一个框左对齐），右边是计数/提示 */
+  .shelflabel .name { font-weight: 600; color: #8079A2; }
+  .shelflabel #shelfHint { color: #AAA5BC; font-variant-numeric: tabular-nums; }
+  /* 台子自己不做原生滚动：`overflow: hidden` + JS 平移轨道。
+     原生横滑在桌面/安卓会画一条滚动条（手机应用里已经很少见），
+     而且惯性、回弹各平台不一致 —— 干脆自己接管。 */
   .shelf {
     height: 78px; padding: 6px; border-radius: 13px; background: #F3F1F9;
-    overflow-x: auto; overflow-y: hidden; position: relative;
-    scrollbar-width: none; -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
+    overflow: hidden; position: relative;
+    touch-action: pan-y; user-select: none; -webkit-user-select: none;
   }
-  .shelf::-webkit-scrollbar { display: none; }
-  /* 轨道：一关的词全留在这儿，横着排、可以左右滑。
+  /* 轨道：一关的词全留在这儿，横着排、手指可以左右拖。
      槽宽 106 → 一屏正好露出 3 格 + 第 4 格的一条边，能看出「后面还有」。 */
   .track {
     display: flex; flex-wrap: nowrap; gap: 6px; height: 100%;
     width: max-content;
+    will-change: transform;
   }
   .slot {
     position: relative; border-radius: 9px;
-    flex: 0 0 106px;
+    /* 一屏正好 3 格：槽宽由 JS 按台子宽度算（--slotW），
+       这样开局三个空框刚好铺满，右边不留一条灰缝。 */
+    flex: 0 0 var(--slotW, 106px);
     scroll-snap-align: start;
     border: 1px dashed #DCD7EC; background: transparent;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -275,7 +283,7 @@
 
   <div class="shelfwrap">
     <div class="shelflabel">
-      <span>本关已学</span>
+      <span class="name">巩固台</span>
       <span id="shelfHint">配对成功的词会停在这里</span>
     </div>
     <div class="shelf" id="shelf">
@@ -711,9 +719,11 @@
   // 只有「新词刚进来」时才把轨道推到最右；用户往回翻的时候不去抢他的位置。
   let shelfQueue = [];
   let shelfBusy = false;
-  let shelfPinned = true;        // 轨道停在最右（跟随新词）？
-  let shelfAutoScroll = false;   // 正在被程序滚向最右（此时的 scroll 不算用户操作）
-  let shelfScrollTimer = null;
+  let shelfX = 0;              // 轨道已经往左推了多少 px
+  let shelfMax = 0;            // 最大可推距离
+  let shelfPinned = true;      // 轨道贴着最右（跟随新词）？
+  let shelfDrag = null;
+  let shelfPadX = 12;          // 台子左右 padding 之和（renderShelf 时读一次）
 
   function enqueueShelf(item) {
     shelfQueue.push(item);
@@ -750,27 +760,74 @@
     done();
   }
 
-  /// 只有停在轨道最右（也就是在「跟拍」）时才滚过去。
+  /// 量一下还能推多远。`width: max-content` 让轨道宽度恒等于内容宽度，
+  /// 和 transform 无关，所以拖到哪儿量出来都一样。
   ///
-  /// 滚过去的途中会连续触发 scroll，如果不打标记，中途那几帧会被判成
-  /// 「用户自己往回翻了」，`shelfPinned` 直接变 false，轨道就停在半路不跟了。
-  function followShelf() {
-    if (!shelfPinned) return;
-    shelfAutoScroll = true;
-    shelfEl.scrollTo({ left: shelfEl.scrollWidth, behavior: 'smooth' });
-    clearTimeout(shelfScrollTimer);
-    // 兜底：某些环境里 smooth 被降级成瞬移，scroll 事件可能一次都不来
-    shelfScrollTimer = setTimeout(() => { shelfAutoScroll = false; }, 500);
+  /// 注意用「可视内容宽」而不是 clientWidth：台子左右各有 6px padding，
+  /// 拿 clientWidth 当可视宽会少推 12px，最后一格永远露一条边贴着右边。
+  function shelfMeasure() {
+    shelfMax = Math.max(0, trackEl.scrollWidth - (shelfEl.clientWidth - shelfPadX));
+    return shelfMax;
   }
 
-  shelfEl.addEventListener('scroll', () => {
-    const atEnd = shelfEl.scrollLeft + shelfEl.clientWidth >= shelfEl.scrollWidth - 24;
-    if (shelfAutoScroll) {
-      if (atEnd) shelfAutoScroll = false;
-      return;
+  /// 槽宽跟着台子宽度走：一屏正好 3 格（含 6px 间隙），铺满不留缝。
+  /// 之后每多一格就往右长一格，第 4 格刚好露一条边，暗示还能拖。
+  function layoutSlots() {
+    const inner = shelfEl.clientWidth - shelfPadX;
+    const w = Math.floor((inner - 12) / 3);
+    if (w > 40) {
+      trackEl.style.setProperty('--slotW', w + 'px');
+      shelfPushTo(shelfX, false);
     }
-    shelfPinned = atEnd || shelfEl.scrollWidth <= shelfEl.clientWidth + 4;
+  }
+
+  /// 把轨道推到 x（x = 已经往左推的距离）
+  function shelfPushTo(x, animate) {
+    shelfMeasure();
+    shelfX = Math.max(0, Math.min(x, shelfMax));
+    trackEl.style.transition = animate
+      ? 'transform .34s cubic-bezier(.25,.8,.3,1)'
+      : 'none';
+    trackEl.style.transform = 'translateX(' + (-shelfX) + 'px)';
+  }
+
+  /// 只有停在最右（也就是在「跟拍」）时才推过去。
+  /// 用户正往回翻的时候不抢他的位置 —— 刚学的词回头还能看到。
+  function followShelf() {
+    if (!shelfPinned) return;
+    shelfPushTo(shelfMeasure(), true);
+  }
+
+  // 拖动：用 pointer 事件，鼠标和手指一套逻辑。
+  // 不做原生滚动，所以任何平台都不会冒出横向滚动条。
+  shelfEl.addEventListener('pointerdown', (e) => {
+    if (shelfMeasure() <= 0) return;
+    shelfDrag = { x: e.clientX, x0: shelfX, t0: performance.now() };
+    trackEl.style.transition = 'none';
+    try { shelfEl.setPointerCapture(e.pointerId); } catch (_) {}
   });
+
+  shelfEl.addEventListener('pointermove', (e) => {
+    if (!shelfDrag) return;
+    shelfPushTo(shelfDrag.x0 - (e.clientX - shelfDrag.x), false);
+  });
+
+  function shelfEndDrag(e) {
+    if (!shelfDrag) return;
+    // 甩一下多滑一段：按最后一帧的速度外推，最少 0 最多半屏
+    const dt = Math.max(1, performance.now() - shelfDrag.t0);
+    const v = (e.clientX - shelfDrag.x) / dt;      // px/ms，向左为负
+    const glide = Math.max(-160, Math.min(0, -v * 170));
+    shelfDrag = null;
+    shelfPushTo(shelfX + glide, true);
+    setTimeout(() => {
+      shelfMeasure();
+      shelfPinned = shelfX >= shelfMax - 8;
+    }, 360);
+  }
+  shelfEl.addEventListener('pointerup', shelfEndDrag);
+  shelfEl.addEventListener('pointercancel', shelfEndDrag);
+  window.addEventListener('resize', layoutSlots);
 
   // 补位规则：英文列固定当锚点，中文列整列重排
   //
@@ -883,6 +940,8 @@
   function renderShelf() {
     shelfQueue = [];
     shelfBusy = false;
+    const cs = getComputedStyle(shelfEl);
+    shelfPadX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     trackEl.style.transition = 'none';
     trackEl.style.transform = 'translateX(0)';
     trackEl.innerHTML = '';
@@ -892,8 +951,11 @@
       el.dataset.slot = k;
       trackEl.appendChild(el);
     }
-    shelfEl.scrollLeft = 0;
+    shelfX = 0;
+    shelfMax = 0;
+    shelfDrag = null;
     shelfPinned = true;
+    layoutSlots();
     updateShelfHint();
   }
 
