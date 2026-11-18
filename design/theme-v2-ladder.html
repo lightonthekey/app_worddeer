@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>主题 · 卡牌台阶</title>
+<style>
+:root{
+  --primary:#6D5AE0; --primary-deep:#4A41C4; --primary-50:#F1EFFC;
+  --bg:#F7F6FC; --ink:#22202B; --muted:#8A86A0; --line:#E8E5F4;
+  --green:#2E9E63; --green-50:#EAF7F0; --amber:#E0A020; --amber-50:#FDF3E6;
+  --flame:#E8674A; --hero-a:#655CE8; --hero-b:#4A41C4; --gold:#E0A02A;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:#E7E4F1;color:var(--ink);
+  display:grid;place-items:center;overflow:hidden;
+}
+#app{
+  position:relative;width:390px;height:844px;background:var(--bg);
+  display:flex;flex-direction:column;overflow:hidden;border-radius:26px;
+  box-shadow:0 24px 60px -20px rgba(38,30,80,.45);
+}
+.sb{height:26px;flex:none;display:flex;align-items:center;justify-content:space-between;
+    padding:0 22px;font-size:11px;font-weight:600;color:#3C3850}
+.sb-r{letter-spacing:.4px;opacity:.7}
+
+/* ---------- 顶栏（与首页一致） ---------- */
+.bar{flex:none;display:flex;align-items:center;justify-content:space-between;
+     padding:4px 16px 0;position:relative;z-index:19}
+.lvbtn{display:flex;align-items:center;gap:7px;border:1px solid var(--line);cursor:pointer;
+  background:#fff;border-radius:999px;padding:6px 12px 6px 7px;font-family:inherit;
+  box-shadow:0 4px 14px -6px rgba(74,65,196,.22)}
+.lvbtn:active{transform:scale(.97)}
+.lvid{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;
+  background:linear-gradient(140deg,var(--hero-a),var(--hero-b));
+  color:#fff;font-size:11px;font-weight:800}
+.lvname{font-size:13px;font-weight:700;color:#2B2740}
+.chev{color:#A9A5BC;transition:transform .25s}
+.lvbtn.open .chev{transform:rotate(180deg)}
+.streak{display:flex;align-items:center;gap:3px;font-size:12px;font-weight:700;
+  color:var(--flame);background:var(--amber-50);border-radius:999px;padding:5px 11px;
+  text-decoration:none}
+
+.tabs{flex:none;display:flex;align-items:flex-end;gap:18px;padding:12px 18px 0}
+.tab{position:relative;border:0;background:none;padding:0 0 9px;cursor:pointer;
+  font-family:inherit;font-size:13.5px;font-weight:600;color:#A6A2B8;text-decoration:none}
+.tab.on{color:var(--ink);font-weight:800}
+.tab.on::after{content:"";position:absolute;left:50%;transform:translateX(-50%);bottom:0;
+  width:18px;height:3px;border-radius:2px;background:var(--primary)}
+.hint{margin-left:auto;padding-bottom:11px;font-size:10.5px;color:var(--muted)}
+
+.scroll{flex:1;overflow-y:auto;padding:8px 0 10px}
+.scroll::-webkit-scrollbar{width:0}
+
+/* ---------- 主题卡 ---------- */
+.stage{position:relative;padding:4px 18px 0}
+#wire{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+
+.card{
+  position:relative;display:flex;align-items:center;gap:11px;
+  background:#fff;border:1px solid var(--line);border-radius:16px;
+  padding:11px 13px;margin-bottom:26px;cursor:pointer;
+  box-shadow:0 2px 0 #EAE7F6,0 10px 22px -16px rgba(38,30,80,.4);
+  transition:transform .12s;
+}
+.card:active{transform:translateY(1px)}
+.card.a{margin-right:46px}
+.card.b{margin-left:46px}
+
+/* 主题图标 */
+.ico{
+  flex:none;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;
+  font-size:23px;line-height:1;background:#F4F1FE;
+  box-shadow:0 2px 0 rgba(109,90,224,.08) inset;
+}
+.card.done .ico{background:#F1EFFC}
+.card.cur .ico{background:rgba(255,255,255,.2);box-shadow:none}
+.card.lock .ico{background:#F7F6FB;filter:grayscale(.55);opacity:.75}
+
+.meta{flex:1;min-width:0}
+.meta b{display:block;font-size:13.5px;font-weight:700;letter-spacing:-.1px}
+.meta small{font-size:10.5px;color:var(--muted)}
+.card.done .meta b{color:#4B475E}
+
+.tag{flex:none;font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px}
+.tag.ok{background:var(--green-50);color:var(--green)}
+.tag.new{background:#F4F2FB;color:#8A86A0}
+
+.card.cur{
+  background:linear-gradient(135deg,var(--hero-a),var(--hero-b));
+  border-color:transparent;padding:13px 14px;
+  box-shadow:0 6px 0 #3B33A6,0 16px 30px -12px rgba(74,65,196,.6);
+}
+.card.cur .meta b{color:#fff;font-size:14px}
+.card.cur .meta small{color:rgba(255,255,255,.8)}
+.card.cur .go{
+  flex:none;background:#fff;color:var(--primary-deep);font-size:11.5px;font-weight:800;
+  padding:7px 13px;border-radius:999px;box-shadow:0 2px 0 rgba(0,0,0,.12);
+}
+.card.cur .pbar{
+  position:absolute;left:14px;right:14px;bottom:8px;height:3px;border-radius:9px;
+  background:rgba(255,255,255,.26);overflow:hidden;
+}
+.card.cur .pbar i{display:block;height:100%;background:#fff;border-radius:9px}
+
+.card.lock{background:#FCFBFE;border-style:dashed;box-shadow:none}
+.gold{
+  flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
+  background:linear-gradient(150deg,#F7D488,#E0A02A);color:#fff;font-size:11px;
+  box-shadow:0 2px 5px -1px rgba(224,160,42,.5);
+}
+
+/* ---------- 底部 CTA ---------- */
+.foot{flex:none;padding:8px 18px 14px;background:linear-gradient(rgba(247,246,252,0),#F7F6FC 34%)}
+.cta{
+  width:100%;height:48px;border:0;border-radius:14px;cursor:pointer;
+  font-family:inherit;font-size:14px;font-weight:800;color:#fff;
+  background:linear-gradient(120deg,var(--hero-a),var(--hero-b));
+  box-shadow:0 12px 22px -12px rgba(74,65,196,.8);
+  display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.cta small{font-weight:600;font-size:11.5px;opacity:.82}
+
+/* ---------- 顶部下拉 ---------- */
+.wrapmask{position:absolute;inset:0;z-index:17;pointer-events:none}
+.wrapmask.on{pointer-events:auto}
+.wrapmask::before{
+  content:"";position:absolute;inset:0;background:rgba(24,20,44,.36);
+  opacity:0;transition:opacity .26s;
+}
+.wrapmask.on::before{opacity:1}
+
+.drop{
+  position:absolute;left:0;right:0;top:72px;z-index:18;
+  transform:translateY(calc(-100% - 80px));
+  transition:transform .36s cubic-bezier(.22,1,.36,1);
+  pointer-events:none;
+}
+.drop.on{transform:translateY(0);pointer-events:auto}
+.drop-inner{
+  position:relative;background:#fff;border-radius:0 0 26px 26px;
+  padding:16px 18px 18px;max-height:560px;overflow-y:auto;
+  box-shadow:0 22px 40px -24px rgba(38,30,80,.55);
+}
+.drop-inner::-webkit-scrollbar{width:0}
+.drop .arrow{
+  position:absolute;left:38px;top:-6px;width:12px;height:12px;
+  background:#fff;transform:rotate(45deg);border-radius:2px;
+}
+
+.dtitle{display:flex;align-items:baseline;gap:7px;margin:0 0 9px}
+.dtitle b{font-size:13px;font-weight:800}
+.dtitle small{font-size:10.5px;color:var(--muted)}
+
+.lvs{display:flex;gap:7px;padding:2px 0 4px}
+.lv{
+  flex:1;min-width:0;border:1px solid var(--line);border-radius:13px;background:#fff;
+  padding:9px 8px;text-align:left;cursor:pointer;font-family:inherit;
+}
+.lv.on{border-color:var(--primary);background:var(--primary-50);border-width:1.5px}
+.lv .id{font-size:14px;font-weight:900;letter-spacing:-.3px;color:#2B2740;white-space:nowrap}
+.lv.on .id{color:var(--primary-deep)}
+.lv .nm{font-size:9.5px;color:var(--muted);margin-top:1px;white-space:nowrap}
+.lv .bar{height:4px;border-radius:9px;background:#EDEBF7;margin-top:8px;overflow:hidden}
+.lv .bar i{display:block;height:100%;background:var(--primary);border-radius:9px}
+.lv.lock{background:#FCFBFE;border-style:dashed}
+.lv.lock .id{color:#C0BCD0}
+
+.drow{
+  display:flex;align-items:center;justify-content:space-between;
+  border:1px solid var(--line);border-radius:14px;padding:11px 13px;margin-top:10px;
+}
+.drow .k{font-size:11.5px;color:var(--muted)}
+.drow .v{font-size:12.5px;font-weight:800}
+.dbar{height:6px;border-radius:9px;background:#EFEDF8;overflow:hidden;margin-top:9px}
+.dbar i{display:block;height:100%;border-radius:9px;
+  background:linear-gradient(90deg,var(--hero-a),var(--hero-b))}
+
+.dquick{display:flex;gap:8px;margin-top:12px}
+.dquick button{
+  flex:1;border:1px solid var(--line);background:#FBFAFE;border-radius:12px;padding:10px 8px;
+  font-family:inherit;font-size:11.5px;font-weight:700;color:#5B5772;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.dquick button span{font-size:16px}
+.dquick button:active{background:#F4F2FA}
+
+.toast{position:absolute;left:50%;bottom:86px;transform:translate(-50%,10px);
+  background:#3A3550;color:#fff;font-size:12px;padding:9px 16px;border-radius:12px;
+  opacity:0;pointer-events:none;transition:.22s;z-index:40;white-space:nowrap}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="sb"><span>9:41</span><span class="sb-r">5G ▮▮▮</span></div>
+
+  <header class="bar">
+    <button class="lvbtn" id="lvBtn">
+      <span class="lvid">A1</span><span class="lvname">入门</span>
+      <svg class="chev" width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.7 5 6.7 8 3.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <a class="streak" href="checkin.html">🔥 7 天</a>
+  </header>
+
+  <div class="tabs">
+    <a class="tab" href="home-v3-terrace.html">关卡</a>
+    <a class="tab on" href="#" onclick="return false">主题</a>
+    <button class="tab" onclick="toast('自由练习还没做原型')">自由</button>
+    <span class="hint">12 个主题</span>
+  </div>
+
+  <main class="scroll" id="scroll">
+    <div class="stage" id="stage">
+      <svg id="wire"></svg>
+      <div id="cards"></div>
+    </div>
+  </main>
+
+  <div class="foot">
+    <button class="cta" onclick="toast('进入「天气季节」· 20 词')">
+      <span>继续 · 天气季节 🌤</span><small>已学 8 / 20</small>
+    </button>
+  </div>
+
+  <!-- 顶部下拉：级别切换 + 主题进度 -->
+  <div class="wrapmask" id="mask"></div>
+  <section class="drop" id="drop">
+    <div class="arrow"></div>
+    <div class="drop-inner">
+      <div class="dtitle"><b>选择级别</b><small>主题跟着级别走，每个级别 12 个</small></div>
+      <div class="lvs" id="lvs"></div>
+
+      <div class="drow">
+        <span class="k">A1 主题进度</span>
+        <span class="v">3 / 12 个</span>
+      </div>
+      <div class="dbar"><i style="width:25%"></i></div>
+
+      <div class="drow" style="border:0;padding:0;margin-top:12px">
+        <span class="k">今天已学</span>
+        <span class="v">38 / 50 词</span>
+      </div>
+      <div class="dbar"><i style="width:76%;background:linear-gradient(90deg,#5BBF8A,#2E9E63)"></i></div>
+
+      <div class="dquick">
+        <button onclick="closeDrop();toast('回关卡路径')"><span>🗺</span>关卡路径</button>
+        <button onclick="closeDrop();toast('去复习 31 个到期')"><span>↻</span>待复习</button>
+        <button onclick="location.href='checkin.html'"><span>🔥</span>打卡记录</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ================= 主题数据（A1 的 12 个） ================= */
+const THEMES = [
+  {name:'个人信息', emoji:'🪪', words:20, learned:20},
+  {name:'动物',     emoji:'🐾', words:20, learned:20},
+  {name:'天气季节', emoji:'🌤', words:20, learned:8, cur:true},
+  {name:'学校学习', emoji:'📚', words:20, learned:0},
+  {name:'家庭家人', emoji:'👪', words:20, learned:0},
+  {name:'数字',     emoji:'🔢', words:20, learned:0},
+  {name:'日常问候', emoji:'👋', words:20, learned:0},
+  {name:'时间',     emoji:'⏰', words:20, learned:0},
+  {name:'衣服',     emoji:'👕', words:20, learned:0},
+  {name:'身体',     emoji:'🫀', words:20, learned:0},
+  {name:'颜色',     emoji:'🎨', words:20, learned:0},
+  {name:'食物饮品', emoji:'🍽', words:20, learned:0, lock:true},
+];
+
+const cardsEl = document.getElementById('cards');
+let html = '';
+THEMES.forEach((t, i) => {
+  const side = i % 2 === 0 ? 'a' : 'b';
+  const done = t.learned >= t.words && !t.cur;
+  const cls = ['card', side, done ? 'done' : '', t.cur ? 'cur' : '', t.lock ? 'lock' : ''].join(' ').replace(/\s+/g, ' ');
+
+  let right;
+  if (t.cur) right = `<span class="go">继续</span>`;
+  else if (t.lock) right = `<span class="gold">🔒</span>`;
+  else if (done) right = `<span class="tag ok">✓ 已学完</span>`;
+  else right = `<span class="tag new">未开始</span>`;
+
+  const sub = t.cur
+    ? `${t.words} 词 · 已学 ${t.learned} 词 · 约 3 分钟`
+    : (t.lock ? `会员解锁 · ${t.words} 词`
+      : (done ? `${t.words} 词 · 全部掌握` : `${t.words} 词`));
+
+  html += `<div class="${cls}" data-i="${i}">
+    <span class="ico">${t.emoji}</span>
+    <span class="meta"><b>${t.name}</b><small>${sub}</small></span>
+    ${right}
+    ${t.cur ? `<span class="pbar"><i style="width:${Math.round(t.learned / t.words * 100)}%"></i></span>` : ''}
+  </div>`;
+});
+cardsEl.innerHTML = html;
+
+/* ---------- 折线连接 ---------- */
+function drawWire(){
+  const stage = document.getElementById('stage');
+  const wire = document.getElementById('wire');
+  const cards = [...cardsEl.querySelectorAll('.card')];
+  const base = stage.getBoundingClientRect();
+  wire.setAttribute('width', stage.offsetWidth);
+  wire.setAttribute('height', stage.offsetHeight);
+
+  let d = '';
+  for (let i = 0; i < cards.length - 1; i++) {
+    const a = cards[i].getBoundingClientRect(), b = cards[i + 1].getBoundingClientRect();
+    const ax = a.left - base.left + a.width / 2;
+    const bx = b.left - base.left + b.width / 2;
+    const ay = a.top - base.top + a.height;
+    const by = b.top - base.top;
+    const my = (ay + by) / 2;
+    if (Math.abs(bx - ax) < 4) {
+      d += `M ${ax} ${ay} L ${bx} ${by} `;
+    } else {
+      const s = Math.sign(bx - ax), r = Math.min(9, Math.abs(bx - ax) / 2);
+      d += `M ${ax} ${ay} L ${ax} ${my - r} Q ${ax} ${my} ${ax + s * r} ${my} `
+         + `L ${bx - s * r} ${my} Q ${bx} ${my} ${bx} ${my + r} L ${bx} ${by} `;
+    }
+  }
+  wire.innerHTML = `<path d="${d}" fill="none" stroke="#DBD5EE" stroke-width="2" stroke-linecap="round"/>`;
+}
+requestAnimationFrame(drawWire);
+window.addEventListener('resize', drawWire);
+
+/* ---------- 交互 ---------- */
+const toastEl = document.getElementById('toast');
+let toastT;
+function toast(m){ toastEl.textContent = m; toastEl.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 1800); }
+
+cardsEl.addEventListener('click', e => {
+  const c = e.target.closest('.card'); if (!c) return;
+  const t = THEMES[+c.dataset.i];
+  if (t.lock) toast(`「${t.name}」需要会员`);
+  else if (t.cur) toast(`进入「${t.name}」· 还剩 ${t.words - t.learned} 词`);
+  else if (t.learned >= t.words) toast(`「${t.name}」已学完 · 可以重刷`);
+  else toast(`进入「${t.name}」· ${t.words} 词`);
+});
+
+/* ---------- 顶部下拉 ---------- */
+const LEVELS = [
+  {id:'A1', name:'入门', units:27, pct:11, on:true},
+  {id:'A2', name:'基础', units:26, pct:0},
+  {id:'B1', name:'进阶', units:44, pct:0, lock:true},
+  {id:'B2', name:'高阶', units:56, pct:0, lock:true},
+  {id:'C1', name:'精通', units:48, pct:0, lock:true},
+];
+document.getElementById('lvs').innerHTML = LEVELS.map(l => `
+  <button class="lv ${l.on ? 'on' : ''} ${l.lock ? 'lock' : ''}" data-id="${l.id}">
+    <div class="id">${l.id}${l.lock ? ' 🔒' : ''}</div>
+    <div class="nm">${l.name}</div>
+    <div class="bar"><i style="width:${Math.max(4, l.pct)}%"></i></div>
+  </button>`).join('');
+
+const mask = document.getElementById('mask');
+const drop = document.getElementById('drop');
+const lvBtn = document.getElementById('lvBtn');
+function openDrop(){ drop.classList.add('on'); mask.classList.add('on'); lvBtn.classList.add('open'); }
+function closeDrop(){ drop.classList.remove('on'); mask.classList.remove('on'); lvBtn.classList.remove('open'); }
+lvBtn.addEventListener('click', () => drop.classList.contains('on') ? closeDrop() : openDrop());
+mask.addEventListener('click', closeDrop);
+document.getElementById('lvs').addEventListener('click', e => {
+  const b = e.target.closest('.lv'); if (!b) return;
+  const l = LEVELS.find(x => x.id === b.dataset.id);
+  closeDrop();
+  setTimeout(() => toast(l.lock ? `${l.id} 需要会员` : `切换到 ${l.id} ${l.name}`), 200);
+});
+if (location.hash === '#drop') setTimeout(openDrop, 80);
+</script>
+</body>
+</html>

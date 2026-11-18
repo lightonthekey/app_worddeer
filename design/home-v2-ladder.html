@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>首页 V2 · 卡牌台阶</title>
+<style>
+:root{
+  --primary:#6D5AE0; --primary-deep:#4A41C4; --primary-50:#F1EFFC;
+  --bg:#F7F6FC; --ink:#22202B; --muted:#8A86A0; --line:#E8E5F4;
+  --green:#2E9E63; --green-50:#EAF7F0; --amber:#E0A020; --amber-50:#FDF3E6;
+  --flame:#E8674A; --hero-a:#655CE8; --hero-b:#4A41C4;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:#E7E4F1;color:var(--ink);
+  display:grid;place-items:center;overflow:hidden;
+}
+#app{
+  position:relative;width:390px;height:844px;background:var(--bg);
+  display:flex;flex-direction:column;overflow:hidden;border-radius:26px;
+  box-shadow:0 24px 60px -20px rgba(38,30,80,.45);
+}
+.sb{height:26px;flex:none;display:flex;align-items:center;justify-content:space-between;
+    padding:0 22px;font-size:11px;font-weight:600;color:#3C3850}
+.sb-r{letter-spacing:.4px;opacity:.7}
+
+/* ---------- 顶栏 ---------- */
+.bar{flex:none;display:flex;align-items:center;justify-content:space-between;padding:4px 16px 0}
+.lvbtn{display:flex;align-items:center;gap:7px;border:1px solid var(--line);cursor:pointer;
+  background:#fff;border-radius:999px;padding:6px 12px 6px 7px;
+  box-shadow:0 4px 14px -6px rgba(74,65,196,.22)}
+.lvbtn:active{transform:scale(.97)}
+.lvid{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;
+  background:linear-gradient(140deg,var(--hero-a),var(--hero-b));
+  color:#fff;font-size:11px;font-weight:800}
+.lvname{font-size:13px;font-weight:700;color:#2B2740}
+.chev{color:#A9A5BC}
+.streak{display:flex;align-items:center;gap:3px;font-size:12px;font-weight:700;
+  color:var(--flame);background:var(--amber-50);border-radius:999px;padding:5px 11px}
+
+.tabs{flex:none;display:flex;align-items:flex-end;gap:18px;padding:12px 18px 0}
+.tab{position:relative;border:0;background:none;padding:0 0 9px;cursor:pointer;
+  font-family:inherit;font-size:13.5px;font-weight:600;color:#A6A2B8}
+.tab.on{color:var(--ink);font-weight:800}
+.tab.on::after{content:"";position:absolute;left:50%;transform:translateX(-50%);bottom:0;
+  width:18px;height:3px;border-radius:2px;background:var(--primary)}
+.hint{margin-left:auto;padding-bottom:11px;font-size:10.5px;color:var(--muted)}
+
+.scroll{flex:1;overflow-y:auto;padding:6px 0 10px}
+.scroll::-webkit-scrollbar{width:0}
+
+/* ---------- 台阶容器 ---------- */
+.stage{position:relative;padding:4px 18px 0}
+#wire{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+
+/* 段落标题：一面小旗 */
+.chap{display:flex;align-items:center;gap:8px;margin:18px 0 10px;padding-left:2px}
+.chap i{font-style:normal;font-size:13px}
+.chap b{font-size:11.5px;font-weight:800;letter-spacing:.4px;color:#5B5772}
+.chap small{font-size:10px;color:#B6B2C8}
+
+/* ---------- 卡牌 ---------- */
+.card{
+  position:relative;display:flex;align-items:center;gap:11px;
+  background:#fff;border:1px solid var(--line);border-radius:16px;
+  padding:11px 13px;margin-bottom:26px;cursor:pointer;
+  box-shadow:0 2px 0 #EAE7F6,0 10px 22px -16px rgba(38,30,80,.4);
+  transition:transform .12s;
+}
+.card:active{transform:translateY(1px)}
+.card.a{margin-right:54px}     /* 靠左 */
+.card.b{margin-left:54px}      /* 靠右 */
+
+.num{
+  flex:none;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
+  background:#F4F2FB;color:#8E8AA3;font-size:13px;font-weight:800;
+}
+.card.done .num{background:var(--primary);color:#fff}
+.card.done{background:#FBFAFF;border-color:#E4DFF8}
+.meta{flex:1;min-width:0}
+.meta b{display:block;font-size:13px;font-weight:700;letter-spacing:-.1px}
+.meta small{font-size:10.5px;color:var(--muted)}
+.tag{flex:none;font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px}
+.tag.ok{background:var(--green-50);color:var(--green)}
+.tag.rev{background:var(--amber-50);color:#B26A0B}
+.tag.lock{color:#C6C2D6;font-size:12px}
+
+/* 当前关：整张卡变紫，带侧边进度条 */
+.card.cur{
+  background:linear-gradient(135deg,var(--hero-a),var(--hero-b));
+  border-color:transparent;padding:13px 14px;
+  box-shadow:0 6px 0 #3B33A6,0 16px 30px -12px rgba(74,65,196,.6);
+}
+.card.cur .num{background:rgba(255,255,255,.22);color:#fff}
+.card.cur .meta b{color:#fff;font-size:14px}
+.card.cur .meta small{color:rgba(255,255,255,.8)}
+.card.cur .go{
+  flex:none;background:#fff;color:var(--primary-deep);font-size:11.5px;font-weight:800;
+  padding:7px 13px;border-radius:999px;box-shadow:0 2px 0 rgba(0,0,0,.12);
+}
+.card.cur .pbar{
+  position:absolute;left:14px;right:14px;bottom:8px;height:3px;border-radius:9px;
+  background:rgba(255,255,255,.26);overflow:hidden;
+}
+.card.cur .pbar i{display:block;height:100%;background:#fff;border-radius:9px}
+
+/* 已过：轻微降饱和 */
+.card.done .meta b{color:#4B475E}
+
+/* 未开：更轻 */
+.card.lock{background:#FCFBFE;border-style:dashed;box-shadow:none;opacity:.82}
+
+/* ---------- 底部统计 ---------- */
+.stats{display:flex;gap:9px;padding:6px 18px 0}
+.stat{flex:1;background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px 12px}
+.stat b{display:block;font-size:17px;font-weight:800;letter-spacing:-.3px}
+.stat small{font-size:10px;color:var(--muted)}
+.pad{height:18px}
+
+/* ---------- 底部导航 ---------- */
+.bnav{flex:none;height:62px;background:#fff;border-top:1px solid var(--line);
+  display:flex;align-items:center;padding:0 6px 4px}
+.bnav i{flex:1;display:grid;place-items:center;gap:2px;font-style:normal;
+  font-size:10px;color:#A9A5BC;font-weight:600}
+.bnav i.on{color:var(--primary)}
+.bnav .ico{font-size:17px;line-height:1;filter:grayscale(1);opacity:.5}
+.bnav i.on .ico{filter:none;opacity:1}
+
+/* ---------- 半屏面板 ---------- */
+.mask{position:absolute;inset:0;background:rgba(24,20,44,.42);opacity:0;
+  pointer-events:none;transition:opacity .28s;z-index:20}
+.mask.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:#fff;
+  border-radius:24px 24px 0 0;padding:8px 18px 22px;transform:translateY(102%);
+  transition:transform .34s cubic-bezier(.22,1,.36,1);
+  box-shadow:0 -18px 44px -22px rgba(24,20,44,.5)}
+.sheet.on{transform:translateY(0)}
+.grab{width:38px;height:4px;border-radius:9px;background:#D9D5EA;margin:0 auto 12px}
+.sheet h2{margin:0;font-size:16px;font-weight:800}
+.sheet p{margin:3px 0 12px;font-size:11.5px;color:var(--muted)}
+.lvs{display:flex;flex-direction:column;gap:8px}
+.lvrow{display:flex;align-items:center;gap:11px;border:1px solid var(--line);
+  background:#fff;border-radius:14px;padding:10px 12px;cursor:pointer;
+  font-family:inherit;text-align:left;width:100%}
+.lvrow.on{border-color:#C9C5F5;background:var(--primary-50)}
+.lvrow .badge{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
+  background:#F3F1FA;color:#7C788F;font-size:12px;font-weight:800;flex:none}
+.lvrow.on .badge{background:linear-gradient(140deg,var(--hero-a),var(--hero-b));color:#fff}
+.lvmeta{flex:1;min-width:0}
+.lvmeta b{display:block;font-size:13px;font-weight:700}
+.lvmeta small{font-size:10.5px;color:var(--muted)}
+.lvbar{width:52px;height:4px;border-radius:9px;background:#EDEBF7;overflow:hidden;flex:none}
+.lvbar i{display:block;height:100%;border-radius:9px;background:var(--primary)}
+
+.toast{position:absolute;left:50%;bottom:86px;transform:translate(-50%,10px);
+  background:#3A3550;color:#fff;font-size:12px;padding:9px 16px;border-radius:12px;
+  opacity:0;pointer-events:none;transition:.22s;z-index:40;white-space:nowrap}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="sb"><span>9:41</span><span class="sb-r">5G ▮▮▮</span></div>
+
+  <header class="bar">
+    <button class="lvbtn" id="lvBtn">
+      <span class="lvid">A1</span><span class="lvname">入门</span>
+      <svg class="chev" width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.7 5 6.7 8 3.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="streak">🔥 7 天</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab on">关卡</button>
+    <button class="tab">主题</button>
+    <button class="tab">自由</button>
+    <span class="hint">68 / 452 词</span>
+  </div>
+
+  <main class="scroll" id="scroll">
+    <div class="stage" id="stage">
+      <svg id="wire"></svg>
+      <div id="cards"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>312</b><small>已掌握</small></div>
+      <div class="stat"><b>+38</b><small>今日学习</small></div>
+      <div class="stat"><b>14</b><small>易错待攻克</small></div>
+    </div>
+    <div class="pad"></div>
+  </main>
+
+  <nav class="bnav">
+    <i class="on"><span class="ico">🔥</span>学习</i>
+    <i><span class="ico">↻</span>复习</i>
+    <i><span class="ico">🔍</span>词典</i>
+    <i><span class="ico">👤</span>我的</i>
+  </nav>
+
+  <div class="mask" id="mask"></div>
+  <section class="sheet" id="sheet">
+    <div class="grab"></div>
+    <h2>选择级别</h2>
+    <p>切换后从该级别接着学 · 每关 20 词</p>
+    <div class="lvs" id="lvs"></div>
+  </section>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const PER_UNIT = 20, TOTAL_WORDS = 452;
+function buildUnits(total){
+  const learn = Math.ceil(total / PER_UNIT), out = [];
+  let n = 1, i = 0;
+  while (i < learn) {
+    const left = total - i * PER_UNIT;
+    out.push({id:'U' + n++, review:false, words:Math.min(PER_UNIT, left)});
+    i++;
+    if (i % 5 === 0 && i < learn) out.push({id:'U' + n++, review:true, words:i * PER_UNIT});
+  }
+  return out;
+}
+const UNITS = buildUnits(TOTAL_WORDS);
+const PASSED = 2, CUR = 2, CUR_PART = 8;
+
+const LEVELS = [
+  {id:'A1', name:'入门', words:452, passed:2, units:UNITS.length, open:true},
+  {id:'A2', name:'基础', words:520, passed:0, units:26, open:true},
+  {id:'B1', name:'进阶', words:880, passed:0, units:44, open:false},
+  {id:'B2', name:'高阶', words:1120, passed:0, units:56, open:false},
+  {id:'C1', name:'精通', words:960, passed:0, units:48, open:false},
+];
+
+/* 关卡的中文小标题（原型里给个像样的名字） */
+const TITLES = ['日常问候','身边物件','个人信息','家人朋友','颜色数字','时段复习',
+                '饮食起居','出门在路上','天气与季节','学校与学习','身体与健康','时段复习'];
+
+const cardsEl = document.getElementById('cards');
+let html = '';
+UNITS.forEach((u, i) => {
+  const done = i < PASSED, cur = i === CUR, next = i === CUR + 1;
+  const side = i % 2 === 0 ? 'a' : 'b';
+  const cls = ['card', side, done ? 'done' : '', cur ? 'cur' : '', (!done && !cur && !next) ? 'lock' : ''].join(' ').replace(/\s+/g,' ');
+
+  // 每 6 个节点（5 学习 + 1 复习）一段，段首插一面旗
+  if (i % 6 === 0) {
+    html += `<div class="chap"><i>${i === 0 ? '🚩' : '⛳'}</i>
+      <b>第 ${Math.floor(i / 6) + 1} 段</b><small>U${i + 1} – U${Math.min(i + 6, UNITS.length)}</small></div>`;
+  }
+
+  const title = TITLES[i % TITLES.length];
+  let right;
+  if (cur) right = `<span class="go">继续</span>`;
+  else if (done) right = `<span class="tag ok">✓ 已完成</span>`;
+  else if (u.review) right = `<span class="tag rev">复习</span>`;
+  else if (next) right = `<span class="tag lock" style="color:#8A86A0;font-size:11px">下一关 →</span>`;
+  else right = `<span class="tag lock">🔒</span>`;
+
+  const sub = cur
+    ? `${u.words} 词 · 已学 ${CUR_PART} 词 · 约 ${Math.max(1, Math.round(u.words / 8))} 分钟`
+    : (u.review ? `前 5 关回顾 · ${u.words} 词` : `${u.words} 词`);
+
+  html += `<div class="${cls}" data-i="${i}">
+    <span class="num">${done ? '✓' : String(i + 1).padStart(2, '0')}</span>
+    <span class="meta"><b>${u.review ? '复习关' : title}</b><small>${sub}</small></span>
+    ${right}
+    ${cur ? `<span class="pbar"><i style="width:${Math.round(CUR_PART / u.words * 100)}%"></i></span>` : ''}
+  </div>`;
+});
+cardsEl.innerHTML = html;
+
+/* ---------- 连接线：按卡片实际位置画 ---------- */
+function drawWire(){
+  const stage = document.getElementById('stage');
+  const wire = document.getElementById('wire');
+  const cards = [...cardsEl.querySelectorAll('.card')];
+  const base = stage.getBoundingClientRect();
+  wire.setAttribute('width', stage.offsetWidth);
+  wire.setAttribute('height', stage.offsetHeight);
+
+  let d = '';
+  for (let i = 0; i < cards.length - 1; i++) {
+    const a = cards[i].getBoundingClientRect(), b = cards[i + 1].getBoundingClientRect();
+    // 卡间只有 26px，画长曲线会贴着卡边绕一圈、看着像毛边。
+    // 改成直角折线：竖 → 横 → 竖，就是台阶的样子。
+    const ax = a.left - base.left + a.width / 2;
+    const bx = b.left - base.left + b.width / 2;
+    const ay = a.top - base.top + a.height;
+    const by = b.top - base.top;
+    const my = (ay + by) / 2;
+    if (Math.abs(bx - ax) < 4) {
+      d += `M ${ax} ${ay} L ${bx} ${by} `;
+    } else {
+      const s = Math.sign(bx - ax), r = Math.min(9, Math.abs(bx - ax) / 2);
+      d += `M ${ax} ${ay} L ${ax} ${my - r} Q ${ax} ${my} ${ax + s * r} ${my} `
+         + `L ${bx - s * r} ${my} Q ${bx} ${my} ${bx} ${my + r} L ${bx} ${by} `;
+    }
+  }
+  wire.innerHTML = `<path d="${d}" fill="none" stroke="#DBD5EE" stroke-width="2"
+      stroke-linecap="round"/>`;
+}
+requestAnimationFrame(drawWire);
+window.addEventListener('resize', drawWire);
+
+/* ---------- 交互 ---------- */
+const toastEl = document.getElementById('toast');
+let toastT;
+function toast(m){ toastEl.textContent = m; toastEl.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 1800); }
+
+cardsEl.addEventListener('click', e => {
+  const c = e.target.closest('.card'); if (!c) return;
+  const i = +c.dataset.i;
+  if (i < PASSED) toast(`U${i + 1} 已完成 · 点开可以重刷`);
+  else if (i === CUR) toast(`进入 U${i + 1} · ${UNITS[i].words} 词`);
+  else if (i === CUR + 1) toast(`完成 U${CUR + 1} 后解锁`);
+  else toast('先学完前面的关卡');
+});
+
+const scroll = document.getElementById('scroll');
+// ?at=12 → 打开就滚到第 12 关，方便评审长列表
+const AT = +(new URLSearchParams(location.search).get('at') || 0);
+requestAnimationFrame(() => {
+  const list = cardsEl.querySelectorAll('.card');
+  const t = list[(AT ? AT : CUR + 1) - 1];
+  if (t) scroll.scrollTop = Math.max(0, t.offsetTop - 260);
+});
+
+const mask = document.getElementById('mask'), sheet = document.getElementById('sheet');
+const lvsEl = document.getElementById('lvs');
+lvsEl.innerHTML = LEVELS.map(l => {
+  const pct = l.units ? Math.round(l.passed / l.units * 100) : 0;
+  return `<button class="lvrow ${l.id === 'A1' ? 'on' : ''}" data-id="${l.id}">
+    <span class="badge">${l.id}</span>
+    <span class="lvmeta"><b>${l.name}${l.open ? '' : ' 🔒'}</b>
+      <small>${l.open ? `已通关 ${l.passed} / ${l.units} 关 · ${l.words} 词` : `会员解锁 · ${l.words} 词`}</small></span>
+    ${l.open ? `<span class="lvbar"><i style="width:${Math.max(8, pct)}%"></i></span>` : ''}
+  </button>`;
+}).join('');
+
+const openSheet = () => { mask.classList.add('on'); sheet.classList.add('on'); };
+const closeSheet = () => { mask.classList.remove('on'); sheet.classList.remove('on'); };
+document.getElementById('lvBtn').addEventListener('click', openSheet);
+mask.addEventListener('click', closeSheet);
+lvsEl.addEventListener('click', e => {
+  const r = e.target.closest('.lvrow'); if (!r) return;
+  const l = LEVELS.find(x => x.id === r.dataset.id);
+  closeSheet();
+  setTimeout(() => toast(l.open ? `切换到 ${l.id} ${l.name}` : `${l.id} 需要会员`), 180);
+});
+if (location.hash === '#sheet') setTimeout(openSheet, 60);
+</script>
+</body>
+</html>

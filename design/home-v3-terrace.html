@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>首页 V3 · 台地地图</title>
+<style>
+:root{
+  --primary:#6D5AE0; --primary-deep:#4A41C4; --primary-50:#F1EFFC;
+  --bg:#F4F2FA; --ink:#22202B; --muted:#8A86A0; --line:#E8E5F4;
+  --green:#2E9E63; --green-50:#EAF7F0; --amber:#E0A020; --amber-50:#FDF3E6;
+  --flame:#E8674A; --hero-a:#655CE8; --hero-b:#4A41C4;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:#E7E4F1;color:var(--ink);
+  display:grid;place-items:center;overflow:hidden;
+}
+#app{
+  position:relative;width:390px;height:844px;
+  background:
+    radial-gradient(120% 60% at 50% -10%, #FFFFFF 0%, rgba(255,255,255,0) 60%),
+    var(--bg);
+  display:flex;flex-direction:column;overflow:hidden;border-radius:26px;
+  box-shadow:0 24px 60px -20px rgba(38,30,80,.45);
+}
+.sb{height:26px;flex:none;display:flex;align-items:center;justify-content:space-between;
+    padding:0 22px;font-size:11px;font-weight:600;color:#3C3850}
+.sb-r{letter-spacing:.4px;opacity:.7}
+
+/* ---------- 顶栏 ---------- */
+.bar{flex:none;display:flex;align-items:center;justify-content:space-between;padding:4px 16px 0}
+.lvbtn{display:flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.9);cursor:pointer;
+  background:rgba(255,255,255,.86);backdrop-filter:blur(8px);
+  border-radius:999px;padding:6px 12px 6px 7px;
+  box-shadow:0 4px 14px -6px rgba(74,65,196,.24)}
+.lvbtn:active{transform:scale(.97)}
+.lvid{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;
+  background:linear-gradient(140deg,var(--hero-a),var(--hero-b));
+  color:#fff;font-size:11px;font-weight:800}
+.lvname{font-size:13px;font-weight:700;color:#2B2740}
+.chev{color:#A9A5BC;transition:transform .25s}
+.lvbtn.open .chev{transform:rotate(180deg)}
+.streak{display:flex;align-items:center;gap:3px;font-size:12px;font-weight:700;
+  color:var(--flame);background:rgba(255,255,255,.86);border-radius:999px;padding:5px 11px;
+  box-shadow:0 4px 14px -6px rgba(74,65,196,.2);text-decoration:none}
+
+.tabs{flex:none;display:flex;align-items:flex-end;gap:18px;padding:12px 18px 0}
+.tab{position:relative;border:0;background:none;padding:0 0 9px;cursor:pointer;
+  font-family:inherit;font-size:13.5px;font-weight:600;color:#A6A2B8;text-decoration:none}
+.tab.on{color:var(--ink);font-weight:800}
+.tab.on::after{content:"";position:absolute;left:50%;transform:translateX(-50%);bottom:0;
+  width:18px;height:3px;border-radius:2px;background:var(--primary)}
+.hint{margin-left:auto;padding-bottom:11px;font-size:10.5px;color:var(--muted)}
+
+.scroll{flex:1;overflow-y:auto;padding:6px 0 10px}
+.scroll::-webkit-scrollbar{width:0}
+
+/* ---------- 台地 ---------- */
+.stage{position:relative;padding:0 12px}
+#wire{position:absolute;left:0;top:0;pointer-events:none;z-index:1}
+.band{
+  position:absolute;left:12px;right:12px;border-radius:22px;z-index:0;
+  background:#FFFFFF;
+  border:1px solid rgba(109,90,224,.07);
+  box-shadow:0 14px 30px -26px rgba(38,30,80,.55);
+}
+.band.alt{background:#F4F0FF}
+.band .head{
+  position:absolute;left:16px;top:12px;display:flex;align-items:baseline;gap:6px;
+}
+.band .head b{font-size:11px;font-weight:800;letter-spacing:.6px;color:#5B5772}
+.band .head small{font-size:9.5px;color:#B0ACC4;font-weight:600}
+
+#nodes{position:absolute;left:0;top:0;right:0;z-index:2}
+.node{
+  position:absolute;display:grid;place-items:center;cursor:pointer;
+  border-radius:50%;background:#fff;border:2px solid #E4E0F2;
+  color:#B3AFC4;font-size:15px;font-weight:800;
+  box-shadow:0 3px 0 #EDEAF7,0 8px 16px -12px rgba(38,30,80,.6);
+  transition:transform .12s;
+}
+.node:active{transform:scale(.94)}
+.node.done{
+  background:linear-gradient(150deg,var(--hero-a),var(--hero-b));
+  border-color:transparent;color:#fff;box-shadow:0 4px 0 #3B33A6;
+}
+.node.done .glyph{font-size:22px}
+.node.rev{background:var(--amber-50);border-color:#EFC97E;color:#B26A0B}
+.node.rev.done{background:linear-gradient(150deg,#F0B450,#DE9418);border-color:transparent;
+  color:#fff;box-shadow:0 4px 0 #B7790D}
+.node.cur{
+  border-color:transparent;color:#fff;
+  background:linear-gradient(150deg,var(--hero-a),var(--hero-b));
+  box-shadow:0 6px 0 #3B33A6,0 14px 30px -8px rgba(74,65,196,.62);
+  z-index:3;
+}
+.node.cur::before{
+  content:"";position:absolute;inset:-10px;border-radius:50%;
+  border:2px solid rgba(109,90,224,.3);animation:ring 2.4s ease-out infinite;
+}
+@keyframes ring{0%{transform:scale(.92);opacity:.9}70%{transform:scale(1.18);opacity:0}100%{opacity:0}}
+.node.cur .glyph{font-size:21px}
+.flag{
+  position:absolute;right:-3px;top:-13px;font-size:16px;
+  filter:drop-shadow(0 3px 3px rgba(38,30,80,.28));
+  animation:wave 2.4s ease-in-out infinite;transform-origin:0 100%;
+}
+@keyframes wave{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(8deg)}}
+
+.bubble{
+  position:absolute;transform:translateX(-50%);white-space:nowrap;
+  background:var(--hero-b);color:#fff;font-size:12px;font-weight:800;
+  padding:8px 15px;border-radius:999px;
+  box-shadow:0 10px 22px -10px rgba(74,65,196,.7);
+  animation:bob 1.8s ease-in-out infinite;z-index:4;
+}
+@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-3px)}}
+.bubble::before{
+  content:"";position:absolute;left:50%;top:-4px;margin-left:-5px;
+  width:9px;height:9px;background:var(--hero-b);transform:rotate(45deg);
+}
+
+/* ---------- 底部导航 ---------- */
+.bnav{flex:none;height:62px;background:#fff;border-top:1px solid var(--line);
+  display:flex;align-items:center;padding:0 6px 4px}
+.bnav i{flex:1;display:grid;place-items:center;gap:2px;font-style:normal;
+  font-size:10px;color:#A9A5BC;font-weight:600}
+.bnav i.on{color:var(--primary)}
+.bnav .ico{font-size:17px;line-height:1;filter:grayscale(1);opacity:.5}
+.bnav i.on .ico{filter:none;opacity:1}
+
+/* ---------- 顶部下拉：级别 / 今日 / 快捷 ---------- */
+.wrapmask{position:absolute;inset:0;z-index:17;pointer-events:none}
+.wrapmask.on{pointer-events:auto}
+.wrapmask::before{content:"";position:absolute;inset:0;background:rgba(24,20,44,.36);
+  opacity:0;transition:opacity .26s}
+.wrapmask.on::before{opacity:1}
+
+.drop{position:absolute;left:0;right:0;top:70px;z-index:18;
+  transform:translateY(calc(-100% - 82px));
+  transition:transform .36s cubic-bezier(.22,1,.36,1);pointer-events:none}
+.drop.on{transform:translateY(0);pointer-events:auto}
+.drop .arrow{position:absolute;left:38px;top:-6px;width:12px;height:12px;
+  background:#fff;transform:rotate(45deg);border-radius:2px}
+.drop-inner{position:relative;background:#fff;border-radius:0 0 26px 26px;
+  padding:16px 18px 18px;max-height:600px;overflow-y:auto;
+  box-shadow:0 22px 40px -24px rgba(38,30,80,.55)}
+.drop-inner::-webkit-scrollbar{width:0}
+
+.dtitle{display:flex;align-items:baseline;gap:7px;margin:0 0 9px}
+.dtitle b{font-size:13px;font-weight:800}
+.dtitle small{font-size:10.5px;color:var(--muted)}
+
+.lvs{display:flex;gap:7px;padding:2px 0 4px}
+.lv{flex:1;min-width:0;border:1px solid var(--line);border-radius:13px;background:#fff;
+  padding:9px 8px;text-align:left;cursor:pointer;font-family:inherit}
+.lv.on{border-color:var(--primary);background:var(--primary-50);border-width:1.5px}
+.lv .id{font-size:14px;font-weight:900;letter-spacing:-.3px;color:#2B2740;white-space:nowrap}
+.lv.on .id{color:var(--primary-deep)}
+.lv .nm{font-size:9.5px;color:var(--muted);margin-top:1px;white-space:nowrap}
+.lv .bar{height:4px;border-radius:9px;background:#EDEBF7;margin-top:8px;overflow:hidden}
+.lv .bar i{display:block;height:100%;background:var(--primary);border-radius:9px}
+.lv.lock{background:#FCFBFE;border-style:dashed}
+.lv.lock .id{color:#C0BCD0}
+
+.drow{display:flex;align-items:center;justify-content:space-between;
+  border:1px solid var(--line);border-radius:14px;padding:11px 13px;margin-top:10px}
+.drow .k{font-size:11.5px;color:var(--muted)}
+.drow .v{font-size:12.5px;font-weight:800}
+.dbar{height:6px;border-radius:9px;background:#EFEDF8;overflow:hidden;margin-top:9px}
+.dbar i{display:block;height:100%;border-radius:9px;
+  background:linear-gradient(90deg,var(--hero-a),var(--hero-b))}
+
+.dstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.dstats div{background:#FBFAFE;border:1px solid var(--line);border-radius:12px;
+  padding:9px 8px;text-align:center}
+.dstats b{display:block;font-size:15px;font-weight:800;letter-spacing:-.3px}
+.dstats small{font-size:9.5px;color:var(--muted)}
+
+.dquick{display:flex;gap:8px;margin-top:12px}
+.dquick button{flex:1;border:1px solid var(--line);background:#FBFAFE;border-radius:12px;
+  padding:10px 8px;font-family:inherit;font-size:11.5px;font-weight:700;color:#5B5772;
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+.dquick button span{font-size:16px}
+.dquick button:active{background:#F4F2FA}
+
+.toast{position:absolute;left:50%;bottom:86px;transform:translate(-50%,10px);
+  background:#3A3550;color:#fff;font-size:12px;padding:9px 16px;border-radius:12px;
+  opacity:0;pointer-events:none;transition:.22s;z-index:40;white-space:nowrap}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="sb"><span>9:41</span><span class="sb-r">5G ▮▮▮</span></div>
+
+  <header class="bar">
+    <button class="lvbtn" id="lvBtn">
+      <span class="lvid">A1</span><span class="lvname">入门</span>
+      <svg class="chev" width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.7 5 6.7 8 3.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <a class="streak" href="checkin.html">🔥 7 天</a>
+  </header>
+
+  <div class="tabs">
+    <a class="tab on" href="#" onclick="return false">关卡</a>
+    <a class="tab" href="theme-v2-ladder.html">主题</a>
+    <button class="tab" onclick="toast('自由练习还没做原型')">自由</button>
+    <span class="hint">68 / 452 词</span>
+  </div>
+
+  <main class="scroll" id="scroll">
+    <div class="stage" id="stage">
+      <svg id="wire"></svg>
+      <div id="bands"></div>
+      <div id="nodes"></div>
+    </div>
+  </main>
+
+  <nav class="bnav">
+    <i class="on"><span class="ico">🔥</span>学习</i>
+    <i><span class="ico">↻</span>复习</i>
+    <i><span class="ico">🔍</span>词典</i>
+    <i><span class="ico">👤</span>我的</i>
+  </nav>
+
+  <!-- 顶部下拉：级别 + 进度 + 今日 + 快捷 -->
+  <div class="wrapmask" id="mask"></div>
+  <section class="drop" id="drop">
+    <div class="arrow"></div>
+    <div class="drop-inner">
+      <div class="dtitle"><b>选择级别</b><small>每关 20 词 · 每 5 关一次复习</small></div>
+      <div class="lvs" id="lvs"></div>
+
+      <div class="drow">
+        <span class="k">A1 入门 · 已学 68 / 452 词</span>
+        <span class="v">3 / 27 关</span>
+      </div>
+      <div class="dbar"><i style="width:15%"></i></div>
+
+      <div class="drow" style="border:0;padding:0;margin-top:12px">
+        <span class="k">今天已学</span>
+        <span class="v">38 / 50 词</span>
+      </div>
+      <div class="dbar"><i style="width:76%;background:linear-gradient(90deg,#5BBF8A,#2E9E63)"></i></div>
+
+      <div class="dstats">
+        <div><b>312</b><small>已掌握</small></div>
+        <div><b>31</b><small>待复习</small></div>
+        <div><b>14</b><small>易错词</small></div>
+      </div>
+
+      <div class="dquick">
+        <button onclick="location.href='theme-v2-ladder.html'"><span>📚</span>换主题</button>
+        <button onclick="closeDrop();toast('去复习 31 个到期')"><span>↻</span>去复习</button>
+        <button onclick="location.href='checkin.html'"><span>🔥</span>打卡记录</button>
+      </div>
+    </div>
+  </section>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const PER_UNIT = 20, TOTAL_WORDS = 452;
+function buildUnits(total){
+  const learn = Math.ceil(total / PER_UNIT), out = [];
+  let n = 1, i = 0;
+  while (i < learn) {
+    const left = total - i * PER_UNIT;
+    out.push({id:'U' + n++, review:false, words:Math.min(PER_UNIT, left)});
+    i++;
+    if (i % 5 === 0 && i < learn) out.push({id:'U' + n++, review:true, words:i * PER_UNIT});
+  }
+  return out;
+}
+const UNITS = buildUnits(TOTAL_WORDS);
+const PASSED = 2, CUR = 2, CUR_PART = 8;
+
+const LEVELS = [
+  {id:'A1', name:'入门', words:452, passed:2, units:UNITS.length, open:true},
+  {id:'A2', name:'基础', words:520, passed:0, units:26, open:true},
+  {id:'B1', name:'进阶', words:880, passed:0, units:44, open:false},
+  {id:'B2', name:'高阶', words:1120, passed:0, units:56, open:false},
+  {id:'C1', name:'精通', words:960, passed:0, units:48, open:false},
+];
+
+/* ================= 几何 ================= */
+const GAP = 92, AMP = 68, SIZE = 56, CUR_SIZE = 70, TOP = 78, SEG_GAP = 52;
+const CX = 195;
+const px = i => CX + Math.sin(2 * Math.PI * i / 5) * AMP;
+const cy = i => TOP + i * GAP + bandTopOf(i);
+const SEG = 6;  // 5 学习 + 1 复习
+function bandTopOf(i){ return Math.floor(i / SEG) * SEG_GAP; }
+
+const stage = document.getElementById('stage');
+const H = TOP + (UNITS.length - 1) * GAP + bandTopOf(UNITS.length - 1) + 140;
+stage.style.height = H + 'px';
+const wire = document.getElementById('wire');
+wire.setAttribute('width', 390);
+wire.setAttribute('height', H);
+
+/* ---------- 台地色块 ---------- */
+const bandsEl = document.getElementById('bands');
+let bh = '';
+for (let s = 0; s * SEG < UNITS.length; s++) {
+  const from = s * SEG, to = Math.min(from + SEG - 1, UNITS.length - 1);
+  const top = cy(from) - 62;
+  const bottom = cy(to) + 70;
+  bh += `<div class="band ${s % 2 ? 'alt' : ''}" style="top:${top}px;height:${bottom - top}px">
+    <div class="head"><b>第 ${s + 1} 段</b><small>U${from + 1}–U${to + 1}</small></div>
+  </div>`;
+}
+bandsEl.innerHTML = bh;
+
+/* ---------- 路径 ---------- */
+function segPath(i, j){
+  const x0 = px(i), y0 = cy(i), x1 = px(j), y1 = cy(j), d = (y1 - y0) * .42;
+  return `M ${x0} ${y0} C ${x0} ${y0 + d}, ${x1} ${y1 - d}, ${x1} ${y1}`;
+}
+let dDone = '', dRest = '';
+for (let i = 0; i < UNITS.length - 1; i++) {
+  if (i < CUR) dDone += segPath(i, i + 1) + ' ';
+  else dRest += segPath(i, i + 1) + ' ';
+}
+wire.innerHTML = `
+  <path d="${dRest}" fill="none" stroke="#DAD4EE" stroke-width="7"
+        stroke-linecap="round" stroke-dasharray="0.1 14"/>
+  <path d="${dDone}" fill="none" stroke="#A79CF0" stroke-width="7" stroke-linecap="round"/>
+`;
+
+/* ---------- 节点 ---------- */
+const nodesEl = document.getElementById('nodes');
+let html = '';
+UNITS.forEach((u, i) => {
+  const done = i < PASSED, cur = i === CUR;
+  const size = cur ? CUR_SIZE : SIZE;
+  const x = px(i) - size / 2, y = cy(i) - size / 2;
+  const cls = ['node', u.review ? 'rev' : '', done ? 'done' : '', cur ? 'cur' : ''].join(' ').trim();
+  const glyph = done ? '✓' : (u.review ? '📖' : (i + 1));
+  html += `<div class="${cls}" data-i="${i}" style="left:${x}px;top:${y}px;width:${size}px;height:${size}px">
+    ${cur ? '<span class="flag">🚩</span>' : ''}
+    <span class="glyph">${glyph}</span></div>`;
+  if (cur) html += `<div class="bubble" style="left:${px(i)}px;top:${cy(i) + size / 2 + 13}px">继续 · U${i + 1}</div>`;
+});
+nodesEl.innerHTML = html;
+
+/* ---------- 交互 ---------- */
+const toastEl = document.getElementById('toast');
+let toastT;
+function toast(m){ toastEl.textContent = m; toastEl.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 1800); }
+
+nodesEl.addEventListener('click', e => {
+  const n = e.target.closest('.node'); if (!n) return;
+  const i = +n.dataset.i;
+  if (i < PASSED) toast(`U${i + 1} 已完成 · 点开可以重刷`);
+  else if (i === CUR) toast(`进入 U${i + 1} · ${UNITS[i].words} 词`);
+  else if (i === CUR + 1) toast(`完成 U${CUR + 1} 后解锁`);
+  else toast('先学完前面的关卡');
+});
+
+const scroll = document.getElementById('scroll');
+// ?at=12 → 打开就滚到第 12 关，方便评审长列表里的 S 线是否连续
+const AT = +(new URLSearchParams(location.search).get('at') || 0);
+requestAnimationFrame(() => {
+  scroll.scrollTop = Math.max(0, cy(AT ? AT - 1 : CUR) - 260);
+});
+
+/* ---------- 顶部下拉 ---------- */
+const mask = document.getElementById('mask');
+const drop = document.getElementById('drop');
+const lvBtn = document.getElementById('lvBtn');
+const lvsEl = document.getElementById('lvs');
+
+lvsEl.innerHTML = LEVELS.map(l => {
+  const pct = l.units ? Math.round(l.passed / l.units * 100) : 0;
+  return `<button class="lv ${l.id === 'A1' ? 'on' : ''} ${l.open ? '' : 'lock'}" data-id="${l.id}">
+    <div class="id">${l.id}${l.open ? '' : ' 🔒'}</div>
+    <div class="nm">${l.name}</div>
+    <div class="bar"><i style="width:${Math.max(4, pct)}%"></i></div>
+  </button>`;
+}).join('');
+
+function openDrop(){ drop.classList.add('on'); mask.classList.add('on'); lvBtn.classList.add('open'); }
+function closeDrop(){ drop.classList.remove('on'); mask.classList.remove('on'); lvBtn.classList.remove('open'); }
+lvBtn.addEventListener('click', () => drop.classList.contains('on') ? closeDrop() : openDrop());
+mask.addEventListener('click', closeDrop);
+lvsEl.addEventListener('click', e => {
+  const b = e.target.closest('.lv'); if (!b) return;
+  const l = LEVELS.find(x => x.id === b.dataset.id);
+  closeDrop();
+  setTimeout(() => toast(l.open ? `切换到 ${l.id} ${l.name}` : `${l.id} 需要会员`), 200);
+});
+if (location.hash === '#drop') setTimeout(openDrop, 80);
+</script>
+</body>
+</html>

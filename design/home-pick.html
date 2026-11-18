@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>首页改版 · 定稿预览</title>
+<style>
+:root{
+  --ink:#22202B; --muted:#8A86A0; --line:#E8E5F4; --primary:#6D5AE0;
+  --primary-deep:#4A41C4; --primary-50:#F1EFFC; --bg:#F4F2FA;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:#EFEDF6;color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  padding:34px 30px 60px;
+}
+.wrap{max-width:1120px;margin:0 auto}
+h1{margin:0 0 6px;font-size:22px;letter-spacing:-.4px}
+.lead{margin:0 0 22px;font-size:13px;color:var(--muted);line-height:1.7}
+.lead b{color:var(--ink)}
+
+.spec{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:26px}
+.spec div{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 15px}
+.spec b{display:block;font-size:12.5px;margin-bottom:3px}
+.spec span{font-size:11.5px;color:var(--muted);line-height:1.65}
+
+.picks{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.pick{display:flex;flex-direction:column;align-items:center}
+.tagline{display:flex;align-items:baseline;gap:7px;margin-bottom:12px;align-self:stretch;padding-left:4px}
+.tagline b{font-size:15px;letter-spacing:-.2px}
+.tagline span{font-size:11px;color:var(--muted)}
+.tagline em{
+  margin-left:auto;font-style:normal;font-size:10px;font-weight:800;color:var(--primary-deep);
+  background:var(--primary-50);padding:3px 8px;border-radius:999px;
+}
+.stage{
+  position:relative;width:300px;height:649px;border-radius:20px;overflow:hidden;
+  background:#E2DFEF;box-shadow:0 18px 40px -22px rgba(38,30,80,.7);
+}
+.stage iframe{width:390px;height:844px;border:0;transform:scale(.7692);transform-origin:top left}
+.ops{display:flex;gap:6px;margin-top:11px;flex-wrap:wrap;justify-content:center}
+.ops button{
+  font-family:inherit;font-size:11px;font-weight:600;color:#5B5772;cursor:pointer;
+  background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px 11px;
+}
+.ops button:hover{border-color:#C9C5F5;color:var(--primary-deep)}
+.ops button.on{background:var(--primary-50);border-color:#C9C5F5;color:var(--primary-deep)}
+
+table{
+  width:100%;border-collapse:separate;border-spacing:0;margin-top:38px;
+  background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;font-size:12px;
+}
+th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{background:#FBFAFE;font-size:11px;font-weight:800;letter-spacing:.3px;color:#5B5772}
+td:first-child{font-weight:700;color:#5B5772;width:130px}
+td b{color:var(--primary-deep)}
+
+.verdict{margin-top:24px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.verdict b{font-size:13px}
+.verdict p{margin:8px 0 0;font-size:12.5px;color:#5B5772;line-height:1.9}
+.verdict code{background:var(--primary-50);color:var(--primary-deep);padding:1px 5px;border-radius:5px;font-size:11.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>首页改版 · 定稿预览</h1>
+  <p class="lead">
+    首页取 <b>V3 台地地图</b>，主题页用 <b>V2 卡牌台阶</b>并带主题图标，
+    级别选择从底部半屏改成 <b>顶部下拉</b>（一次看全 5 个级别 + 进度 + 今日 + 统计），
+    另外新增 <b>打卡页</b>。三页都能点。
+  </p>
+
+  <div class="spec">
+    <div><b>一关 20 词</b><span>A1 452 词 → 23 学习关 + 4 复习关 = 27 关，复习关回顾前 5 关共 100 词。</span></div>
+    <div><b>S 线向下</b><span>正弦周期铺 5 关，左右 ±70px；每 5 关收一段，段末一个复习关。</span></div>
+    <div><b>顶部下拉</b><span>点左上角胶囊，从顶栏下方滑出面板，带小三角指向胶囊；再点或点遮罩收起。</span></div>
+    <div><b>打卡页</b><span>大数字 + 连胜日历，连续打卡用渐变胶囊串起来，今天加深；可翻月份。</span></div>
+  </div>
+
+  <div class="picks">
+    <div class="pick">
+      <div class="tagline"><b>① 学习 · 关卡</b><span>台地地图</span></div>
+      <div class="stage"><iframe id="f1" src="home-v3-terrace.html"></iframe></div>
+      <div class="ops">
+        <button data-f="f1" data-src="home-v3-terrace.html" class="on">首屏</button>
+        <button data-f="f1" data-src="home-v3-terrace.html?at=13">中段</button>
+        <button data-f="f1" data-src="home-v3-terrace.html#drop">顶部下拉</button>
+      </div>
+    </div>
+    <div class="pick">
+      <div class="tagline"><b>② 主题</b><span>卡牌台阶 + 图标</span></div>
+      <div class="stage"><iframe id="f2" src="theme-v2-ladder.html"></iframe></div>
+      <div class="ops">
+        <button data-f="f2" data-src="theme-v2-ladder.html" class="on">首屏</button>
+        <button data-f="f2" data-src="theme-v2-ladder.html#drop">顶部下拉</button>
+      </div>
+    </div>
+    <div class="pick">
+      <div class="tagline"><b>③ 打卡记录</b><span>连胜日历</span></div>
+      <div class="stage"><iframe id="f3" src="checkin.html"></iframe></div>
+      <div class="ops">
+        <button data-f="f3" data-src="checkin.html" class="on">默认</button>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>页面</th><th>关键交互</th><th>原型文件</th></tr>
+    <tr>
+      <td>学习 · 关卡</td>
+      <td>台地色带分段，S 线穿行；已走过的段紫色实线、没走的圆点虚线；
+        当前关放大带呼吸光圈 + 🚩 + 「继续」气泡；打开自动滚到当前关。
+        顶部胶囊 → 下拉面板（级别 / 进度 / 今日 / 统计 / 快捷）；火焰 → 打卡页。</td>
+      <td><code>home-v3-terrace.html</code></td>
+    </tr>
+    <tr>
+      <td>学习 · 主题</td>
+      <td>左右交错卡片 + 折线，每张带 44px 主题图标；当前主题紫卡带进度条；
+        已学完的标 ✓、锁住的用金色锁；底部 CTA 直接续学。</td>
+      <td><code>theme-v2-ladder.html</code></td>
+    </tr>
+    <tr>
+      <td>打卡记录</td>
+      <td>29 天连胜大数字 + 火焰；本月日历里连续打卡用一条渐变胶囊串起来，
+        今天加粗；可左右翻月，统计本月打卡 / 当前连胜 / 最长连胜。</td>
+      <td><code>checkin.html</code></td>
+    </tr>
+  </table>
+
+  <div class="verdict">
+    <b>移植时要注意的三处</b>
+    <p>
+      <b>1. 关数不能再写死。</b><code>Curriculum.unitsPerLevel = 12</code> 要改成按词库算：
+      <code>learn = ceil(词数 / 20)</code>，每 5 个学习关插 1 个复习关。
+      A1 是 23+4，A2 26 关左右，各级不同；存档 key（<code>A1:U12</code>）本身不受影响。
+      <br>
+      <b>2. 顶部下拉</b>建议用 <code>OverlayPortal</code>（或 <code>showGeneralDialog</code>），
+      面板和顶栏对齐、带指向胶囊的三角；<code>AnimatedSlide</code> 从 <code>Offset(0,-1)</code> 进来，
+      遮罩用 <code>AnimatedOpacity</code>。
+      <br>
+      <b>3. 打卡数据要新增一处持久化。</b>建议在 <code>Progress</code> 里加
+      <code>Set&lt;String&gt; checkinDays</code>（如 <code>2026-11-18</code>），结算时写入当天；
+      连击天数按日期倒推连续天数算，别单独存一个会漂移的计数。
+    </p>
+  </div>
+</div>
+<script>
+document.querySelectorAll('.ops button').forEach(b => {
+  b.addEventListener('click', () => {
+    const frame = document.getElementById(b.dataset.f);
+    frame.src = b.dataset.src;
+    b.parentElement.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+  });
+});
+</script>
+</body>
+</html>

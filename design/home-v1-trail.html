@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>首页 V1 · 蜿蜒小径</title>
+<style>
+:root{
+  --primary:#6D5AE0; --primary-deep:#4A41C4; --primary-50:#F1EFFC;
+  --bg:#FAF9FE; --ink:#22202B; --muted:#8A86A0; --line:#EDEAF7;
+  --green:#2E9E63; --green-50:#EAF7F0; --amber:#E0A020; --amber-50:#FDF3E6;
+  --flame:#E8674A; --hero-a:#655CE8; --hero-b:#4A41C4;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:#E7E4F1;color:var(--ink);
+  display:grid;place-items:center;overflow:hidden;
+}
+#app{
+  position:relative;width:390px;height:844px;background:var(--bg);
+  display:flex;flex-direction:column;overflow:hidden;
+  border-radius:26px;box-shadow:0 24px 60px -20px rgba(38,30,80,.45);
+}
+
+/* ---------- 假状态栏 ---------- */
+.sb{height:26px;flex:none;display:flex;align-items:center;justify-content:space-between;
+    padding:0 22px;font-size:11px;font-weight:600;color:#3C3850}
+.sb-r{letter-spacing:.4px;opacity:.7}
+
+/* ---------- 顶栏：左边级别胶囊，右边连击 ---------- */
+.bar{flex:none;display:flex;align-items:center;justify-content:space-between;padding:4px 16px 0}
+.lvbtn{
+  display:flex;align-items:center;gap:7px;border:0;cursor:pointer;
+  background:#fff;border-radius:999px;padding:6px 12px 6px 7px;
+  box-shadow:0 1px 0 rgba(38,30,80,.04),0 4px 14px -6px rgba(74,65,196,.22);
+  border:1px solid var(--line);
+}
+.lvbtn:active{transform:scale(.97)}
+.lvid{
+  display:grid;place-items:center;width:26px;height:26px;border-radius:50%;
+  background:linear-gradient(140deg,var(--hero-a),var(--hero-b));
+  color:#fff;font-size:11px;font-weight:800;letter-spacing:-.2px;
+}
+.lvname{font-size:13px;font-weight:700;color:#2B2740}
+.chev{color:#A9A5BC}
+.streak{display:flex;align-items:center;gap:3px;font-size:12px;font-weight:700;color:var(--flame);
+        background:var(--amber-50);border-radius:999px;padding:5px 11px}
+
+/* ---------- 模式：三个轻量文字 tab ---------- */
+.tabs{flex:none;display:flex;align-items:flex-end;gap:18px;padding:12px 18px 0}
+.tab{
+  position:relative;border:0;background:none;padding:0 0 9px;cursor:pointer;
+  font-family:inherit;font-size:13.5px;font-weight:600;color:#A6A2B8;
+}
+.tab.on{color:var(--ink);font-weight:800}
+.tab.on::after{
+  content:"";position:absolute;left:50%;transform:translateX(-50%);bottom:0;
+  width:18px;height:3px;border-radius:2px;background:var(--primary);
+}
+.hint{margin-left:auto;padding-bottom:11px;font-size:10.5px;color:var(--muted)}
+
+/* ---------- 滚动区 ---------- */
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 0 8px}
+.scroll::-webkit-scrollbar{width:0}
+.stage{position:relative;margin-top:8px}
+#wire{position:absolute;left:0;top:0;pointer-events:none}
+#nodes{position:absolute;left:0;top:0;right:0}
+
+.node{
+  position:absolute;display:grid;place-items:center;cursor:pointer;
+  border-radius:50%;background:#fff;border:2px solid var(--line);
+  color:#B3AFC4;font-size:15px;font-weight:800;
+  box-shadow:0 3px 0 rgba(38,30,80,.05);
+  transition:transform .12s;
+}
+.node:active{transform:scale(.94)}
+.node.done{
+  background:linear-gradient(150deg,var(--hero-a),var(--hero-b));
+  border-color:transparent;color:#fff;box-shadow:0 4px 0 #3B33A6;
+}
+.node.done .glyph{font-size:22px}
+.node.rev{background:var(--amber-50);border-color:#EFC97E;color:#B26A0B}
+.node.rev.done{background:linear-gradient(150deg,#F0B450,#DE9418);border-color:transparent;
+               color:#fff;box-shadow:0 4px 0 #B7790D}
+.node.cur{
+  border-color:transparent;color:#fff;
+  background:linear-gradient(150deg,var(--hero-a),var(--hero-b));
+  box-shadow:0 6px 0 #3B33A6,0 12px 26px -6px rgba(74,65,196,.55);
+}
+.node.cur::before{
+  content:"";position:absolute;inset:-9px;border-radius:50%;
+  border:2px solid rgba(109,90,224,.34);animation:ring 2.2s ease-out infinite;
+}
+@keyframes ring{0%{transform:scale(.94);opacity:.9}70%{transform:scale(1.16);opacity:0}100%{opacity:0}}
+.node.cur .glyph{font-size:20px;letter-spacing:-.3px}
+
+.bubble{
+  position:absolute;white-space:nowrap;transform:translateX(-50%);
+  background:#fff;color:var(--primary-deep);font-size:12px;font-weight:800;
+  padding:7px 14px;border-radius:999px;border:1.5px solid #DCD7F8;
+  box-shadow:0 8px 18px -8px rgba(74,65,196,.5),0 2px 0 #E6E2FA;
+  animation:bob 1.8s ease-in-out infinite;
+}
+@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-3px)}}
+.bubble::before{
+  content:"";position:absolute;left:50%;top:-5px;margin-left:-5px;
+  width:9px;height:9px;background:#fff;border-left:1.5px solid #DCD7F8;
+  border-top:1.5px solid #DCD7F8;transform:rotate(45deg);
+}
+
+/* 段落分隔 */
+.seg{
+  position:absolute;left:0;right:0;display:flex;justify-content:center;
+  pointer-events:none;
+}
+.seg span{
+  font-size:10px;font-weight:700;letter-spacing:.5px;color:#A9A5BC;white-space:nowrap;
+  background:var(--bg);border:1px solid var(--line);border-radius:999px;
+  padding:3px 11px;
+}
+.seg b{color:#7A7690;font-weight:800}
+
+/* ---------- 底部统计 ---------- */
+.stats{display:flex;gap:9px;padding:14px 18px 0}
+.stat{flex:1;background:#fff;border:1px solid var(--line);border-radius:14px;
+      padding:11px 12px;text-align:left}
+.stat b{display:block;font-size:17px;font-weight:800;letter-spacing:-.3px}
+.stat small{font-size:10px;color:var(--muted)}
+.pad{height:18px}
+
+/* ---------- 底部导航 ---------- */
+.bnav{
+  flex:none;height:62px;background:#fff;border-top:1px solid var(--line);
+  display:flex;align-items:center;padding:0 6px 4px;
+}
+.bnav i{flex:1;display:grid;place-items:center;gap:2px;font-style:normal;
+        font-size:10px;color:#A9A5BC;font-weight:600}
+.bnav i.on{color:var(--primary)}
+.bnav .ico{font-size:17px;line-height:1;filter:grayscale(1);opacity:.5}
+.bnav i.on .ico{filter:none;opacity:1}
+
+/* ---------- 级别半屏面板 ---------- */
+.mask{
+  position:absolute;inset:0;background:rgba(24,20,44,.42);opacity:0;
+  pointer-events:none;transition:opacity .28s;z-index:20;
+}
+.mask.on{opacity:1;pointer-events:auto}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:21;
+  background:var(--bg);border-radius:24px 24px 0 0;
+  padding:8px 18px 22px;transform:translateY(102%);
+  transition:transform .34s cubic-bezier(.22,1,.36,1);
+  box-shadow:0 -18px 44px -22px rgba(24,20,44,.5);
+  max-height:62%;
+}
+.sheet.on{transform:translateY(0)}
+.grab{width:38px;height:4px;border-radius:9px;background:#D9D5EA;margin:0 auto 12px}
+.sheet h2{margin:0;font-size:16px;font-weight:800;letter-spacing:-.2px}
+.sheet p{margin:3px 0 12px;font-size:11.5px;color:var(--muted)}
+.lvs{display:flex;flex-direction:column;gap:8px}
+.lvrow{
+  display:flex;align-items:center;gap:11px;border:1px solid var(--line);
+  background:#fff;border-radius:14px;padding:10px 12px;cursor:pointer;
+  font-family:inherit;text-align:left;width:100%;
+}
+.lvrow.on{border-color:#C9C5F5;background:var(--primary-50)}
+.lvrow .badge{
+  width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
+  background:#F3F1FA;color:#7C788F;font-size:12px;font-weight:800;flex:none;
+}
+.lvrow.on .badge{background:linear-gradient(140deg,var(--hero-a),var(--hero-b));color:#fff}
+.lvmeta{flex:1;min-width:0}
+.lvmeta b{display:block;font-size:13px;font-weight:700}
+.lvmeta small{font-size:10.5px;color:var(--muted)}
+.lvrow .lock{font-size:12px;color:#C6C2D6}
+.lvbar{width:52px;height:4px;border-radius:9px;background:#EDEBF7;overflow:hidden;flex:none}
+.lvbar i{display:block;height:100%;border-radius:9px;background:var(--primary)}
+
+/* toast */
+.toast{
+  position:absolute;left:50%;bottom:86px;transform:translate(-50%,10px);
+  background:#3A3550;color:#fff;font-size:12px;padding:9px 16px;border-radius:12px;
+  opacity:0;pointer-events:none;transition:.22s;z-index:40;white-space:nowrap;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="sb"><span>9:41</span><span class="sb-r">5G ▮▮▮</span></div>
+
+  <header class="bar">
+    <button class="lvbtn" id="lvBtn">
+      <span class="lvid">A1</span><span class="lvname">入门</span>
+      <svg class="chev" width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.7 5 6.7 8 3.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="streak">🔥 7 天</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab on">关卡</button>
+    <button class="tab">主题</button>
+    <button class="tab">自由</button>
+    <span class="hint">68 / 452 词</span>
+  </div>
+
+  <main class="scroll" id="scroll">
+    <div class="stage" id="stage">
+      <svg id="wire"></svg>
+      <div id="nodes"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>312</b><small>已掌握</small></div>
+      <div class="stat"><b>+38</b><small>今日学习</small></div>
+      <div class="stat"><b>14</b><small>易错待攻克</small></div>
+    </div>
+    <div class="pad"></div>
+  </main>
+
+  <nav class="bnav">
+    <i class="on"><span class="ico">🔥</span>学习</i>
+    <i><span class="ico">↻</span>复习</i>
+    <i><span class="ico">🔍</span>词典</i>
+    <i><span class="ico">👤</span>我的</i>
+  </nav>
+
+  <div class="mask" id="mask"></div>
+  <section class="sheet" id="sheet">
+    <div class="grab"></div>
+    <h2>选择级别</h2>
+    <p>切换后从该级别接着学 · 每关 20 词</p>
+    <div class="lvs" id="lvs"></div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ================= 数据：每关 20 词，每 5 个学习关插 1 个复习关 ================= */
+const PER_UNIT = 20;
+const TOTAL_WORDS = 452;
+
+function buildUnits(total){
+  const learn = Math.ceil(total / PER_UNIT);
+  const out = [];
+  let n = 1, i = 0;
+  while (i < learn) {
+    const left = total - i * PER_UNIT;
+    out.push({id:'U' + n++, review:false, words:Math.min(PER_UNIT, left)});
+    i++;
+    if (i % 5 === 0 && i < learn) out.push({id:'U' + n++, review:true, words:i * PER_UNIT});
+  }
+  return out;
+}
+
+const UNITS = buildUnits(TOTAL_WORDS);
+
+/* 进度：前 2 关已过，第 3 关是当前（半程 8 词） */
+const PASSED = 2;
+const CUR = 2;
+const CUR_PART = 8;
+
+const LEVELS = [
+  {id:'A1', name:'入门', words:452,  passed:2,  units:UNITS.length, open:true},
+  {id:'A2', name:'基础', words:520,  passed:0,  units:26, open:true},
+  {id:'B1', name:'进阶', words:880,  passed:0,  units:44, open:false},
+  {id:'B2', name:'高阶', words:1120, passed:0,  units:56, open:false},
+  {id:'C1', name:'精通', words:960,  passed:0,  units:48, open:false},
+];
+
+/* ================= 路径几何 ================= */
+const GAP = 90, AMP = 70, SIZE = 54, CUR_SIZE = 68, TOP = 46, SEG_GAP = 58;
+const CX = 195;
+// 一个完整正弦周期铺 5 个节点：0 → +0.95 → +0.59 → -0.59 → -0.95 → 0
+// 周期 6 时会有两个相邻节点落在同一条纵线上，连出来是根直柱子，看着不像路
+const px = i => CX + Math.sin(2 * Math.PI * i / 5) * AMP;
+
+/* 段落：每 6 个节点（5 学习 + 1 复习）一段 */
+function segOffsets(){
+  const off = [];  // off[i] = 第 i 个节点额外下沉多少
+  let acc = 0;
+  UNITS.forEach((u, i) => {
+    // 空隙加在「复习关之后」：复习关收尾本段，下面留白放章节标签
+    if (i > 0 && UNITS[i - 1].review) acc += SEG_GAP;
+    off[i] = acc;
+  });
+  return off;
+}
+const OFF = segOffsets();
+const cy = i => TOP + i * GAP + OFF[i];
+
+const stage = document.getElementById('stage');
+const nodesEl = document.getElementById('nodes');
+const wire = document.getElementById('wire');
+const H = TOP + (UNITS.length - 1) * GAP + OFF[UNITS.length - 1] + 150;
+stage.style.height = H + 'px';
+wire.setAttribute('viewBox', `0 0 390 ${H}`);
+wire.setAttribute('width', '390');
+wire.setAttribute('height', H);
+
+/* 平滑贝塞尔连接 */
+function segPath(i, j){
+  const x0 = px(i), y0 = cy(i), x1 = px(j), y1 = cy(j), d = (y1 - y0) * .42;
+  return `M ${x0} ${y0} C ${x0} ${y0 + d}, ${x1} ${y1 - d}, ${x1} ${y1}`;
+}
+
+let dDone = '', dRest = '';
+for (let i = 0; i < UNITS.length - 1; i++) {
+  if (i < CUR) dDone += segPath(i, i + 1) + ' ';
+  else dRest += segPath(i, i + 1) + ' ';
+}
+wire.innerHTML = `
+  <path d="${dRest}" fill="none" stroke="#E1DCF3" stroke-width="6"
+        stroke-linecap="round" stroke-dasharray="0.1 13"/>
+  <path d="${dDone}" fill="none" stroke="#BDB6F0" stroke-width="6" stroke-linecap="round"/>
+`;
+
+/* ================= 渲染节点 ================= */
+let html = '';
+UNITS.forEach((u, i) => {
+  const done = i < PASSED, cur = i === CUR;
+  const size = cur ? CUR_SIZE : SIZE;
+  const x = px(i) - size / 2, y = cy(i) - size / 2;
+  const cls = ['node', u.review ? 'rev' : '', done ? 'done' : '', cur ? 'cur' : ''].join(' ').trim();
+  const glyph = done ? '✓' : (u.review ? '📖' : (i + 1));
+  html += `<div class="${cls}" data-i="${i}" style="left:${x}px;top:${y}px;width:${size}px;height:${size}px">
+             <span class="glyph">${glyph}</span></div>`;
+  if (cur) {
+    html += `<div class="bubble" style="left:${px(i)}px;top:${cy(i) + size / 2 + 12}px">继续 · U${i + 1}</div>`;
+  }
+  // 每段（复习关后）一条分隔
+  if (u.review && i < UNITS.length - 1) {
+    html += `<div class="seg" style="top:${cy(i) + 56}px">
+               <span>第 ${Math.floor(i / 6) + 1} 段完成 · <b>${u.words}</b> 词过一遍</span></div>`;
+  }
+});
+nodesEl.innerHTML = html;
+
+/* ================= 交互 ================= */
+const toastEl = document.getElementById('toast');
+let toastT;
+function toast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => toastEl.classList.remove('on'), 1800);
+}
+
+nodesEl.addEventListener('click', e => {
+  const n = e.target.closest('.node');
+  if (!n) return;
+  const i = +n.dataset.i;
+  if (i < PASSED) toast(`U${i + 1} 已完成 · 点开可以重刷`);
+  else if (i === CUR) toast(`进入 U${i + 1} · ${UNITS[i].words} 词`);
+  else if (i === CUR + 1) toast(`完成 U${CUR + 1} 后解锁`);
+  else toast(`先学完前面的关卡`);
+});
+
+/* 进页面自动定位到当前关卡（不用手动滑到底） */
+const scroll = document.getElementById('scroll');
+// ?at=12 → 打开就滚到第 12 关，方便评审长列表里的 S 线是否连续
+const AT = +(new URLSearchParams(location.search).get('at') || 0);
+requestAnimationFrame(() => {
+  scroll.scrollTop = Math.max(0, cy(AT ? AT - 1 : CUR) - 300);
+});
+
+/* ---- 级别半屏面板 ---- */
+const mask = document.getElementById('mask');
+const sheet = document.getElementById('sheet');
+const lvsEl = document.getElementById('lvs');
+lvsEl.innerHTML = LEVELS.map(l => {
+  const pct = l.units ? Math.round(l.passed / l.units * 100) : 0;
+  return `<button class="lvrow ${l.id === 'A1' ? 'on' : ''}" data-id="${l.id}">
+    <span class="badge">${l.id}</span>
+    <span class="lvmeta">
+      <b>${l.name}${l.open ? '' : ' <span style="font-size:11px;color:#C6C2D6">🔒</span>'}</b>
+      <small>${l.open ? `已通关 ${l.passed} / ${l.units} 关 · ${l.words} 词` : `会员解锁 · ${l.words} 词`}</small>
+    </span>
+    ${l.open ? `<span class="lvbar"><i style="width:${Math.max(4, pct)}%"></i></span>` : ''}
+  </button>`;
+}).join('');
+
+function openSheet(){ mask.classList.add('on'); sheet.classList.add('on'); }
+function closeSheet(){ mask.classList.remove('on'); sheet.classList.remove('on'); }
+document.getElementById('lvBtn').addEventListener('click', openSheet);
+mask.addEventListener('click', closeSheet);
+
+lvsEl.addEventListener('click', e => {
+  const r = e.target.closest('.lvrow');
+  if (!r) return;
+  const l = LEVELS.find(x => x.id === r.dataset.id);
+  closeSheet();
+  setTimeout(() => toast(l.open ? `切换到 ${l.id} ${l.name}` : `${l.id} 需要会员`), 180);
+});
+
+/* 深链：#sheet 直接展开面板，方便截图 */
+if (location.hash === '#sheet') setTimeout(openSheet, 60);
+</script>
+</body>
+</html>
