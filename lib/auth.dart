@@ -95,9 +95,19 @@ class Auth {
     _changes.add(null);
   }
 
-  /// 改昵称。后台暂时没有改名接口，先本地生效：
-  /// 写进缓存的 user json，下次启动恢复会话时带出来。
-  /// 接上接口后把这里换成 _post('/user/nickname', ...) 即可。
+  /// 改昵称。已登录走后台（后台没接上时抛 [AuthException]，界面提示原因）；
+  /// 未登录只改本地缓存。成功后本地再写一次，保证「我的」页立刻变。
+  Future<void> rename(String nickname) async {
+    final u = user;
+    if (u == null) return;
+    final name = nickname.trim();
+    if (_token.isNotEmpty) {
+      await _post('/api/v1/worddeer/auth/profile', {'nickname': name});
+    }
+    await renameLocal(name);
+  }
+
+  /// 只改本地（离线 / 单测用）：写进缓存的 user json，下次启动恢复会话时带出来。
   Future<void> renameLocal(String nickname) async {
     final u = user;
     if (u == null) return;

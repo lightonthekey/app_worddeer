@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'app_settings.dart';
 import 'auth.dart';
 import 'bank.dart';
 import 'content_sync.dart';
@@ -52,6 +53,7 @@ Future<void> _boot() async {
     '进度同步': ProgressSync.I.init,
     '会员权益': Ent.I.load,
     '外观主题': AppTheme.I.load,
+    '本地偏好': AppSettings.I.load,
   };
   for (final e in steps.entries) {
     try {

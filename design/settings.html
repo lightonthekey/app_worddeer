@@ -53,6 +53,13 @@ body{
 .row.danger .k{color:var(--red)}
 .row.danger .ic{color:var(--red)}
 
+.sw{width:38px;height:22px;flex:none;border-radius:999px;background:var(--n2,#DCE4F4);
+  position:relative;transition:background .18s;margin-left:auto}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+  background:#fff;transition:left .18s;box-shadow:0 1px 3px rgba(24,34,64,.25)}
+.sw.on{background:var(--primary)}
+.sw.on::after{left:18px}
+
 .out{width:100%;height:44px;margin-top:18px;border-radius:14px;cursor:pointer;
   border:1px solid var(--line);background:#fff;color:var(--red);
   font-family:inherit;font-size:13.5px;font-weight:700}
@@ -105,10 +112,11 @@ body{
         <span class="v" id="nickVal">词汇旅人</span>
         <span class="ch">›</span>
       </div>
-      <div class="row">
+      <div class="row" onclick="copyName()">
         <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg></span>
         <span class="k">用户名</span>
         <span class="v">@deer</span>
+        <span class="ch">›</span>
       </div>
       <div class="row" onclick="toast('会员页不在本原型范围')">
         <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5 7 21l5-2.5L17 21l-1.5-7.5"/></svg></span>
@@ -140,28 +148,41 @@ body{
       </div>
     </div>
 
+    <div class="sec">学习与反馈</div>
+    <div class="card">
+      <div class="row" id="rowAccent">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M5 9v6h3l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg></span>
+        <span class="k">发音</span>
+        <span class="v" id="accentVal">美式</span>
+        <span class="ch">›</span>
+      </div>
+      <div class="row" id="rowHaptic">
+        <span class="ic"><svg viewBox="0 0 24 24"><rect x="7" y="4" width="10" height="16" rx="2"/><path d="M4 9v6M20 9v6"/></svg></span>
+        <span class="k">答题震动</span>
+        <span class="sw on" id="hapticSw"></span>
+      </div>
+    </div>
+
     <div class="sec">关于</div>
     <div class="card">
-      <div class="row" onclick="toast('词库：A1 452 词 · A2 480 词')">
+      <div class="row" onclick="showBank()">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h7v15H4zM13 5h7v15h-7z"/><path d="M4 9h7M13 9h7"/></svg></span>
         <span class="k">词库</span>
         <span class="v">A1–C1 · 452 词起</span>
         <span class="ch">›</span>
       </div>
-      <div class="row">
+      <div class="row" onclick="showSrs()">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 9h5l5-4v14l-5-4H4z"/><path d="M17 8a6 6 0 0 1 0 8"/></svg></span>
         <span class="k">记忆算法</span>
         <span class="v">间隔重复 · 7 档</span>
+        <span class="ch">›</span>
       </div>
-      <div class="row">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M5 9v6h3l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg></span>
-        <span class="k">发音</span>
-        <span class="v">美式</span>
-      </div>
-      <div class="row">
+
+      <div class="row" onclick="toast('已是最新版本 v1.0.0')">
         <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.6v.1"/></svg></span>
         <span class="k">版本</span>
         <span class="v">v1.0.0</span>
+        <span class="ch">›</span>
       </div>
     </div>
 
@@ -254,6 +275,74 @@ body{
   // 昵称记忆
   const savedNick = localStorage.getItem('wb.nick');
   if (savedNick) document.getElementById('nickVal').textContent = savedNick;
+
+  // ---------------------------------------------------------------- 学习与反馈
+
+  let accent = localStorage.getItem('wb.accent') === 'uk' ? 'uk' : 'us';
+  const accentVal = document.getElementById('accentVal');
+  accentVal.textContent = accent === 'uk' ? '英式' : '美式';
+
+  document.getElementById('rowAccent').onclick = () => {
+    const dlg = document.getElementById('dlg');
+    dlg.innerHTML = `<h3>发音</h3>
+      <p>选完立刻生效，所有发音按钮都读这个设置。</p>
+      <div class="ops">
+        <button class="cancel" id="dlgCancel">取消</button>
+        <button class="ok" id="pickUs">美式</button>
+        <button class="ok" id="pickUk">英式</button>
+      </div>`;
+    document.getElementById(accent === 'uk' ? 'pickUk' : 'pickUs').style.fontWeight = '900';
+    document.getElementById('mask').classList.add('on');
+    document.getElementById('dlgCancel').onclick = closeMask;
+    document.getElementById('pickUs').onclick = () => setAccent('us');
+    document.getElementById('pickUk').onclick = () => setAccent('uk');
+  };
+
+  function closeMask() { document.getElementById('mask').classList.remove('on'); }
+
+  function setAccent(v) {
+    accent = v;
+    localStorage.setItem('wb.accent', v);
+    accentVal.textContent = v === 'uk' ? '英式' : '美式';
+    closeMask();
+    toast('发音已切换为' + accentVal.textContent);
+  }
+
+  let haptic = localStorage.getItem('wb.haptic') !== '0';
+  const hapticSw = document.getElementById('hapticSw');
+  hapticSw.classList.toggle('on', haptic);
+  document.getElementById('rowHaptic').onclick = () => {
+    haptic = !haptic;
+    localStorage.setItem('wb.haptic', haptic ? '1' : '0');
+    hapticSw.classList.toggle('on', haptic);
+    toast(haptic ? '答题震动已开启' : '答题震动已关闭');
+  };
+
+  function copyName() {
+    const name = '@deer';
+    const done = () => toast('用户名已复制');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(name).then(done).catch(done);
+    } else {
+      done();
+    }
+  }
+
+  function showBank() {
+    dialog({
+      title: '词库',
+      body: 'A1 入门 · 452 词<br>A2 基础 · 480 词<br>B1 进阶 · 620 词<br>B2 高阶 · 780 词<br>C1 精通 · 540 词<br><br>共 2872 词 · 60 个主题',
+      okText: '知道了', onOk: () => {}
+    });
+  }
+
+  function showSrs() {
+    dialog({
+      title: '记忆算法',
+      body: '答对一次升一档，答错回到第一档。间隔依次是：<br>10 分钟 → 1 天 → 2 天 → 4 天 → 7 天 → 15 天 → 30 天。<br><br>升到第 5 档及以上算「已掌握」，之后每 15～30 天见一次，只为防止遗忘。',
+      okText: '知道了', onOk: () => {}
+    });
+  }
 </script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+import 'package:app_worddeer/app_settings.dart';
 import 'package:app_worddeer/auth.dart';
 import 'package:app_worddeer/entitlement.dart';
 import 'package:app_worddeer/pages/me.dart';
@@ -6,7 +7,9 @@ import 'package:app_worddeer/progress_sync.dart';
 import 'package:app_worddeer/theme.dart';
 import 'package:app_worddeer/ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 「我的」页账号卡：未登录 / 已登录（含同步状态）两种形态的布局回归。
 /// 账号卡里塞了昵称、@用户名、同步时间三行信息，改版时最容易挤出溢出。
@@ -19,10 +22,13 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  setUp(() {
+  setUp(() async {
     Auth.I.user = null;
     ProgressSync.I.resetForTest();
     Ent.I.ent = const Entitlement();
+    SharedPreferences.setMockInitialValues({});
+    AppSettings.I.accent = 'us';
+    AppSettings.I.haptic = true;
   });
 
   tearDown(() => AppTheme.I.set('indigo'));
@@ -174,5 +180,72 @@ void main() {
     await tester.drag(find.byType(ListView).last, const Offset(0, -600));
     await tester.pumpAndSettle();
     expect(find.text('退出登录'), findsOneWidget);
+  });
+
+  testWidgets('设置：发音切英式，设置写盘并在下次启动读回', (tester) async {
+    Auth.I.user = const UserInfo(id: 7, username: 'deer', nickname: '小鹿');
+    await pump(tester);
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('美式'), findsOneWidget, reason: '默认美式');
+    await tester.tap(find.text('发音'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('英式'));
+    await tester.pumpAndSettle();
+
+    expect(AppSettings.I.accent, 'uk');
+    expect(find.text('英式'), findsOneWidget, reason: '行上的值跟着变');
+
+    // 模拟重启：内存值清掉后从 prefs 读回来
+    AppSettings.I.accent = 'us';
+    await AppSettings.I.load();
+    expect(AppSettings.I.accent, 'uk');
+  });
+
+  testWidgets('设置：答题震动可关，配对页不再触发震动', (tester) async {
+    Auth.I.user = const UserInfo(id: 7, username: 'deer', nickname: '小鹿');
+    await pump(tester);
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+    await tester.tap(find.text('答题震动'));
+    await tester.pumpAndSettle();
+
+    expect(AppSettings.I.haptic, isFalse);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+  });
+
+  testWidgets('设置：关于里的词库/记忆算法可点开，用户名点按可复制', (tester) async {
+    Auth.I.user = const UserInfo(id: 7, username: 'deer', nickname: '小鹿');
+    await pump(tester);
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+
+    // 用户名 → 复制（测试环境没有真剪贴板，补一个通道处理器）
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform, (call) async => null);
+    await tester.tap(find.text('@deer'));
+    await tester.pumpAndSettle();
+    expect(find.text('用户名已复制'), findsOneWidget);
+
+    // 「关于」在屏幕外，先滚下去
+    await tester.drag(find.byType(ListView), const Offset(0, -420));
+    await tester.pumpAndSettle();
+
+    // 记忆算法 → 说明弹窗
+    await tester.tap(find.text('记忆算法'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('30 天'), findsOneWidget);
+    await tester.tap(find.text('知道了'));
+    await tester.pumpAndSettle();
+
+    // 词库 → 规模弹窗
+    await tester.tap(find.text('词库'));
+    await tester.pumpAndSettle();
+    expect(find.text('词库'), findsNWidgets(2), reason: '行 + 弹窗标题');
+    await tester.tap(find.text('知道了'));
+    await tester.pumpAndSettle();
   });
 }

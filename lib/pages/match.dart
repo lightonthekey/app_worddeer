@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../app_settings.dart';
 import '../bank.dart';
 import '../ui.dart';
 import '../confetti.dart';
@@ -365,7 +366,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
     _maxCombo = math.max(_maxCombo, _combo);
     if (!_wrong.contains(w.en)) _firstTry++;
     widget.onProgress?.call(_done);
-    HapticFeedback.mediumImpact();
+    if (AppSettings.I.haptic) HapticFeedback.mediumImpact();
     _beep();
 
     final pa = _centerOf(_enKeys[ei]);
@@ -405,7 +406,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
     if (a != null) _wrong.add(a.en);
     if (b != null) _wrong.add(b.en);
 
-    HapticFeedback.heavyImpact();
+    if (AppSettings.I.haptic) HapticFeedback.heavyImpact();
     setState(() {
       _en[ei].bad = true;
       _zh[zi].bad = true;
