@@ -5,10 +5,10 @@
 <title>主题 · 弓形弧线方块</title>
 <style>
 :root{
-  --primary:#3E63E8; --primary-deep:#2A47B8; --primary-50:#EDF1FE;
-  --bg:#F7F9FE; --ink:#1C2231; --muted:#7C87A3; --line:#E2E7F5;
+  --primary:#4B6FF0; --primary-deep:#3A5AD8; --primary-50:#EEF3FF;
+  --bg:#F7F9FE; --ink:#1C2231; --muted:#7C87A3; --line:#E4EAF8;
   --amber-50:#FDF3E6; --flame:#E8674A;
-  --hero-a:#3E63E8; --hero-b:#2A47B8; --gold:#E0A02A;
+  --hero-a:#4B6FF0; --hero-b:#3A5AD8; --gold:#E0A02A;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%}
@@ -31,7 +31,7 @@ body{
      padding:4px 16px 0;position:relative;z-index:19}
 .lvbtn{display:flex;align-items:center;gap:7px;border:1px solid var(--line);cursor:pointer;
   background:#fff;border-radius:999px;padding:6px 12px 6px 7px;font-family:inherit;
-  box-shadow:0 4px 14px -6px rgba(42,71,184,.22)}
+  box-shadow:0 4px 14px -6px rgba(58,90,216,.22)}
 .lvbtn:active{transform:scale(.97)}
 .lvid{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;
   background:linear-gradient(140deg,var(--hero-a),var(--hero-b));
@@ -77,19 +77,19 @@ body{
 .tile.todo .em{filter:grayscale(.35);opacity:.9}
 
 /* 已学完：淡紫底 + 紫字 + 右上角对勾 */
-.tile.done{background:#EBF1FE;border-color:#D8E2FB}
-.tile.done b{color:#22399B}
+.tile.done{background:#EDF2FF;border-color:#DCE5FD}
+.tile.done b{color:#2F4EC9}
 .tile.done .sub{color:#7B8AB8}
 .tile .tick{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;
   display:grid;place-items:center;background:var(--primary);color:#fff;
-  font-size:8px;font-weight:900;box-shadow:0 2px 4px -1px rgba(62,99,232,.45)}
+  font-size:8px;font-weight:900;box-shadow:0 2px 4px -1px rgba(75,111,240,.45)}
 
 /* 当前：紫渐变 + 外环 + 底部进度条 */
 .tile.cur{
   background:linear-gradient(150deg,var(--hero-a),var(--hero-b));
   border-color:transparent;
-  box-shadow:0 4px 0 #243C9E,0 0 0 6px rgba(62,99,232,.13),
-             0 18px 30px -14px rgba(42,71,184,.65);
+  box-shadow:0 4px 0 #3D5FDC,0 0 0 6px rgba(75,111,240,.14),
+             0 16px 26px -16px rgba(58,90,216,.46);
 }
 .tile.cur{padding-bottom:10px}
 .tile.cur b{color:#fff}
@@ -120,8 +120,8 @@ body{
 .fab:active{transform:scale(.93)}
 .fab svg{width:18px;height:18px;transition:transform .22s}
 .fab.up svg{transform:rotate(180deg)}
-@keyframes pulse{0%{box-shadow:0 4px 0 #243C9E,0 0 0 6px rgba(62,99,232,.13)}
-  100%{box-shadow:0 4px 0 #243C9E,0 0 0 26px rgba(62,99,232,0)}}
+@keyframes pulse{0%{box-shadow:0 4px 0 #3D5FDC,0 0 0 6px rgba(75,111,240,.13)}
+  100%{box-shadow:0 4px 0 #3D5FDC,0 0 0 26px rgba(75,111,240,0)}}
 .tile.flash{animation:pulse .65s ease-out 2}
 
 /* ---------- 顶部下拉 ---------- */
@@ -175,7 +175,7 @@ body{
 }
 .drow .k{font-size:11.5px;color:var(--muted)}
 .drow .v{font-size:12.5px;font-weight:800}
-.dbar{height:6px;border-radius:9px;background:#EDF1FA;overflow:hidden;margin-top:9px}
+.dbar{height:6px;border-radius:9px;background:#EFF3FF;overflow:hidden;margin-top:9px}
 .dbar i{display:block;height:100%;border-radius:9px;
   background:linear-gradient(90deg,var(--hero-a),var(--hero-b))}
 
@@ -186,7 +186,7 @@ body{
   display:flex;flex-direction:column;align-items:center;gap:4px;
 }
 .dquick button span{font-size:16px}
-.dquick button:active{background:#F4F6FD}
+.dquick button:active{background:#F7F9FF}
 
 .toast{position:absolute;left:50%;bottom:72px;transform:translate(-50%,10px);
   background:#313A4E;color:#fff;font-size:12px;padding:9px 16px;border-radius:12px;
