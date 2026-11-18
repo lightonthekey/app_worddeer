@@ -63,10 +63,12 @@ void main() {
     await tester.tap(find.text('主题'));
     await tester.pumpAndSettle();
 
-    // 阶梯底部的「继续 · 主题名」常驻按钮
-    final cta = find.textContaining('继续 ·');
-    expect(cta, findsOneWidget);
-    await tester.tap(cta);
+    // 当前主题的方块：副行是「已学 x / y」，点它直接进主题（底部 CTA 已删）
+    final cur = find.textContaining('已学 ');
+    expect(cur, findsOneWidget, reason: '只有当前主题方块显示已学进度');
+    await tester.ensureVisible(cur);
+    await tester.pumpAndSettle();
+    await tester.tap(cur);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 800));
 
@@ -141,15 +143,32 @@ void main() {
     expect(find.text('这个级别还没有主题'), findsOneWidget);
   });
 
-  testWidgets('主题阶梯当前的卡跟着「第一个没学完的主题」走，不再写死第 0 个', (WidgetTester tester) async {
+  testWidgets('主题方块的当前态跟着「第一个没学完的主题」走，不再写死第 0 个',
+      (WidgetTester tester) async {
     final savedLv = Curriculum.I.curLv;
     final savedThemes = Map<String, int>.from(Curriculum.I.themes);
+    final savedEnt = Ent.I.ent;
     Curriculum.I.curLv = 'A1';
+    // 免费档每个级别只开 1 个主题，t1 会落在锁上、不显示进度，先把主题全开
+    Ent.I.ent = const Entitlement(
+      vip: true,
+      limits: Limits(
+        levels: ['A1', 'A2', 'B1', 'B2', 'C1'],
+        unitsPerLevel: 12,
+        themesPerLevel: 12,
+        newPerDayMax: 40,
+        reviewPerDayMax: 100,
+        cloudSync: true,
+        offlineAudio: true,
+        wrongBook: true,
+      ),
+    );
     addTearDown(() {
       Curriculum.I.themes
         ..clear()
         ..addAll(savedThemes);
       Curriculum.I.curLv = savedLv;
+      Ent.I.ent = savedEnt;
     });
 
     final all = Curriculum.I.curThemes;
@@ -166,10 +185,12 @@ void main() {
     await tester.tap(find.text('主题'));
     await tester.pumpAndSettle();
 
-    // 底部常驻按钮指向「第一个没学完的主题」，已学完的那个不再占位
-    expect(find.textContaining('继续 · ${all[1].name}'), findsOneWidget,
-        reason: '当前主题应切到第一个没学完的');
-    expect(find.textContaining('继续 · ${all[0].name}'), findsNothing,
-        reason: '已学完的主题不该再占当前位');
+    // 只有「当前」那个方块写已学进度
+    final w0 = Curriculum.I.themeWords(0).length;
+    final w1 = Curriculum.I.themeWords(1).length;
+    expect(find.text('已学 3 / $w1'), findsOneWidget,
+        reason: '当前主题应切到第一个没学完的（t1）');
+    expect(find.text('已学 $w0 / $w0'), findsNothing,
+        reason: '已学完的 t0 不该再被当成当前主题');
   });
 }

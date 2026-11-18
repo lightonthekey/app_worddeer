@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_worddeer/bank.dart';
 import 'package:app_worddeer/checkin.dart';
 import 'package:app_worddeer/curriculum.dart';
+import 'package:app_worddeer/entitlement.dart';
 import 'package:app_worddeer/pages/checkin.dart';
 import 'package:app_worddeer/pages/home.dart';
 import 'package:app_worddeer/progress.dart';
@@ -23,6 +24,16 @@ Future<void> _loadFont() async {
   final bytes = File('C:/Windows/Fonts/Deng.ttf').readAsBytesSync();
   final loader = FontLoader('Probe')
     ..addFont(Future<ByteData>.value(ByteData.view(bytes.buffer)));
+
+  // 等线没有 emoji，方块上的 🪪🐾 会消失；系统 emoji 字体单独注册一个
+  // family，挂到 TextTheme 的 fallback 上，截图才和真机一致
+  final emoji = File('C:/Windows/Fonts/seguiemj.ttf');
+  if (emoji.existsSync()) {
+    final e = FontLoader('ProbeEmoji')
+      ..addFont(Future<ByteData>.value(
+          ByteData.view(emoji.readAsBytesSync().buffer)));
+    await e.load();
+  }
   await loader.load();
 
   // 测试环境默认不带图标字体，不加这一步截图里所有 Icon 都是空方块
@@ -42,7 +53,9 @@ Future<void> _loadFont() async {
 Widget _app(Widget home) => MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: buildTheme().copyWith(
-        textTheme: buildTheme().textTheme.apply(fontFamily: 'Probe'),
+        textTheme: buildTheme()
+            .textTheme
+            .apply(fontFamily: 'Probe', fontFamilyFallback: const ['ProbeEmoji']),
       ),
       home: Scaffold(body: home),
     );
@@ -111,8 +124,49 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('小屏视觉探针（320×568）', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(320, 568));
+  testWidgets('主题中段视觉探针（两个已学完 + 当前进度）', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    tester.view.devicePixelRatio = 2;
+
+    // 全解锁 + 造前两个主题学完、第三个学了一半，看实线是深紫、已学完是淡紫带勾
+    Ent.I.ent = const Entitlement(
+      vip: true,
+      limits: Limits(
+        levels: ['A1', 'A2', 'B1', 'B2', 'C1'],
+        unitsPerLevel: 12,
+        themesPerLevel: 12,
+        newPerDayMax: 40,
+        reviewPerDayMax: 100,
+        cloudSync: true,
+        offlineAudio: true,
+        wrongBook: true,
+      ),
+    );
+    final c = Curriculum.I;
+    c.themes
+      ..clear()
+      ..['A1:t0'] = 20
+      ..['A1:t1'] = 20
+      ..['A1:t2'] = 8;
+
+    await tester.pumpWidget(_app(const HomePage()));
+    await tester.pump();
+    await tester.tap(find.text('主题'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await expectLater(
+      find.byType(HomePage),
+      matchesGoldenFile('shots/home-07-theme-mid.png'),
+    );
+
+    c.themes.clear();
+    Ent.I.ent = const Entitlement();
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('小屏视觉探针（320×568）', (tester) async {    await tester.binding.setSurfaceSize(const Size(320, 568));
     tester.view.devicePixelRatio = 2;
 
     await tester.pumpWidget(_app(const HomePage()));
@@ -121,6 +175,15 @@ void main() {
     await expectLater(
       find.byType(HomePage),
       matchesGoldenFile('shots/home-06-small.png'),
+    );
+
+    // 窄屏的主题页：摆幅会收窄，方块不能贴边
+    await tester.tap(find.text('主题'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await expectLater(
+      find.byType(HomePage),
+      matchesGoldenFile('shots/home-08-theme-small.png'),
     );
 
     await tester.pumpWidget(const SizedBox());
@@ -142,7 +205,9 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: buildTheme().copyWith(
-        textTheme: buildTheme().textTheme.apply(fontFamily: 'Probe'),
+        textTheme: buildTheme()
+            .textTheme
+            .apply(fontFamily: 'Probe', fontFamilyFallback: const ['ProbeEmoji']),
       ),
       home: const CheckinPage(),
     ));

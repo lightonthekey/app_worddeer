@@ -57,7 +57,7 @@ void main() {
     expect(find.text('选择级别'), findsNothing);
   });
 
-  testWidgets('下拉里的「换主题」切到主题阶梯', (t) async {
+  testWidgets('下拉里的「换主题」切到主题路径', (t) async {
     await boot(t, const Size(390, 844));
 
     await t.tap(find.text('入门'));
@@ -66,9 +66,52 @@ void main() {
     await t.pumpAndSettle();
 
     expect(t.takeException(), isNull);
-    // 阶梯底部常驻「继续 · 主题名」
-    expect(find.textContaining('继续 · '), findsOneWidget);
+    // 主题是方块：当前那个写已学进度，底部常驻 CTA 已删
+    expect(find.textContaining('已学 '), findsOneWidget);
+    expect(find.textContaining('继续 · '), findsNothing);
     expect(find.textContaining('免费开放'), findsOneWidget);
+    // 右下角「回到学习位置」
+    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
+  });
+
+  testWidgets('主题页滚走以后，右下角按钮把人带回当前主题', (t) async {
+    await boot(t, const Size(390, 844));
+    await t.tap(find.text('主题'));
+    await t.pumpAndSettle();
+
+    // 当前主题是第 0 个，打开时就在顶部
+    final start = t.getTopLeft(find.text('个人信息')).dy;
+
+    await t.drag(find.byType(SingleChildScrollView), const Offset(0, -520));
+    await t.pumpAndSettle();
+    final scrolled = t.getTopLeft(find.text('个人信息')).dy;
+    expect(scrolled, lessThan(start - 200), reason: '没滚动，后面就测不出回位');
+
+    await t.tap(find.byTooltip('回到学习位置'));
+    await t.pumpAndSettle();
+    expect(t.getTopLeft(find.text('个人信息')).dy, closeTo(start, 4),
+        reason: '点完应该回到当前主题的位置');
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('小屏 320×568：主题方块不贴边、不溢出', (t) async {
+    await boot(t, const Size(320, 568));
+    await t.tap(find.text('主题'));
+    await t.pumpAndSettle();
+
+    expect(t.takeException(), isNull);
+    final tiles = find.textContaining('词');
+    expect(tiles, findsWidgets);
+
+    // 最左/最右的方块必须落在 18dp 内边距之内
+    final names = Curriculum.I.curThemes.map((e) => e.name).toList();
+    for (final n in names.take(4)) {
+      final f = find.text(n);
+      if (f.evaluate().isEmpty) continue;
+      final r = t.getRect(f.first);
+      expect(r.left, greaterThan(18), reason: '$n 的方块贴到屏幕左边缘了');
+      expect(r.right, lessThan(320 - 18), reason: '$n 的方块超出右边缘');
+    }
   });
 
   testWidgets('顶栏火焰进打卡页，能返回', (t) async {

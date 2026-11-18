@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>主题页 S 线 · 两版对比</title>
+<style>
+:root{
+  --ink:#22202B; --muted:#8A86A0; --line:#E8E5F4; --primary:#6D5AE0;
+  --primary-deep:#4A41C4; --primary-50:#F1EFFC;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:#EFEDF6;color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  padding:34px 30px 60px;
+}
+.wrap{max-width:820px;margin:0 auto}
+h1{margin:0 0 6px;font-size:22px;letter-spacing:-.4px}
+.lead{margin:0 0 24px;font-size:13px;color:var(--muted);line-height:1.75}
+.lead b{color:var(--ink)}
+
+.picks{display:grid;grid-template-columns:repeat(2,1fr);gap:26px}
+.pick{display:flex;flex-direction:column;align-items:center}
+.tagline{display:flex;align-items:baseline;gap:7px;margin-bottom:12px;align-self:stretch;padding-left:4px}
+.tagline b{font-size:15px;letter-spacing:-.2px}
+.tagline span{font-size:11px;color:var(--muted)}
+.tagline em{
+  margin-left:auto;font-style:normal;font-size:10px;font-weight:800;color:var(--primary-deep);
+  background:var(--primary-50);padding:3px 8px;border-radius:999px;
+}
+.stage{
+  position:relative;width:300px;height:649px;border-radius:20px;overflow:hidden;
+  background:#E2DFEF;box-shadow:0 18px 40px -22px rgba(38,30,80,.7);
+}
+.stage iframe{width:390px;height:844px;border:0;transform:scale(.7692);transform-origin:top left}
+.ops{display:flex;gap:6px;margin-top:11px}
+.ops button{
+  font-family:inherit;font-size:11px;font-weight:600;color:#5B5772;cursor:pointer;
+  background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px 11px;
+}
+.ops button:hover{border-color:#C9C5F5;color:var(--primary-deep)}
+.ops button.on{background:var(--primary-50);border-color:#C9C5F5;color:var(--primary-deep)}
+
+table{
+  width:100%;border-collapse:separate;border-spacing:0;margin-top:36px;
+  background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;font-size:12.5px;
+}
+th,td{padding:12px 15px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{background:#FBFAFE;font-size:11px;font-weight:800;letter-spacing:.3px;color:#5B5772}
+td:first-child{font-weight:700;color:#5B5772;width:120px}
+td b{color:var(--primary-deep)}
+.open{margin-top:20px;display:flex;gap:10px}
+.open a{
+  flex:1;text-align:center;text-decoration:none;font-size:12px;font-weight:700;color:#5B5772;
+  background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px;
+}
+.open a:hover{color:var(--primary-deep);border-color:#C9C5F5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>主题页 S 线 · 两版对比</h1>
+  <p class="lead">
+    左 = <b>原来的平滑 S</b>（摆幅 64、周期 4、曲线从方块中心穿过）；右 = <b>弓形弧</b>
+    （左右两列严格交替、摆幅 72，每两格之间一段「竖直起笔 → 鼓出去 → 竖直落下」的弧）。
+    两版方块尺寸、颜色状态、右下角按钮都完全一样，只差这条线。
+  </p>
+
+  <div class="picks">
+    <div class="pick">
+      <div class="tagline"><b>A · 平滑 S</b><span>摆幅 64 / 周期 4</span><em>原版</em></div>
+      <div class="stage"><iframe src="theme-v2-ladder.html" id="f1"></iframe></div>
+      <div class="ops">
+        <button class="on" data-f="f1" data-y="0">首屏</button>
+        <button data-f="f1" data-y="700">中段</button>
+        <button data-f="f1" data-y="drop">下拉</button>
+      </div>
+    </div>
+
+    <div class="pick">
+      <div class="tagline"><b>B · 弓形弧</b><span>摆幅 72 / 每格一段弓</span><em>新</em></div>
+      <div class="stage"><iframe src="theme-v3-arc.html" id="f2"></iframe></div>
+      <div class="ops">
+        <button class="on" data-f="f2" data-y="0">首屏</button>
+        <button data-f="f2" data-y="700">中段</button>
+        <button data-f="f2" data-y="drop">下拉</button>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>对比项</th><th>A · 平滑 S</th><th>B · 弓形弧</th></tr>
+    <tr>
+      <td>线的形态</td>
+      <td>一条连续正弦，从每个方块中心穿过，方块之间只有一小段曲线</td>
+      <td>每两格一段独立弧：竖直起笔、中间鼓出去、竖直落进下一块</td>
+    </tr>
+    <tr>
+      <td>看得见的弧度</td>
+      <td>弱 —— 波峰被方块盖住，露出来的那段接近直线，整列像「歪的竖线」</td>
+      <td>强 —— 横移全部发生在方块之间的空隙里，每段都看得出弯</td>
+    </tr>
+    <tr>
+      <td>方块落位</td>
+      <td>中 / 右 / 中 / 左，有两格落在同一条竖线上</td>
+      <td>左 / 右 / 左 / 右，每隔一格必换边，节奏均匀</td>
+    </tr>
+    <tr>
+      <td>横向占位</td>
+      <td>两侧各留 60dp 左右空白</td>
+      <td>两列贴到屏幕内边距，空白基本收掉</td>
+    </tr>
+    <tr>
+      <td>行距</td>
+      <td>130dp（间隙 38）</td>
+      <td>140dp（间隙 48，给弧线起落留空间）</td>
+    </tr>
+    <tr>
+      <td>观感</td>
+      <td>安静、克制，像一条路</td>
+      <td>动感强，像台阶/跳绳，一屏看到 5 个</td>
+    </tr>
+  </table>
+
+  <div class="open">
+    <a href="theme-v2-ladder.html" target="_blank">单独打开 A · 平滑 S</a>
+    <a href="theme-v3-arc.html" target="_blank">单独打开 B · 弓形弧</a>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.ops button').forEach(b => {
+  b.addEventListener('click', () => {
+    const box = b.parentElement;
+    box.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    const f = document.getElementById(b.dataset.f);
+    if (b.dataset.y === 'drop') {
+      f.contentWindow.location.hash = '#drop';
+      f.contentWindow.location.reload();
+    } else {
+      f.contentWindow.location.hash = '';
+      f.contentWindow.document.getElementById('scroll').scrollTop = +b.dataset.y;
+    }
+  });
+});
+</script>
+</body>
+</html>

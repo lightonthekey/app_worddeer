@@ -2,13 +2,13 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>主题 · 卡牌台阶</title>
+<title>主题 · S 线方块</title>
 <style>
 :root{
   --primary:#6D5AE0; --primary-deep:#4A41C4; --primary-50:#F1EFFC;
   --bg:#F7F6FC; --ink:#22202B; --muted:#8A86A0; --line:#E8E5F4;
-  --green:#2E9E63; --green-50:#EAF7F0; --amber:#E0A020; --amber-50:#FDF3E6;
-  --flame:#E8674A; --hero-a:#655CE8; --hero-b:#4A41C4; --gold:#E0A02A;
+  --amber-50:#FDF3E6; --flame:#E8674A;
+  --hero-a:#655CE8; --hero-b:#4A41C4; --gold:#E0A02A;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%}
@@ -51,77 +51,78 @@ body{
   width:18px;height:3px;border-radius:2px;background:var(--primary)}
 .hint{margin-left:auto;padding-bottom:11px;font-size:10.5px;color:var(--muted)}
 
-.scroll{flex:1;overflow-y:auto;padding:8px 0 10px}
+.scroll{flex:1;overflow-y:auto;padding:0 18px 40px;scroll-behavior:smooth}
 .scroll::-webkit-scrollbar{width:0}
 
-/* ---------- 主题卡 ---------- */
-.stage{position:relative;padding:4px 18px 0}
-#wire{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+/* ---------- S 线 + 方块主题 ---------- */
+.stage{position:relative}
+#wire{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:0}
 
-.card{
-  position:relative;display:flex;align-items:center;gap:11px;
-  background:#fff;border:1px solid var(--line);border-radius:16px;
-  padding:11px 13px;margin-bottom:26px;cursor:pointer;
-  box-shadow:0 2px 0 #EAE7F6,0 10px 22px -16px rgba(38,30,80,.4);
+.tile{
+  position:absolute;width:92px;height:92px;border-radius:20px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:0;background:#fff;border:1px solid var(--line);cursor:pointer;
+  font-family:inherit;color:inherit;z-index:1;
+  box-shadow:0 3px 0 #E9E5F7,0 12px 22px -16px rgba(38,30,80,.42);
   transition:transform .12s;
 }
-.card:active{transform:translateY(1px)}
-.card.a{margin-right:46px}
-.card.b{margin-left:46px}
+.tile:active{transform:scale(.95)}
+.tile .em{font-size:23px;line-height:1}
+.tile b{font-size:11.5px;font-weight:700;letter-spacing:-.1px;white-space:nowrap}
+.tile .sub{font-size:9px;color:var(--muted);line-height:1.1}
 
-/* 主题图标 */
-.ico{
-  flex:none;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;
-  font-size:23px;line-height:1;background:#F4F1FE;
-  box-shadow:0 2px 0 rgba(109,90,224,.08) inset;
-}
-.card.done .ico{background:#F1EFFC}
-.card.cur .ico{background:rgba(255,255,255,.2);box-shadow:none}
-.card.lock .ico{background:#F7F6FB;filter:grayscale(.55);opacity:.75}
+/* 未开始：灰底（白块在浅色背景上没边界） */
+.tile.todo{background:#F1F0F6;border-color:#E8E6F0;box-shadow:0 3px 0 #E5E2EE}
+.tile.todo b{color:#5F5B72}
+.tile.todo .em{filter:grayscale(.35);opacity:.9}
 
-.meta{flex:1;min-width:0}
-.meta b{display:block;font-size:13.5px;font-weight:700;letter-spacing:-.1px}
-.meta small{font-size:10.5px;color:var(--muted)}
-.card.done .meta b{color:#4B475E}
+/* 已学完：淡紫底 + 紫字 + 右上角对勾 */
+.tile.done{background:#F2EEFE;border-color:#E1DAFB}
+.tile.done b{color:#3F37AE}
+.tile.done .sub{color:#8E86C6}
+.tile .tick{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;
+  display:grid;place-items:center;background:var(--primary);color:#fff;
+  font-size:8px;font-weight:900;box-shadow:0 2px 4px -1px rgba(109,90,224,.45)}
 
-.tag{flex:none;font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px}
-.tag.ok{background:var(--green-50);color:var(--green)}
-.tag.new{background:#F4F2FB;color:#8A86A0}
+/* 当前：紫渐变 + 外环 + 底部进度条 */
+.tile.cur{
+  background:linear-gradient(150deg,var(--hero-a),var(--hero-b));
+  border-color:transparent;
+  box-shadow:0 4px 0 #3B33A6,0 0 0 6px rgba(109,90,224,.13),
+             0 18px 30px -14px rgba(74,65,196,.65);
+}
+.tile.cur{padding-bottom:10px}
+.tile.cur b{color:#fff}
+.tile.cur .sub{color:rgba(255,255,255,.85)}
+.tile .pbar{position:absolute;left:10px;right:10px;bottom:7px;height:3px;border-radius:9px;
+  background:rgba(255,255,255,.28);overflow:hidden}
+.tile .pbar i{display:block;height:100%;background:#fff;border-radius:9px}
 
-.card.cur{
-  background:linear-gradient(135deg,var(--hero-a),var(--hero-b));
-  border-color:transparent;padding:13px 14px;
-  box-shadow:0 6px 0 #3B33A6,0 16px 30px -12px rgba(74,65,196,.6);
-}
-.card.cur .meta b{color:#fff;font-size:14px}
-.card.cur .meta small{color:rgba(255,255,255,.8)}
-.card.cur .go{
-  flex:none;background:#fff;color:var(--primary-deep);font-size:11.5px;font-weight:800;
-  padding:7px 13px;border-radius:999px;box-shadow:0 2px 0 rgba(0,0,0,.12);
-}
-.card.cur .pbar{
-  position:absolute;left:14px;right:14px;bottom:8px;height:3px;border-radius:9px;
-  background:rgba(255,255,255,.26);overflow:hidden;
-}
-.card.cur .pbar i{display:block;height:100%;background:#fff;border-radius:9px}
+/* 会员锁：灰底虚线 + 右上角金锁 */
+.tile.lock{background:#F1F0F6;border-style:dashed;border-color:#E2DFEC;box-shadow:none}
+.tile.lock b{color:#8B879C;font-weight:600}
+.tile.lock .em{filter:grayscale(1);opacity:.42}
+.tile .lk{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;
+  display:grid;place-items:center;background:linear-gradient(150deg,#F7D488,#E0A02A);
+  box-shadow:0 2px 5px -1px rgba(224,160,42,.5)}
+.tile .lk svg{width:8px;height:8px;stroke:#fff;fill:none;stroke-width:2.8;
+  stroke-linecap:round;stroke-linejoin:round}
 
-.card.lock{background:#FCFBFE;border-style:dashed;box-shadow:none}
-.gold{
-  flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
-  background:linear-gradient(150deg,#F7D488,#E0A02A);color:#fff;font-size:11px;
-  box-shadow:0 2px 5px -1px rgba(224,160,42,.5);
+/* ---------- 回到学习位置 ---------- */
+.fab{
+  position:absolute;right:16px;bottom:20px;width:44px;height:44px;border-radius:50%;
+  border:1px solid var(--line);cursor:pointer;z-index:12;
+  display:grid;place-items:center;background:rgba(255,255,255,.94);color:#5B5772;
+  backdrop-filter:blur(6px);
+  box-shadow:0 10px 22px -10px rgba(38,30,80,.4),0 2px 0 #ECE9F7;
+  transition:transform .12s;
 }
-
-/* ---------- 底部 CTA ---------- */
-.foot{flex:none;padding:8px 18px 14px;background:linear-gradient(rgba(247,246,252,0),#F7F6FC 34%)}
-.cta{
-  width:100%;height:48px;border:0;border-radius:14px;cursor:pointer;
-  font-family:inherit;font-size:14px;font-weight:800;color:#fff;
-  background:linear-gradient(120deg,var(--hero-a),var(--hero-b));
-  box-shadow:0 12px 22px -12px rgba(74,65,196,.8);
-  display:flex;align-items:center;justify-content:center;gap:7px;
-}
-.cta small{font-weight:600;font-size:11.5px;opacity:.82}
+.fab:active{transform:scale(.93)}
+.fab svg{width:18px;height:18px;transition:transform .22s}
+.fab.up svg{transform:rotate(180deg)}
+@keyframes pulse{0%{box-shadow:0 4px 0 #3B33A6,0 0 0 6px rgba(109,90,224,.13)}
+  100%{box-shadow:0 4px 0 #3B33A6,0 0 0 26px rgba(109,90,224,0)}}
+.tile.flash{animation:pulse .65s ease-out 2}
 
 /* ---------- 顶部下拉 ---------- */
 .wrapmask{position:absolute;inset:0;z-index:17;pointer-events:none}
@@ -187,7 +188,7 @@ body{
 .dquick button span{font-size:16px}
 .dquick button:active{background:#F4F2FA}
 
-.toast{position:absolute;left:50%;bottom:86px;transform:translate(-50%,10px);
+.toast{position:absolute;left:50%;bottom:72px;transform:translate(-50%,10px);
   background:#3A3550;color:#fff;font-size:12px;padding:9px 16px;border-radius:12px;
   opacity:0;pointer-events:none;transition:.22s;z-index:40;white-space:nowrap}
 .toast.on{opacity:1;transform:translate(-50%,0)}
@@ -215,15 +216,13 @@ body{
   <main class="scroll" id="scroll">
     <div class="stage" id="stage">
       <svg id="wire"></svg>
-      <div id="cards"></div>
     </div>
   </main>
 
-  <div class="foot">
-    <button class="cta" onclick="toast('进入「天气季节」· 20 词')">
-      <span>继续 · 天气季节 🌤</span><small>已学 8 / 20</small>
-    </button>
-  </div>
+  <button class="fab down" id="fab" title="回到学习位置">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16"/><path d="M6 14l6 6 6-6"/></svg>
+  </button>
 
   <!-- 顶部下拉：级别切换 + 主题进度 -->
   <div class="wrapmask" id="mask"></div>
@@ -273,62 +272,124 @@ const THEMES = [
   {name:'食物饮品', emoji:'🍽', words:20, learned:0, lock:true},
 ];
 
-const cardsEl = document.getElementById('cards');
-let html = '';
+const LOCK_SVG = '<svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>';
+
+/* ---------- 几何：S 线（一个周期 5 个主题，同首页节奏） ---------- */
+const SIZE = 92;        // 方块边长
+const GAP  = 130;       // 行距（方块之间露出 38dp 给曲线）
+const AMP  = 64;        // 左右摆幅（周期 4：每步横移 64dp，方块之间才看得出错位）
+const TOP  = 56;        // 首块顶部留白（必须 ≥ SIZE/2，否则会被裁）
+
+const stage = document.getElementById('stage');
+const wire  = document.getElementById('wire');
+const scrollEl = document.getElementById('scroll');
+
+const CX = () => stage.offsetWidth / 2;
+// sin(πi/2)：0 → CX，1 → 右，2 → CX，3 → 左。每一步横移都是整个振幅，
+// 方块宽 92 也不会把摆动吃掉；周期取 5/6 时相邻两步只差 22~33dp，看着像一根歪的竖列
+const pxOf = i => CX() + Math.sin(Math.PI * i / 2) * AMP;
+const pyOf = i => TOP + i * GAP + SIZE / 2;
+
+/* ---------- 方块 ---------- */
+const curIdx = THEMES.findIndex(t => t.cur);
+
 THEMES.forEach((t, i) => {
-  const side = i % 2 === 0 ? 'a' : 'b';
   const done = t.learned >= t.words && !t.cur;
-  const cls = ['card', side, done ? 'done' : '', t.cur ? 'cur' : '', t.lock ? 'lock' : ''].join(' ').replace(/\s+/g, ' ');
+  const todo = !done && !t.cur && !t.lock;
+  const cls = ['tile', done ? 'done' : '', todo ? 'todo' : '',
+               t.cur ? 'cur' : '', t.lock ? 'lock' : ''].join(' ').replace(/\s+/g, ' ');
 
-  let right;
-  if (t.cur) right = `<span class="go">继续</span>`;
-  else if (t.lock) right = `<span class="gold">🔒</span>`;
-  else if (done) right = `<span class="tag ok">✓ 已学完</span>`;
-  else right = `<span class="tag new">未开始</span>`;
+  // 状态只靠颜色：已学完 = 淡紫 + ✓，当前 = 紫渐变，未开始 = 灰，锁 = 灰 + 金锁
+  let mark = '';
+  if (done) mark = `<span class="tick">✓</span>`;
+  else if (t.lock) mark = `<span class="lk">${LOCK_SVG}</span>`;
 
-  const sub = t.cur
-    ? `${t.words} 词 · 已学 ${t.learned} 词 · 约 3 分钟`
-    : (t.lock ? `会员解锁 · ${t.words} 词`
-      : (done ? `${t.words} 词 · 全部掌握` : `${t.words} 词`));
+  const sub = t.cur ? `已学 ${t.learned} / ${t.words}` : `${t.words} 词`;
+  const bar = t.cur
+    ? `<span class="pbar"><i style="width:${Math.round(t.learned / t.words * 100)}%"></i></span>`
+    : '';
 
-  html += `<div class="${cls}" data-i="${i}">
-    <span class="ico">${t.emoji}</span>
-    <span class="meta"><b>${t.name}</b><small>${sub}</small></span>
-    ${right}
-    ${t.cur ? `<span class="pbar"><i style="width:${Math.round(t.learned / t.words * 100)}%"></i></span>` : ''}
-  </div>`;
+  const el = document.createElement('button');
+  el.className = cls;
+  el.dataset.i = i;
+  el.innerHTML = `<span class="em">${t.emoji}</span><b>${t.name}</b>
+    <span class="sub">${sub}</span>${mark}${bar}`;
+  stage.appendChild(el);
 });
-cardsEl.innerHTML = html;
 
-/* ---------- 折线连接 ---------- */
+function layout(){
+  [...stage.querySelectorAll('.tile')].forEach((el, i) => {
+    el.style.left = (pxOf(i) - SIZE / 2) + 'px';
+    el.style.top  = (pyOf(i) - SIZE / 2) + 'px';
+  });
+  stage.style.height = (TOP + (THEMES.length - 1) * GAP + SIZE + 24) + 'px';
+  drawWire();
+}
+
+/* Catmull-Rom → 三次贝塞尔，保证曲线穿过每个方块中心 */
+function crPath(pts){
+  if (pts.length < 2) return '';
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    d += ` C ${p1.x + (p2.x - p0.x) / 6} ${p1.y + (p2.y - p0.y) / 6},`
+       + ` ${p2.x - (p3.x - p1.x) / 6} ${p2.y - (p3.y - p1.y) / 6},`
+       + ` ${p2.x} ${p2.y}`;
+  }
+  return d;
+}
+
 function drawWire(){
-  const stage = document.getElementById('stage');
-  const wire = document.getElementById('wire');
-  const cards = [...cardsEl.querySelectorAll('.card')];
-  const base = stage.getBoundingClientRect();
+  const pts = THEMES.map((_, i) => ({ x: pxOf(i), y: pyOf(i) }));
   wire.setAttribute('width', stage.offsetWidth);
   wire.setAttribute('height', stage.offsetHeight);
 
-  let d = '';
-  for (let i = 0; i < cards.length - 1; i++) {
-    const a = cards[i].getBoundingClientRect(), b = cards[i + 1].getBoundingClientRect();
-    const ax = a.left - base.left + a.width / 2;
-    const bx = b.left - base.left + b.width / 2;
-    const ay = a.top - base.top + a.height;
-    const by = b.top - base.top;
-    const my = (ay + by) / 2;
-    if (Math.abs(bx - ax) < 4) {
-      d += `M ${ax} ${ay} L ${bx} ${by} `;
-    } else {
-      const s = Math.sign(bx - ax), r = Math.min(9, Math.abs(bx - ax) / 2);
-      d += `M ${ax} ${ay} L ${ax} ${my - r} Q ${ax} ${my} ${ax + s * r} ${my} `
-         + `L ${bx - s * r} ${my} Q ${bx} ${my} ${bx} ${my + r} L ${bx} ${by} `;
-    }
-  }
-  wire.innerHTML = `<path d="${d}" fill="none" stroke="#DBD5EE" stroke-width="2" stroke-linecap="round"/>`;
+  const walked = pts.slice(0, curIdx + 1);   // 已走到：实线
+  const ahead  = pts.slice(curIdx);          // 还没走：圆点虚线
+  wire.innerHTML =
+    `<path d="${crPath(ahead)}" fill="none" stroke="#C9C0E8" stroke-width="3"
+       stroke-linecap="round" stroke-dasharray="2 7"/>` +
+    `<path d="${crPath(walked)}" fill="none" stroke="#8F82E8" stroke-width="3"
+       stroke-linecap="round" opacity=".8"/>`;
 }
-requestAnimationFrame(drawWire);
-window.addEventListener('resize', drawWire);
+
+layout();
+window.addEventListener('resize', layout);
+
+/* 打开时滚到当前主题 */
+requestAnimationFrame(() => {
+  // 居中，但别把上面的方块顶出屏幕（原来固定减 250，第三个主题时第一个方块会被切掉）
+  scrollEl.scrollTop = Math.max(0, pyOf(curIdx) - scrollEl.clientHeight / 2);
+  syncFab();
+});
+
+/* ---------- 回到学习位置 ---------- */
+const fab = document.getElementById('fab');
+const curTile = () => stage.querySelector('.tile.cur');
+
+function syncFab(){
+  const t = curTile(); if (!t) return;
+  const sr = scrollEl.getBoundingClientRect();
+  const r = t.getBoundingClientRect();
+  const center = (r.top + r.bottom) / 2 - sr.top;
+  const up = center < sr.height / 2;
+  fab.classList.toggle('up', up);
+  fab.classList.toggle('down', !up);
+}
+fab.addEventListener('click', () => {
+  const t = curTile(); if (!t) return;
+  const sr = scrollEl.getBoundingClientRect();
+  const r = t.getBoundingClientRect();
+  if (scrollEl.scrollHeight <= scrollEl.clientHeight + 4) {
+    t.classList.remove('flash'); void t.offsetWidth; t.classList.add('flash');
+    setTimeout(() => t.classList.remove('flash'), 1400);
+    return;
+  }
+  const target = scrollEl.scrollTop + (r.top - sr.top) - sr.height / 2 + r.height / 2;
+  scrollEl.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+});
+scrollEl.addEventListener('scroll', syncFab);
+window.addEventListener('resize', syncFab);
 
 /* ---------- 交互 ---------- */
 const toastEl = document.getElementById('toast');
@@ -336,8 +397,8 @@ let toastT;
 function toast(m){ toastEl.textContent = m; toastEl.classList.add('on');
   clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 1800); }
 
-cardsEl.addEventListener('click', e => {
-  const c = e.target.closest('.card'); if (!c) return;
+stage.addEventListener('click', e => {
+  const c = e.target.closest('.tile'); if (!c) return;
   const t = THEMES[+c.dataset.i];
   if (t.lock) toast(`「${t.name}」需要会员`);
   else if (t.cur) toast(`进入「${t.name}」· 还剩 ${t.words - t.learned} 词`);

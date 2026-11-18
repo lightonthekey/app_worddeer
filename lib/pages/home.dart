@@ -35,9 +35,13 @@ class _HomePageState extends State<HomePage>
   bool _dropOpen = false;
   late final AnimationController _dropCtl;
   final _pathScroll = ScrollController();
+  final _themeScroll = ScrollController();
 
   /// 已经自动滚到过哪个节点的标记（'A1:2'），避免每帧重建都把用户拽回去
   String? _autoScrolled;
+
+  /// 主题页同理：'A1:2'
+  String? _themeAutoScrolled;
 
   @override
   void initState() {
@@ -53,6 +57,7 @@ class _HomePageState extends State<HomePage>
   void dispose() {
     _dropCtl.dispose();
     _pathScroll.dispose();
+    _themeScroll.dispose();
     super.dispose();
   }
 
@@ -539,23 +544,46 @@ class _HomePageState extends State<HomePage>
       return _emptyState('这个级别还没有主题', '换一个级别看看，或稍后联网同步一次内容');
     }
     final hero = _heroThemeIndex(c);
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(18, 10, 18, 4),
-            child: Column(
-              children: [
-                _themeHead(c),
-                const SizedBox(height: 12),
-                _ladder(c, hero),
-              ],
+
+    // 水平内边距 18 + 18，曲线几何按内容宽度算，和内层 Column 同宽
+    return LayoutBuilder(
+      builder: (context, cons) {
+        final geo = _BowGeo(width: cons.maxWidth - 36, count: themes.length);
+        _scheduleThemeScroll(c.curLv, hero, geo.centerY(hero));
+        return Stack(
+          children: [
+            SingleChildScrollView(
+              controller: _themeScroll,
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 76),
+              child: Column(
+                children: [
+                  _themeHead(c),
+                  const SizedBox(height: 12),
+                  _themePath(c, geo, hero),
+                ],
+              ),
             ),
-          ),
-        ),
-        if (hero >= 0) _themeFooter(c, hero),
-      ],
+            if (hero >= 0) _themeFab(geo, hero),
+          ],
+        );
+      },
     );
+  }
+
+  /// 打开主题页时滚到当前主题；同一级别同一主题只滚一次，
+  /// 之后用户自己滚到哪儿都算数（重建不会把人拽回去）
+  void _scheduleThemeScroll(String lv, int hero, double y) {
+    final key = '$lv:$hero';
+    if (_themeAutoScrolled == key) return;
+    _themeAutoScrolled = key;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_themeScroll.hasClients) return;
+      final pos = _themeScroll.position;
+      if (!pos.hasViewportDimension) return;
+      final target =
+          (y - pos.viewportDimension / 2).clamp(0.0, pos.maxScrollExtent);
+      _themeScroll.jumpTo(target);
+    });
   }
 
   /// 当前的（第一个没学完的）主题。全部学完时落回第一个，让「继续」有个落点。
@@ -602,169 +630,188 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _ladder(Curriculum c, int hero) {
+  /// S 线方块：左右两列交替，每两格之间一段弓形弧
+  Widget _themePath(Curriculum c, _BowGeo geo, int hero) {
     final n = c.curThemes.length;
-    const cardH = _ThemeCardGeo.cardH;
-    const gap = _ThemeCardGeo.gap;
-    final h = n * cardH + (n - 1) * gap;
     return SizedBox(
-      height: h,
-      child: LayoutBuilder(
-        builder: (context, cons) {
-          final geo = _ThemeCardGeo(width: cons.maxWidth, count: n);
-          return Stack(
-            children: [
-              Positioned.fill(
-                  child: CustomPaint(painter: _LadderPainter(geo))),
-              Column(
-                children: [
-                  for (var i = 0; i < n; i++)
-                    Padding(
-                      padding: EdgeInsets.only(
-                        left: geo.insetOf(i),
-                        right: geo.insetOf(i) == 0 ? _ThemeCardGeo.inset : 0,
-                        bottom: i == n - 1 ? 0 : gap,
-                      ),
-                      child: _themeCard(c, i, hero),
-                    ),
-                ],
-              ),
-            ],
-          );
+      height: geo.height,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(child: CustomPaint(painter: _BowPainter(geo, hero))),
+          for (var i = 0; i < n; i++)
+            Positioned(
+              left: geo.left(i),
+              top: geo.topOf(i),
+              width: _BowGeo.size,
+              height: _BowGeo.size,
+              child: _themeTile(c, i, hero),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 右下角「回到学习位置」：当前主题在视口上半屏 → ↑，下半屏 → ↓
+  Widget _themeFab(_BowGeo geo, int hero) {
+    return Positioned(
+      right: 16,
+      bottom: 18,
+      child: AnimatedBuilder(
+        animation: _themeScroll,
+        builder: (context, _) {
+          var up = false;
+          // 首帧还没量出视口尺寸时 viewportDimension 会抛空断言，必须挡一下
+          if (_themeScroll.hasClients) {
+            final pos = _themeScroll.position;
+            if (pos.hasViewportDimension) {
+              up = geo.centerY(hero) - pos.pixels < pos.viewportDimension / 2;
+            }
+          }
+          return _RoundFab(up: up, onTap: () => _jumpToTheme(geo, hero));
         },
       ),
     );
   }
 
-  Widget _themeCard(Curriculum c, int i, int hero) {
+  /// 点一下把当前主题滚到视口正中。上面还有标题和 10dp 内边距，补 46dp
+  void _jumpToTheme(_BowGeo geo, int hero) {
+    if (!_themeScroll.hasClients) return;
+    final pos = _themeScroll.position;
+    if (!pos.hasViewportDimension) return;
+    final target = (geo.centerY(hero) - pos.viewportDimension / 2 + 46)
+        .clamp(0.0, pos.maxScrollExtent);
+    _themeScroll.animateTo(target,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic);
+  }
+
+  /// 一个主题方块（92dp）：图标 + 名称 + 一行副文字。
+  ///
+  /// 状态不写字，只靠颜色：已学完 = 淡紫底 + 右上角紫对勾，
+  /// 当前 = 紫渐变 + 底部进度条，未开始 = 灰底，会员 = 灰底 + 虚线 + 金锁。
+  Widget _themeTile(Curriculum c, int i, int hero) {
     final t = c.curThemes[i];
     final total = c.themeWords(i).length;
     final learned = c.themeLearned(i);
     final locked = !c.themeUnlocked(i);
-    final isCur = !locked && i == hero;
+    // 免费额度用完时，「当前」可能落在锁住的主题上（学完 1 个就轮到第 2 个），
+    // 这时仍要给它紫渐变 + 金锁当落点，否则整页没有视觉锚点、像卡住了
+    final isCur = i == hero;
     final done = !locked && !isCur && total > 0 && learned >= total;
 
-    final sub = isCur
-        ? '$total 词 · 已学 $learned 词 · 约 ${_mins(total)} 分钟'
-        : (locked
-            ? '会员解锁 · $total 词'
-            : (done ? '$total 词 · 全部掌握' : '$total 词'));
+    final sub = locked || !isCur ? '$total 词' : '已学 $learned / $total';
+    final titleColor = isCur
+        ? Colors.white
+        : (done
+            ? const Color(0xFF3F37AE)
+            : (locked ? const Color(0xFF8B879C) : const Color(0xFF5F5B72)));
+    final subColor = isCur
+        ? Colors.white.withValues(alpha: .85)
+        : (done ? const Color(0xFF8E86C6) : kMuted);
 
     return GestureDetector(
       onTap: () => locked
           ? showPaywall(context, reason: '解锁「${t.name}」及全部主题')
           : _openTheme(i),
-      child: SizedBox(
-        height: _ThemeCardGeo.cardH,
+      child: CustomPaint(
+        foregroundPainter: locked
+            ? const _DashedBorderPainter(radius: 20, color: Color(0xFFE2DFEC))
+            : null,
         child: Container(
           decoration: BoxDecoration(
             color: isCur
                 ? null
-                : (locked
-                    ? const Color(0xFFFCFBFE)
-                    : (done ? const Color(0xFFFBFAFF) : Colors.white)),
+                : (done ? const Color(0xFFF2EEFE) : const Color(0xFFF1F0F6)),
             gradient: isCur
                 ? const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [kHeroA, kHeroB])
                 : null,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-                color: isCur ? Colors.transparent : const Color(0xFFE8E5F4)),
+              color: isCur
+                  ? Colors.transparent
+                  : (done
+                      ? const Color(0xFFE1DAFB)
+                      : (locked
+                          ? Colors.transparent
+                          : const Color(0xFFE8E6F0))),
+            ),
             boxShadow: isCur
                 ? const [
-                    BoxShadow(color: Color(0xFF3B33A6), offset: Offset(0, 5)),
+                    BoxShadow(color: Color(0xFF3B33A6), offset: Offset(0, 4)),
+                    BoxShadow(color: Color(0x226D5AE0), spreadRadius: 7),
                     BoxShadow(
-                        color: Color(0x994A41C4),
-                        blurRadius: 30,
-                        offset: Offset(0, 16)),
+                        color: Color(0x664A41C4),
+                        blurRadius: 26,
+                        offset: Offset(0, 14)),
                   ]
-                : const [
-                    BoxShadow(color: Color(0xFFEAE7F6), offset: Offset(0, 2)),
-                    BoxShadow(
-                        color: Color(0x33261E50),
-                        blurRadius: 22,
-                        offset: Offset(0, 10)),
-                  ],
+                : locked
+                    ? null
+                    : [
+                        BoxShadow(
+                            color: done
+                                ? const Color(0xFFE9E5F7)
+                                : const Color(0xFFE5E2EE),
+                            offset: const Offset(0, 3)),
+                        const BoxShadow(
+                            color: Color(0x2E261E50),
+                            blurRadius: 20,
+                            offset: Offset(0, 10)),
+                      ],
           ),
           child: Stack(
             children: [
-              Padding(
-                padding: EdgeInsets.symmetric(
-                    horizontal: isCur ? 14 : 13, vertical: 11),
-                child: Row(
-                  children: [
-                    Opacity(
-                      opacity: locked ? .62 : 1,
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: isCur
-                              ? Colors.white.withValues(alpha: .2)
-                              : (locked
-                                  ? const Color(0xFFF7F6FB)
-                                  : const Color(0xFFF4F1FE)),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(6, 8, 6, isCur ? 12 : 8),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Opacity(
+                        opacity: locked ? .55 : 1,
                         child: Text(t.emoji,
-                            style: const TextStyle(fontSize: 23, height: 1)),
+                            style: const TextStyle(fontSize: 21, height: 1.05)),
                       ),
-                    ),
-                    const SizedBox(width: 11),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(t.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: isCur ? 14 : 13.5,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -.1,
-                                  color: isCur
-                                      ? Colors.white
-                                      : (locked
-                                          ? kMuted
-                                          : (done
-                                              ? const Color(0xFF4B475E)
-                                              : kInk)))),
-                          const SizedBox(height: 2),
-                          Text(sub,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 10.5,
-                                  color: isCur
-                                      ? Colors.white.withValues(alpha: .8)
-                                      : kMuted)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _themeRight(locked, done, isCur),
-                  ],
+                      const SizedBox(height: 3),
+                      Text(t.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -.1,
+                              color: titleColor)),
+                      const SizedBox(height: 1),
+                      Text(sub,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 9, color: subColor)),
+                    ],
+                  ),
                 ),
               ),
-              if (isCur)
+              if (isCur && !locked)
                 Positioned(
-                  left: 14,
-                  right: 14,
+                  left: 10,
+                  right: 10,
                   bottom: 7,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(9),
                     child: LinearProgressIndicator(
                       value: total == 0 ? 0 : (learned / total).clamp(0.0, 1.0),
                       minHeight: 3,
-                      backgroundColor: Colors.white.withValues(alpha: .26),
+                      backgroundColor: Colors.white.withValues(alpha: .28),
                       valueColor: const AlwaysStoppedAnimation(Colors.white),
                     ),
                   ),
                 ),
+              if (done)
+                Positioned(top: 6, right: 6, child: _tickBadge()),
+              if (locked)
+                Positioned(top: 6, right: 6, child: _lockBadge()),
             ],
           ),
         ),
@@ -772,100 +819,26 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _themeRight(bool locked, bool done, bool isCur) {
-    if (isCur) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: const [
-            BoxShadow(color: Color(0x1F000000), offset: Offset(0, 2)),
-          ],
-        ),
-        child: const Text('继续',
-            style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w800,
-                color: kPrimaryDeep)),
+  Widget _tickBadge() => Container(
+        width: 16,
+        height: 16,
+        alignment: Alignment.center,
+        decoration:
+            const BoxDecoration(shape: BoxShape.circle, color: kPrimary),
+        child: const Icon(Icons.check_rounded, size: 10, color: Colors.white),
       );
-    }
-    if (locked) {
-      return Container(
-        width: 24,
-        height: 24,
+
+  Widget _lockBadge() => Container(
+        width: 16,
+        height: 16,
         alignment: Alignment.center,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
           gradient:
               LinearGradient(colors: [Color(0xFFF7D488), Color(0xFFE0A02A)]),
         ),
-        child: const Icon(Icons.lock_rounded, size: 12, color: Colors.white),
+        child: const Icon(Icons.lock_rounded, size: 9, color: Colors.white),
       );
-    }
-    if (done) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: kGreen50,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: const Text('✓ 已学完',
-            style: TextStyle(
-                fontSize: 10, fontWeight: FontWeight.w800, color: kGreen)),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F2FB),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: const Text('未开始',
-          style: TextStyle(
-              fontSize: 10, fontWeight: FontWeight.w800, color: kMuted)),
-    );
-  }
-
-  Widget _themeFooter(Curriculum c, int hero) {
-    final t = c.curThemes[hero];
-    final total = c.themeWords(hero).length;
-    final learned = c.themeLearned(hero);
-    final allDone = learned >= total && total > 0;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
-      color: kBg,
-      child: SizedBox(
-        height: 48,
-        width: double.infinity,
-        child: FilledButton(
-          onPressed: () => _openTheme(hero),
-          style: FilledButton.styleFrom(
-            padding: EdgeInsets.zero,
-            backgroundColor: kPrimaryDeep,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('${allDone ? '重刷' : '继续'} · ${t.name}',
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w800)),
-              const SizedBox(width: 7),
-              Text('已学 $learned / $total',
-                  style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xCCFFFFFF))),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   // ------------------------------------------------------------ 自由练习
 
@@ -1394,9 +1367,6 @@ class _HomePageState extends State<HomePage>
       ));
   }
 
-  /// 20 词一关，按每分钟 7 个词估
-  String _mins(int words) => '${max(1, (words / 7).round())}';
-
   /// 该级别累计学过的词数（通关算满，半程按已答数）
   int _learnedWords(Curriculum c, String lv) {
     var n = 0;
@@ -1494,65 +1464,169 @@ class _PathPainter extends CustomPainter {
       old.geo.width != geo.width;
 }
 
-/// 主题卡片的错落几何：奇数张往右缩进 46
-class _ThemeCardGeo {
-  _ThemeCardGeo({required this.width, required this.count});
+/// 主题方块的位置：左右两列交替，横移全部发生在两格之间的空隙里
+class _BowGeo {
+  _BowGeo({required this.width, required this.count});
 
-  static const double cardH = 72;
-  static const double gap = 26;
-  static const double inset = 46;
+  static const double size = 92; // 方块边长
+  static const double gap = 140; // 行距（方块之间露出 48dp 给弧线起落）
+  static const double ampMax = 72; // 左右摆幅
+  static const double top = 56; // 首块顶部留白（必须 ≥ size/2，否则首块 top 为负）
 
   final double width;
   final int count;
 
-  double insetOf(int i) => i.isOdd ? inset : 0;
+  /// 两侧至少留 14dp；窄屏（320）时摆幅自动收窄，方块不会贴边
+  double get amp => max(0.0, min(ampMax, width / 2 - size / 2 - 14));
 
-  double centerOf(int i) => insetOf(i) + (width - inset) / 2;
+  double centerX(int i) => width / 2 + (i.isOdd ? amp : -amp);
 
-  double bottomOf(int i) => i * (cardH + gap) + cardH;
+  double centerY(int i) => top + i * gap + size / 2;
 
-  double topOf(int i) => i * (cardH + gap);
+  double left(int i) => centerX(i) - size / 2;
+
+  double topOf(int i) => top + i * gap;
+
+  double get height => top + (count - 1) * gap + size + 8;
 }
 
-class _LadderPainter extends CustomPainter {
-  _LadderPainter(this.geo);
+/// 弓形连线：每个节点对之间一段「竖直起笔 → 鼓出去 → 竖直落下」的弧。
+///
+/// 不能用正弦铺整条路 —— 正弦的波峰会被方块盖住，方块之间露出来的
+/// 恰好是最陡、最接近直线的那一段，无论振幅加多大都看着像斜线。
+/// 把横移全部塞进两格之间的空隙里，才看得出弯。
+class _BowPainter extends CustomPainter {
+  _BowPainter(this.geo, this.hero);
 
-  final _ThemeCardGeo geo;
+  final _BowGeo geo;
+
+  /// 当前主题：到它为止是实线，之后是圆点
+  final int hero;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path();
+    const half = _BowGeo.size / 2;
+    final walked = Path();
+    final ahead = Path();
+
+    // 从上一块底边中点竖直起笔、鼓到对面、再竖直落进下一块顶边中点。
+    // 控制点都放在两块之间的垂直中点，所以起落两端的切线是竖直的 ——
+    // 这段"先竖再弯"才是弓形看得见的部分。
     for (var i = 0; i < geo.count - 1; i++) {
-      final ax = geo.centerOf(i), bx = geo.centerOf(i + 1);
-      final ay = geo.bottomOf(i), by = geo.topOf(i + 1);
-      final my = (ay + by) / 2;
-      if ((bx - ax).abs() < 4) {
-        path.moveTo(ax, ay);
-        path.lineTo(bx, by);
-      } else {
-        final s = (bx - ax).sign;
-        final r = min(9.0, (bx - ax).abs() / 2);
-        path.moveTo(ax, ay);
-        path.lineTo(ax, my - r);
-        path.quadraticBezierTo(ax, my, ax + s * r, my);
-        path.lineTo(bx - s * r, my);
-        path.quadraticBezierTo(bx, my, bx, my + r);
-        path.lineTo(bx, by);
+      final x0 = geo.centerX(i), y0 = geo.centerY(i) + half - 1;
+      final x1 = geo.centerX(i + 1), y1 = geo.centerY(i + 1) - half + 1;
+      final ym = (y0 + y1) / 2;
+      (i < hero ? walked : ahead)
+        ..moveTo(x0, y0)
+        ..cubicTo(x0, ym, x1, ym, x1, y1);
+    }
+
+    // 未走到的段用细虚线（圆点太大会把浅弧读成一串珠子、像斜线）
+    final dashPaint = Paint()
+      ..color = const Color(0xFFC9C0E8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.2
+      ..strokeCap = StrokeCap.round;
+    for (final m in ahead.computeMetrics()) {
+      var d = 0.0;
+      while (d < m.length) {
+        final end = (d + 2.6).clamp(0.0, m.length);
+        canvas.drawPath(m.extractPath(d, end), dashPaint);
+        d += 9.6;
       }
     }
+
     canvas.drawPath(
-      path,
+      walked,
       Paint()
-        ..color = const Color(0xFFDBD5EE)
+        ..color = const Color(0xFF8F82E8)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
+        ..strokeWidth = 3.6
         ..strokeCap = StrokeCap.round,
     );
   }
 
   @override
-  bool shouldRepaint(covariant _LadderPainter old) =>
-      old.geo.count != geo.count || old.geo.width != geo.width;
+  bool shouldRepaint(covariant _BowPainter old) =>
+      old.hero != hero ||
+      old.geo.count != geo.count ||
+      old.geo.width != geo.width;
+}
+
+/// 虚线圆角边框（Flutter 没有内置虚线 border，会员锁要用）
+class _DashedBorderPainter extends CustomPainter {
+  const _DashedBorderPainter({required this.radius, required this.color});
+
+  final double radius;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final src = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+          Offset.zero & size, Radius.circular(radius)));
+    final dst = Path();
+    for (final m in src.computeMetrics()) {
+      var d = 0.0;
+      while (d < m.length) {
+        dst.addPath(m.extractPath(d, min(d + 5, m.length)), Offset.zero);
+        d += 9;
+      }
+    }
+    canvas.drawPath(
+      dst,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter old) =>
+      old.radius != radius || old.color != color;
+}
+
+/// 右下角的圆形「回到学习位置」按钮
+class _RoundFab extends StatelessWidget {
+  const _RoundFab({required this.up, required this.onTap});
+
+  /// 当前主题在视口上半屏 → 箭头朝上
+  final bool up;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: '回到学习位置',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .94),
+            shape: BoxShape.circle,
+            border: Border.all(color: kLine),
+            boxShadow: const [
+              BoxShadow(
+                  color: Color(0x33261E50),
+                  blurRadius: 20,
+                  offset: Offset(0, 8)),
+              BoxShadow(color: Color(0xFFECE9F7), offset: Offset(0, 2)),
+            ],
+          ),
+          child: AnimatedRotation(
+            turns: up ? .5 : 0,
+            duration: const Duration(milliseconds: 220),
+            child: const Icon(Icons.keyboard_arrow_down_rounded,
+                size: 22, color: Color(0xFF5B5772)),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 空态卡片：词库/主题为空时占位，避免首页出现空白或报错
