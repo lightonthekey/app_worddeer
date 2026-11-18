@@ -63,7 +63,8 @@ void main() {
   test('不会有纸片垂直落进屏幕中缝压住学习区', () {
     final field = ConfettiField(seed: 5);
     // 左列一行、右列另一行（中英两列各自打乱，这是常见情况），屏幕宽约 430
-    field.burstBetween(const Offset(100, 320), const Offset(330, 500));
+    field.burstAt(const Offset(100, 320), n: 10);
+    field.burstAt(const Offset(330, 500), n: 10);
 
     final verticalInMiddle = <ConfettiParticle>{};
     for (var i = 0; i < 300; i++) {

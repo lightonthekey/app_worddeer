@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:app_worddeer/bank.dart';
-import 'package:app_worddeer/confetti.dart';
 import 'package:app_worddeer/pages/match.dart';
+
+import 'package:app_worddeer/confetti.dart';
 
 Word _w(int i) => Word(
       en: 'w$i',
@@ -16,37 +17,10 @@ Word _w(int i) => Word(
       topic: const [],
     );
 
-/// 数一数当前有多少张卡用了某个底色（绿 / 红 / 灰）
-int _countBg(WidgetTester t, Color color) => t
-    .widgetList<Container>(find.byType(Container))
-    .where((w) => (w.decoration as BoxDecoration?)?.color == color)
-    .length;
+const ok50 = Color(0xFFEAF9EF);
+const bad50 = Color(0xFFFCECEC);
 
-Future<void> _tapText(WidgetTester t, String s) async {
-  final f = find.text(s);
-  expect(f, findsOneWidget, reason: '找不到卡面文字 $s');
-  await t.tap(f);
-  await t.pump();
-}
-
-/// 桌面上现在有哪些词的序号（英文卡 / 中文卡各一份）
-List<int> _onDesk(WidgetTester t, {required bool en}) => [
-      for (var i = 0; i < 10; i++)
-        if (find.text(en ? 'w$i' : '词$i').evaluate().isNotEmpty) i,
-    ];
-
-/// 牌桌上每张卡的两层 Transform（外层 translate / 内层 scale）的矩阵
-List<Matrix4> _deskTransforms(WidgetTester t) => t
-    .widgetList<Transform>(find.descendant(
-      of: find.byKey(const ValueKey('desk')),
-      matching: find.byType(Transform),
-    ))
-    .map((w) => w.transform)
-    .toList();
-
-/// 某一格现在放的是哪个词（返回序号，空格返回 -1）
-///
-/// 扫到 40：测试里一桌最多用到 20 个词，别把上限定成 10 就以为够了。
+/// 某一格现在是哪个词（返回序号，空格返回 -1）
 int _slotWord(WidgetTester t, bool en, int slot) {
   for (var k = 0; k < 40; k++) {
     final f = find.descendant(
@@ -59,443 +33,318 @@ int _slotWord(WidgetTester t, bool en, int slot) {
 }
 
 List<int> _column(WidgetTester t, bool en) =>
-    [for (var i = 0; i < 5; i++) _slotWord(t, en, i)];
+    [for (var i = 0; i < kPairs; i++) _slotWord(t, en, i)];
 
-/// 同一个词不能在同列出现两次（补位时最容易踩）
-void _expectNoDup(WidgetTester t) {
-  for (var i = 0; i < 10; i++) {
-    expect(find.text('w$i').evaluate().length, lessThanOrEqualTo(1),
-        reason: '英文卡重复了 w$i');
-    expect(find.text('词$i').evaluate().length, lessThanOrEqualTo(1),
-        reason: '中文卡重复了 词$i');
+/// 某一格卡的底色（白=普通、绿=配对成功、红=配错）
+Color? _slotBg(WidgetTester t, bool en, int slot) {
+  final f = find.descendant(
+    of: find.byKey(ValueKey('${en ? 'en' : 'zh'}$slot')),
+    matching: find.byType(AnimatedContainer),
+  );
+  if (f.evaluate().isEmpty) return null;
+  final d = t.widget<AnimatedContainer>(f.first).decoration as BoxDecoration?;
+  return d?.color;
+}
+
+/// 巩固台里按位置排列的英文（左→右）
+List<String> _shelfWords(WidgetTester t) => t
+    .widgetList<Text>(find.descendant(
+      of: find.byKey(const ValueKey('shelf')),
+      matching: find.byType(Text),
+    ))
+    .map((w) => w.data ?? '')
+    .where((s) => s.startsWith('w'))
+    .toList();
+
+Future<void> _mount(WidgetTester t, {int n = 10, MatchScene? scene, String? title}) async {
+  await t.pumpWidget(MaterialApp(
+    home: MatchPage(
+      words: List.generate(n, _w),
+      title: title ?? 'U3 学习关',
+      scene: scene ?? MatchScene.level,
+    ),
+  ));
+  await t.pump();
+  await t.pump(const Duration(milliseconds: 60));
+}
+
+/// 点一对能配上的卡；[settle] 是配对后要等的时长（默认走完整条时间轴）
+Future<int> _playOne(WidgetTester t, {int settle = 1100}) async {
+  var ei = -1;
+  var zi = -1;
+  for (var i = 0; i < kPairs && ei < 0; i++) {
+    final w = _slotWord(t, true, i);
+    if (w < 0) continue;
+    // 已经配对、还没退场的绿卡不能再点，换一对
+    if (_slotBg(t, true, i) == ok50) continue;
+    for (var j = 0; j < kPairs; j++) {
+      if (_slotBg(t, false, j) == ok50) continue;
+      if (_slotWord(t, false, j) == w) {
+        ei = i;
+        zi = j;
+        break;
+      }
+    }
   }
+  expect(ei, greaterThanOrEqualTo(0), reason: '桌上该有一对能配上的卡');
+  final word = _slotWord(t, true, ei);
+
+  await t.tap(find.descendant(
+    of: find.byKey(ValueKey('en$ei')),
+    matching: find.text('w$word'),
+  ));
+  await t.pump();
+  await t.tap(find.descendant(
+    of: find.byKey(ValueKey('zh$zi')),
+    matching: find.text('词$word'),
+  ));
+  await t.pump();
+  await t.pump(Duration(milliseconds: settle));
+  // 巩固台左移靠帧推进，补两帧让它走完
+  await t.pump(const Duration(milliseconds: 400));
+  await t.pump();
+  return word;
 }
 
 void main() {
-  const ok50 = Color(0xFFE5F6EF);
-  const bad50 = Color(0xFFFCECEC);
-  const voidBg = Color(0xFFF6F5FB);
+  testWidgets('首屏：4 行 8 张卡，巩固台空着', (tester) async {
+    await _mount(tester);
 
-  testWidgets('配对正确：变绿停留 → 起爆 → 补位，桌面不空', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: MatchPage(words: List.generate(10, _w))),
-    );
-    await tester.pump();
+    for (var i = 0; i < kPairs; i++) {
+      expect(find.byKey(ValueKey('en$i')), findsOneWidget);
+      expect(find.byKey(ValueKey('zh$i')), findsOneWidget);
+    }
+    expect(find.byKey(const ValueKey('en4')), findsNothing,
+        reason: '棋盘只有 4 行');
 
-    // 10 张卡都在（桌面只有 5 对，逐个按在场判断）
-    expect(_onDesk(tester, en: true).length, 5);
-    expect(_onDesk(tester, en: false).length, 5);
+    // 4 张英文 + 4 张中文
+    expect(_column(tester, true).where((w) => w >= 0).length, kPairs);
+    expect(_column(tester, false).where((w) => w >= 0).length, kPairs);
 
-    final enIdx = _onDesk(tester, en: true).first;
-    await _tapText(tester, 'w$enIdx');
-    await _tapText(tester, '词$enIdx');
-
-    // 220ms 判定后变绿
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(_countBg(tester, ok50), 2, reason: '应该正好两张绿卡');
-
-    // 680ms 后起爆，绿卡只是慢慢淡出，仍然占位
-    await tester.pump(const Duration(milliseconds: 700));
-    expect(find.text('w$enIdx'), findsOneWidget, reason: '起爆时词还在，方便再看一眼');
-
-    // 走完 700 + 170，新卡补位
-    await tester.pump(const Duration(milliseconds: 1200));
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('w$enIdx'), findsNothing, reason: '配过的词应已换掉');
-    expect(_countBg(tester, ok50), 0, reason: '绿色状态应已清掉');
-
-    // 桌面仍是 5 对 10 张
-    expect(_onDesk(tester, en: true).length, 5);
-    expect(_onDesk(tester, en: false).length, 5);
-    _expectNoDup(tester);
+    expect(find.text('刚配对'), findsOneWidget);
+    expect(find.text('配对成功的词会停在这里'), findsOneWidget);
+    expect(_shelfWords(tester), isEmpty);
 
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('配对错误：卡片不消失也不换位，只红一下再恢复', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: MatchPage(words: List.generate(10, _w))),
-    );
+  testWidgets('中文卡保留释义：detail 显示在中文下面', (tester) async {
+    await _mount(tester);
+    expect(find.textContaining('n.词'), findsWidgets,
+        reason: '中文卡副行应该是 w.detail');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('配对正确：变绿 → 飞进巩固台 → 英文原位补新词', (tester) async {
+    await _mount(tester);
+
+    final e0 = _slotWord(tester, true, 0);
+    var zi = -1;
+    for (var j = 0; j < kPairs; j++) {
+      if (_slotWord(tester, false, j) == e0) {
+        zi = j;
+        break;
+      }
+    }
+    expect(zi, greaterThanOrEqualTo(0));
+
+    final enBefore = _column(tester, true);
+
+    await tester.tap(find.descendant(
+      of: find.byKey(const ValueKey('en0')),
+      matching: find.text('w$e0'),
+    ));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500)); // 首屏 pop 收尾
+    await tester.tap(find.descendant(
+      of: find.byKey(ValueKey('zh$zi')),
+      matching: find.text('词$e0'),
+    ));
+    await tester.pump();
+
+    // 判定后（140ms）两张卡变绿
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(_slotBg(tester, true, 0), ok50, reason: '英文卡该变绿');
+    expect(_slotBg(tester, false, zi), ok50, reason: '中文卡该变绿');
+
+    // 再等飞行 + 落位（480 + 340）走完
+    await tester.pump(const Duration(milliseconds: 1000));
+    await tester.pump();
+
+    // 巩固台里有这个词
+    expect(_shelfWords(tester), ['w$e0']);
+    expect(find.text('最近 1 个'), findsOneWidget);
+
+    // 英文列位置固定：第 0 格换成了新词，其余 3 格原地不动
+    expect(_slotWord(tester, true, 0), isNot(e0));
+    for (var i = 1; i < kPairs; i++) {
+      expect(_slotWord(tester, true, i), enBefore[i],
+          reason: '英文列第 $i 行不该动');
+    }
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('判错：只红一下，卡不回退也不换位', (tester) async {
+    await _mount(tester);
+
+    final e0 = _slotWord(tester, true, 0);
+    var zi = -1;
+    for (var j = 0; j < kPairs; j++) {
+      if (_slotWord(tester, false, j) != e0) {
+        zi = j;
+        break;
+      }
+    }
 
     final enBefore = _column(tester, true);
     final zhBefore = _column(tester, false);
 
-    // 桌上一张英文卡 + 一张不同词的英文卡，必然配错
-    final ens = _onDesk(tester, en: true);
-    final zhs = _onDesk(tester, en: false);
-    final e = ens.first;
-    final z = zhs.firstWhere((i) => i != e);
-
-    await _tapText(tester, 'w$e');
-    await _tapText(tester, '词$z');
-
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(_countBg(tester, bad50), 2, reason: '红的只该有被点的那两张');
-    // 同一个词的另一半绝不能变成灰卡虚框：那等于把正确答案指给用户
-    expect(_countBg(tester, voidBg), 0, reason: '作废的另一半不许变色');
-    // 也不能淡出：突然变透明同样是在提示「这张要退场了」
-    expect(
-      tester
-          .widgetList<AnimatedOpacity>(find.descendant(
-            of: find.byKey(const ValueKey('desk')),
-            matching: find.byType(AnimatedOpacity),
-          ))
-          .where((w) => w.opacity != 1)
-          .length,
-      0,
-      reason: '配错后牌桌上不该有任何卡在变淡',
-    );
-
-    // 抖完红标撤掉：牌桌一个字、一个位置都没变（配错不该换牌）
-    await tester.pump(const Duration(milliseconds: 700));
-    expect(_countBg(tester, bad50), 0, reason: '红标要撤掉，两张卡能重新点');
-    expect(_column(tester, true), enBefore, reason: '配错不该换牌、也不该挪位');
-    expect(_column(tester, false), zhBefore, reason: '配错不该换牌、也不该挪位');
-    expect(_onDesk(tester, en: true).length, 5, reason: '不许出现空格子');
-    expect(_onDesk(tester, en: false).length, 5);
-    _expectNoDup(tester);
-
-    // 恢复之后还能正常选：点对同一张英文卡的正确中文，应该判定成功
-    await _tapText(tester, 'w$e');
-    await _tapText(tester, '词$e');
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(_countBg(tester, ok50), 2, reason: '恢复后的卡必须还能操作');
-
-    // 把后续定时跑完，避免拆树时报「Timer 还挂着」
-    await tester.pump(const Duration(milliseconds: 2600));
-    await tester.pumpWidget(const SizedBox());
-  });
-
-  testWidgets('连着打两对：两轮纸屑都会散尽，不会停在屏幕上', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: MatchPage(words: List.generate(10, _w))),
-    );
+    await tester.tap(find.descendant(
+      of: find.byKey(const ValueKey('en0')),
+      matching: find.text('w$e0'),
+    ));
+    await tester.pump();
+    await tester.tap(find.byKey(ValueKey('zh$zi')));
     await tester.pump();
 
-    final field =
-        tester.widget<ConfettiOverlay>(find.byType(ConfettiOverlay)).field;
-
-    for (var round = 1; round <= 2; round++) {
-      final enIdx = _onDesk(tester, en: true).first;
-      await _tapText(tester, 'w$enIdx');
-      await _tapText(tester, '词$enIdx');
-
-      // 越过判定(220ms)与起爆(680ms)，这一对已经炸出纸屑
-      await tester.pump(const Duration(milliseconds: 1000));
-      expect(field.isEmpty, isFalse, reason: '第 $round 对应该炸出纸屑');
-
-      // 按真实节奏走 5 秒（每次 pump 100ms ≈ 6 个物理帧），纸屑必须散尽。
-      // 修复前第二轮会在 createTicker 处抛异常，纸屑永远停在原地。
-      for (var i = 0; i < 50; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      expect(field.isEmpty, isTrue,
-          reason: '第 $round 对纸屑必须全部消失，不能留在屏幕上');
-      expect(_onDesk(tester, en: true).length, 5);
-    }
-
-    await tester.pumpWidget(const SizedBox());
-  });
-
-  testWidgets('答对的卡只是「轻轻一抬」：280ms 收尾停在 -3.5px，全程不压进桌面',
-      (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: MatchPage(words: List.generate(10, _w))),
-    );
-    await tester.pump();
-    // 先让首屏的 pop 入场（340ms）走完，否则会误判成「往下载」
-    await tester.pump(const Duration(milliseconds: 500));
-
-    final idx = _onDesk(tester, en: true).first;
-    await _tapText(tester, 'w$idx');
-    await _tapText(tester, '词$idx');
-
-    // 判定 220ms 后开始 hop（280ms）。逐段推进：
-    // 不许有任何卡被压到桌面以下，也不许抬过高（幅度刻意做小，峰值 10px）
-    for (var i = 0; i < 13; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-      for (final t in _deskTransforms(tester)) {
-        final dy = t.getTranslation().y;
-        expect(dy, lessThanOrEqualTo(.1),
-            reason: 'hop 过程中不该出现卡片「凹」下去的位移');
-        expect(dy, greaterThanOrEqualTo(-12),
-            reason: '抬升幅度要小，不该超过 12px');
-      }
-    }
-
-    // 起跳结束：两张绿卡停在悬浮位（-3.5px、放大 1.015），其余 8 张还贴着 0
-    final lifted = _deskTransforms(tester)
-        .where((t) => t.getTranslation().y < -1)
-        .map((t) => t.getTranslation().y)
-        .toList();
-    expect(lifted.length, 2, reason: '悬浮的应该正好是配对成功的那两张');
-    for (final dy in lifted) {
-      expect(dy, closeTo(-3.5, .05), reason: '收尾要停在 -3.5px 的悬浮位，不能落回 0');
-    }
-    final scaled = _deskTransforms(tester)
-        .map((t) => t.getMaxScaleOnAxis())
-        .where((s) => s > 1.01)
-        .toList();
-    expect(scaled.length, 2, reason: '两张绿卡都应该略微放大');
-
-    // 把后续的 680/700/170 三段定时跑完，否则拆树时会报“Timer 还挂着”
-    await tester.pump(const Duration(milliseconds: 2400));
-    await tester.pumpWidget(const SizedBox());
-  });
-
-  testWidgets('原地补位：新词填回原来那一格，牌桌不重排', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: MatchPage(words: List.generate(20, _w))),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500)); // 首屏 pop 收尾
-
-    var inPlace = 0;
-    for (var round = 0; round < 6; round++) {
-      // 找一对同词的两张卡，记下它们在各自列里的行号
-      var word = -1, enSlot = -1, zhSlot = -1;
-      for (var i = 0; i < 5 && word < 0; i++) {
-        final w = _slotWord(tester, true, i);
-        if (w < 0) continue;
-        for (var j = 0; j < 5; j++) {
-          if (_slotWord(tester, false, j) == w) {
-            word = w;
-            enSlot = i;
-            zhSlot = j;
-            break;
-          }
-        }
-      }
-      expect(word, greaterThanOrEqualTo(0), reason: '第 $round 轮桌上该有一对能配上的卡');
-
-      final enBefore = _column(tester, true);
-      final zhBefore = _column(tester, false);
-
-      await _tapText(tester, 'w$word');
-      await _tapText(tester, '词$word');
-      // 走完判定(150)+绿卡停留(520)+淡出(420)，再留出补位 pop 动画
-      await tester.pump(const Duration(milliseconds: 1400));
-      await tester.pump(const Duration(milliseconds: 400));
-
-      final enAfter = _column(tester, true);
-      final zhAfter = _column(tester, false);
-      expect(enAfter.contains(word), isFalse, reason: '配过的词该换掉了');
-      expect(zhAfter.contains(word), isFalse);
-
-      // 每列只换掉一个词，所以「新词」就是唯一没出现在打之前那列的词
-      final newEn =
-          enAfter.where((w) => w >= 0 && !enBefore.contains(w)).toList();
-      final newZh =
-          zhAfter.where((w) => w >= 0 && !zhBefore.contains(w)).toList();
-      expect(newEn.length, 1);
-      expect(newZh.length, 1);
-
-      final enNew = enAfter.indexOf(newEn.single);
-      final zhNew = zhAfter.indexOf(newZh.single);
-
-      // 左列永远原地换字：这是「牌桌不重排」的底线
-      expect(enNew, enSlot, reason: '英文列必须原地补位，不能挪动');
-
-      if (enSlot == zhSlot) {
-        // 同行配对：右列必须错开一格，否则补回去又是一对白送
-        expect(zhNew, isNot(enSlot), reason: '同行补位必须错开，不能原地补成一对');
-      } else {
-        expect(zhNew, zhSlot, reason: '中文列必须原地补位，不能挪动');
-        inPlace++;
-      }
-
-      // 同一个词的两半不能补在同一行：那一行等于白送分
-      expect(enNew, isNot(zhNew), reason: '两列的补位行不能重合');
-      for (var r = 0; r < 5; r++) {
-        final a = enAfter[r], b = zhAfter[r];
-        if (a >= 0 && b >= 0) {
-          expect(a, isNot(b), reason: '第 $r 行左右成了同一对');
-        }
-      }
-    }
-
-    expect(inPlace, greaterThanOrEqualTo(3),
-        reason: '绝大多数补位都该原地换字，不该整桌重排');
-    await tester.pumpWidget(const SizedBox());
-  });
-
-  testWidgets('流畅度：绿卡还在停留时就能接着配下一组', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: MatchPage(words: List.generate(20, _w))),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500)); // 首屏 pop 收尾
-
-    // 桌上所有「能配上」的 (词号, 英文行, 中文行)
-    List<List<int>> pairs() {
-      final r = <List<int>>[];
-      for (var i = 0; i < 5; i++) {
-        final w = _slotWord(tester, true, i);
-        if (w < 0) continue;
-        for (var j = 0; j < 5; j++) {
-          if (_slotWord(tester, false, j) == w) r.add([w, i, j]);
-        }
-      }
-      return r;
-    }
-
-    final all = pairs();
-    expect(all.length, greaterThanOrEqualTo(2), reason: '桌上至少要能凑出两对');
-
-    // 第一对：点完只等判定，不等绿卡退场
-    final p1 = all.first;
-    await _tapText(tester, 'w${p1[0]}');
-    await _tapText(tester, '词${p1[0]}');
     await tester.pump(const Duration(milliseconds: 200));
-    expect(_countBg(tester, ok50), 2, reason: '判定完应该已经变绿');
+    expect(_slotBg(tester, true, 0), bad50);
+    expect(_slotBg(tester, false, zi), bad50);
 
-    // 绿卡还在停留期（<520ms），此时点第二对必须是有反应的。
-    // 改造前这里整块牌桌锁死 1.7 秒，点了也不动 —— 就是用户说的「卡顿」。
-    final p2 = all.firstWhere((p) => p[0] != p1[0]);
-    await _tapText(tester, 'w${p2[0]}');
-    await _tapText(tester, '词${p2[0]}');
-    await tester.pump(const Duration(milliseconds: 200));
+    // 恢复
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(_slotBg(tester, true, 0), Colors.white);
+    expect(_column(tester, true), enBefore, reason: '配错不该换牌');
+    expect(_column(tester, false), zhBefore);
 
-    expect(_countBg(tester, ok50), 4,
-        reason: '第一对还没退场时第二对就该能配绿，说明停留不再阻塞操作');
-
-    // 提示也该已经更新到第二对（连对 2 对）
-    expect(find.textContaining('连对 2 对'), findsOneWidget);
-
-    await tester.pump(const Duration(milliseconds: 3000));
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('一直点同一行不会连对：那一行左右永远不是现成的一对', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: MatchPage(words: List.generate(20, _w))),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+  testWidgets('流畅度：绿卡还在停留就能配下一组，直接连对 2', (tester) async {
+    await _mount(tester);
 
-    for (var round = 0; round < 6; round++) {
-      final e = _slotWord(tester, true, 2);
-      final z = _slotWord(tester, false, 2);
-      expect(e, greaterThanOrEqualTo(0));
-      expect(z, greaterThanOrEqualTo(0));
-      expect(e, isNot(z),
-          reason: '第 $round 轮第 2 行左右成了同一对 —— 用户闭眼点这行就能连对');
+    // 第一对
+    await _playOne(tester, settle: 200);
+    expect(_slotBg(tester, true, 0), isNot(Colors.white));
 
-      // 完全不动脑，固定点第 2 行的左右两张
-      await _tapText(tester, 'w$e');
-      await _tapText(tester, '词$z');
-      await tester.pump(const Duration(milliseconds: 1300));
-      await tester.pump(const Duration(milliseconds: 500));
+    // 立刻配第二对（此刻上一对还在绿卡停留期）
+    await _playOne(tester, settle: 200);
+    expect(find.text('连对 2！'), findsOneWidget,
+        reason: '前一组的动画没走完也应该能接着配');
+
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('巩固台满 3 个后整体左移：最新在最右，最旧的滑走', (tester) async {
+    await _mount(tester, n: 12);
+
+    final got = <int>[];
+    for (var k = 0; k < 4; k++) {
+      got.add(await _playOne(tester, settle: 1200));
     }
 
+    final shelf = _shelfWords(tester);
+    expect(shelf.length, 3, reason: '巩固台最多留 3 个');
+    expect(shelf.map((s) => s.substring(1)).map(int.parse).toList(),
+        got.sublist(1), reason: '第 4 个进来后，最旧那个被挤出去');
+
+    // 最新的那个仍然高亮
+    expect(find.text('最近 3 个'), findsOneWidget);
+    expect(find.text('✓'), findsOneWidget, reason: '只有最新的那个带绿勾');
+
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('整局能打完并出结算页', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: MatchPage(words: List.generate(10, _w), title: 'U3 学习关')),
-    );
-    await tester.pump();
+  testWidgets('中文列每次配对后都重排，且不会出现「同一行左右同词」', (tester) async {
+    await _mount(tester, n: 16);
 
-    for (var round = 0; round < 30; round++) {
+    var changed = 0;
+    List<int> prev = _column(tester, false);
+    for (var k = 0; k < 4; k++) {
+      await _playOne(tester, settle: 1200);
+      final now = _column(tester, false);
+      // 不变式：没有任何一行左右是同一个词
+      final en = _column(tester, true);
+      for (var i = 0; i < kPairs; i++) {
+        if (en[i] >= 0 && now[i] >= 0) {
+          expect(now[i], isNot(en[i]), reason: '第 $i 行左右成了同一对');
+        }
+      }
+      if (now.join(',') != prev.join(',')) changed++;
+      prev = now;
+    }
+    expect(changed, greaterThanOrEqualTo(2), reason: '中文列该被打乱，不能固定');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('整局能打完并出结算', (tester) async {
+    await _mount(tester, n: 10);
+
+    for (var k = 0; k < 10; k++) {
+      await _playOne(tester, settle: 1100);
       if (find.text('本关完成').evaluate().isNotEmpty) break;
-      String? en;
-      for (var i = 0; i < 10; i++) {
-        if (find.text('w$i').evaluate().isNotEmpty) {
-          en = 'w$i';
-          break;
-        }
-      }
-      if (en == null) {
-        await tester.pump(const Duration(milliseconds: 600));
-        continue;
-      }
-      final idx = en.substring(1);
-      await _tapText(tester, en);
-      await _tapText(tester, '词$idx');
-      await tester.pump(const Duration(milliseconds: 2400));
     }
+    await tester.pump(const Duration(milliseconds: 600));
 
     expect(find.text('本关完成'), findsOneWidget);
-    expect(find.text('10'), findsWidgets); // 配对正确 10 个
-    // 一次全对，没有配错记录
-    expect(find.textContaining('一次全对'), findsOneWidget);
+    expect(find.text('10'), findsWidgets);
+    expect(find.text('一次全对，整关满星'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('主题场景：玩法一致，结算文案用「主题完成」', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: MatchPage(
-          words: List.generate(10, _w),
-          title: '动物',
-          scene: MatchScene.theme,
-        ),
-      ),
-    );
-    await tester.pump();
+  testWidgets('主题场景：玩法一致，结算文案是「主题完成」', (tester) async {
+    await _mount(tester, n: 6, scene: MatchScene.theme);
 
-    // 同一套两列棋盘
-    expect(find.text('ENGLISH'), findsOneWidget);
-    expect(find.text('中文'), findsOneWidget);
-
-    for (var round = 0; round < 30; round++) {
+    for (var k = 0; k < 6; k++) {
+      await _playOne(tester, settle: 1100);
       if (find.text('主题完成').evaluate().isNotEmpty) break;
-      String? en;
-      for (var i = 0; i < 10; i++) {
-        if (find.text('w$i').evaluate().isNotEmpty) {
-          en = 'w$i';
-          break;
-        }
-      }
-      if (en == null) {
-        await tester.pump(const Duration(milliseconds: 600));
-        continue;
-      }
-      final idx = en.substring(1);
-      await _tapText(tester, en);
-      await _tapText(tester, '词$idx');
-      await tester.pump(const Duration(milliseconds: 2400));
     }
+    await tester.pump(const Duration(milliseconds: 600));
 
     expect(find.text('主题完成'), findsOneWidget);
-    expect(find.text('本关完成'), findsNothing);
-    expect(find.textContaining('直接满星拿下这个主题'), findsOneWidget);
+    expect(find.text('一次全对，直接满星拿下这个主题'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('主题词数不是 5 的倍数（13 词）也能打完结算', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: MatchPage(words: List.generate(13, _w))),
-    );
-    await tester.pump();
+  testWidgets('词数不是 4 的倍数（13 词）也能打完', (tester) async {
+    await _mount(tester, n: 13);
 
-    for (var round = 0; round < 40; round++) {
+    for (var k = 0; k < 13; k++) {
+      await _playOne(tester, settle: 1100);
       if (find.text('本关完成').evaluate().isNotEmpty) break;
-      String? en;
-      for (var i = 0; i < 13; i++) {
-        if (find.text('w$i').evaluate().isNotEmpty) {
-          en = 'w$i';
-          break;
-        }
-      }
-      if (en == null) {
-        await tester.pump(const Duration(milliseconds: 600));
-        continue;
-      }
-      final idx = en.substring(1);
-      await _tapText(tester, en);
-      await _tapText(tester, '词$idx');
-      await tester.pump(const Duration(milliseconds: 2400));
     }
+    await tester.pump(const Duration(milliseconds: 600));
 
     expect(find.text('本关完成'), findsOneWidget);
-    expect(find.text('13'), findsWidgets); // 13 对全部配对完成
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('小屏（320×568）不溢出', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    await _mount(tester, n: 12);
+
+    expect(tester.takeException(), isNull, reason: '小屏首屏不该 overflow');
+
+    await _playOne(tester, settle: 1200);
+    expect(tester.takeException(), isNull, reason: '巩固台有词后也不该 overflow');
+
+    await _playOne(tester, settle: 1200);
+    await _playOne(tester, settle: 1200);
+    await _playOne(tester, settle: 1400);
+    expect(tester.takeException(), isNull, reason: '巩固台满 3 个左移时不该 overflow');
 
     await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  test('纸屑：中点炸开后能全部散尽', () {
+    final f = ConfettiField(seed: 1);
+    f.burstAt(const Offset(100, 100), n: 14);
+    expect(f.length, 14);
+    f.advanceFrames(600);
+    expect(f.length, 0);
   });
 }

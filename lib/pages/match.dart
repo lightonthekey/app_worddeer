@@ -7,21 +7,24 @@ import 'package:flutter/services.dart';
 import '../bank.dart';
 import '../confetti.dart';
 
-/// 5 对 5 配对棋盘（design/game-a-desk.html 的 Flutter 版）。
+/// 4 对 4 配对棋盘 —— design/game-v2.html 的 Flutter 版。
 ///
-/// 规则：
-/// - 左列英文、右列中文，两列各自打乱，所以配对的两张通常不在同一行；
-/// - 一对卡消失后，空出来的格子会和上下邻格「就近挪一两格」再补新词，
-///   且补位后两列不会落在同一行 —— 否则同一行左右就是现成的一对，
-///   用户闭着眼一直点那一行就能连对（位置固定会变成白送分）；
-/// - 点左边的英文、再点右边的中文，判对就变绿 → 停 680ms 让人再看一眼词形 →
-///   蹦一下 + 炸成纸屑 → 淡出 → 新卡补位；
-/// - 判错只让你点的那两张变红上下颠；同一个词的另一半也要一起退场，
-///   但它不做任何变色/变灰标记（一变灰就等于把正确答案指出来），只是安静淡出，
-///   2 对牌一起换掉，隔两三个词后重新出现，直到配对正确；
+/// 规则（和原型逐条对齐）：
+/// - 左列英文、右列中文，共 4 行；
+/// - 点英文再点中文，判对就变绿 → 绿卡留在原地 → 合拢飞向顶部「巩固台」→
+///   棋盘原地补新词；
+/// - **英文列位置固定**（哪格消失补哪格），**中文列每次都整列重排**，
+///   且保证没有任何一行左右是同一个词 —— 位置记不住，就没法靠蒙连对；
+/// - 巩固台最多留 3 个词，满了整条左移一格：最旧的滑出、新词从右边滑入；
+/// - 判错只让点的两张红一下再恢复，不换位、也不把正确答案标出来；
 /// - 桌面清空且没有待补的词 → 结算。
+///
+/// 时间轴见 [_T]。核心约定：**只有 judge 的 140ms 会锁住操作**，
+/// 绿卡停留、飞行、补位、巩固台左移全是背景动画，手快可以一路配下去。
 
 // ---------------------------------------------------------------- 视觉常量
+
+const int kPairs = 4; // 棋盘行数（原型从 5 行收到 4 行，给巩固台腾位置）
 
 const _bg = Color(0xFFF4F3FB);
 const _line = Color(0xFFE7E5F2);
@@ -31,115 +34,46 @@ const _primary50 = Color(0xFFEEEDFE);
 const _ink = Color(0xFF211E3B);
 const _ink2 = Color(0xFF6E6B8A);
 const _ink3 = Color(0xFF9B98B5);
-const _okColor = Color(0xFF1D9E75);
-const _ok50 = Color(0xFFE5F6EF);
+const _okColor = Color(0xFF58CC02);
+const _ok50 = Color(0xFFEAF9EF);
+const _okInk = Color(0xFF237A00);
+const _okInk2 = Color(0xFF3E8F76);
 const _badColor = Color(0xFFE24B4A);
 const _bad50 = Color(0xFFFCECEC);
-const _amber50 = Color(0xFFFDF2DC);
+const _shelfBg = Color(0xFFF3F1F9);
 
-/// 动效时间轴（毫秒，从点下第二张卡开始算）
-///
-/// 这里的关键约定：**只有 [judge] 期间会锁住操作**。
-/// 绿卡停留（[hold]）和淡出补位（[fade]）都是纯视觉动画，
-/// 不持有 `_lock` —— 用户手快的话，绿卡还在桌上就能接着配下一对。
 class _T {
-  /// 判定停顿：两张卡都选中到给出结果之间的留白。
-  /// 太短会看不出「我点的是哪两张」，150ms 是还能看清的下限。
-  static const judge = Duration(milliseconds: 150);
+  /// 判定停顿：两张都选中到给结果之间的留白，太短看不出点了哪两张。
+  static const judge = Duration(milliseconds: 140);
 
-  /// 绿卡停留：答对后两张卡留在原地变绿、不动的时长。
-  ///
-  /// 这是「答对不代表真记住了，留时间再看一眼词形」的原始诉求。
-  /// 以前这段时间把整个棋盘锁死（配合后面的淡出补位共 1.7 秒），
-  /// 手快的用户点了没反应，感觉像卡了 —— 现在它只是背景动画。
-  static const hold = Duration(milliseconds: 520);
+  /// 绿卡留在原地的时长（从判定算起），之后开始起飞。
+  static const flyStart = Duration(milliseconds: 480);
 
-  /// 绿卡淡出到透明、随即原地补新词的时长。
-  static const fade = Duration(milliseconds: 420);
+  /// 飞向巩固台的时长。
+  static const flyDur = Duration(milliseconds: 340);
 
-  /// 配错后红卡恢复成白卡的等待时间。
-  /// 配错的卡不消失、不挪位，只抖一下变红提示，抖完就恢复，
-  /// 用户可以在原地重新选 —— 所以这里只需要覆盖 shake（420ms）再多给一点余量。
-  static const wrongClear = Duration(milliseconds: 520);
+  /// 巩固台整条左移一格。
+  static const shelfShift = Duration(milliseconds: 300);
+
+  /// 巩固台新词的绿框高亮停留。
+  static const fresh = Duration(milliseconds: 2000);
+
+  /// 配错后红卡恢复的等待。
+  static const wrong = Duration(milliseconds: 520);
+
+  static const hop = Duration(milliseconds: 300);
+  static const shake = Duration(milliseconds: 420);
 }
 
-const int kPairs = 5;
-
-/// 配对棋盘的使用场景。玩法、展示方式完全一致，只影响结算页措辞：
-/// 关卡说「本关完成」，主题说「主题完成」。
+/// 结算页措辞场景：关卡说「本关」，主题说「本主题」。玩法完全一致。
 enum MatchScene { level, theme }
-
-// ---------------------------------------------------------------- 牌面模型
-
-enum CardFx { none, hop, shake, pop, fade, slide }
-
-class _Card {
-  Word? w;
-  /// 这张卡显示英文还是中文（决定大字取 en 还是 zh、副行取音标还是释义）
-  bool isEn = true;
-  bool sel = false;
-  bool ok = false;
-  bool bad = false;
-
-  /// 这张卡已经配对成功、正在退场（绿卡停留 → 淡出 → 原地换词）。
-  ///
-  /// 退场期间它的 `w` 还在（用户要能再看一眼词形），所以光靠 `w == null`
-  /// 拦不住点击 —— 必须单独标一下，否则用户在绿卡停留时点到它，
-  /// 会把一张已经配掉的卡选成「当前选中」，判定必然失败。
-  bool retired = false;
-
-  /// 状态透明度（起爆后 0.12、隐去后 0），配合 [opacityDur] 做慢速化掉
-  double opacity = 1;
-  Duration opacityDur = const Duration(milliseconds: 160);
-
-  CardFx fx = CardFx.none;
-  int fxNonce = 0;
-  Duration fxDelay = Duration.zero;
-
-  /// [CardFx.slide] 用：这一格的内容是从哪一格滑过来的（行号）
-  int slideFrom = 0;
-
-  /// 播一次动画：fxNonce 变了，卡片视图才会重新跑一遍动画
-  void play(CardFx fx) {
-    this.fx = fx;
-    fxNonce++;
-  }
-
-  /// 把另一张卡的「内容」整体搬到这一格（用来挪位置）。
-  ///
-  /// 只搬看得见的东西（词、方向、三种状态、透明度、起点），
-  /// 不搬 fx/fxNonce —— 动画由调用方另设，否则会继承对方已经播完的那一版。
-  void absorb(_Card o) {
-    w = o.w;
-    isEn = o.isEn;
-    sel = o.sel;
-    ok = o.ok;
-    bad = o.bad;
-    retired = o.retired;
-    opacity = o.opacity;
-    opacityDur = o.opacityDur;
-    slideFrom = o.slideFrom;
-  }
-
-  void reset() {
-    w = null;
-    sel = ok = bad = retired = false;
-    opacity = 1;
-    opacityDur = const Duration(milliseconds: 160);
-    fx = CardFx.none;
-    fxDelay = Duration.zero;
-    slideFrom = 0;
-  }
-}
-
-// ---------------------------------------------------------------- 页面
 
 class MatchPage extends StatefulWidget {
   const MatchPage({
     super.key,
     required this.words,
     this.title = '学习关',
-    this.subtitle = '5 对 5 配对',
+    this.subtitle = '',
     this.onProgress,
     this.nextTitle,
     this.autoDemo = 0,
@@ -149,34 +83,58 @@ class MatchPage extends StatefulWidget {
   final List<Word> words;
   final String title;
   final String subtitle;
-
-  /// 结算页文案场景（关卡 / 主题），不改变任何玩法
   final MatchScene scene;
 
   /// 每配对成功一对回调已掌握词数（用于半程进度与今日词数）
   final ValueChanged<int>? onProgress;
 
-  /// 结算页“下一关”的文案，为空则不显示该按钮
+  /// 结算页主按钮文案，为空则「完成」
   final String? nextTitle;
 
-  /// 演示/截图用：启动后自动点一对（1=正确、2=错误），走完整条动效时间轴
+  /// 演示/截图用：启动后自动点一对（1=正确、2=错误、3=连打三对）
   final int autoDemo;
 
   @override
   State<MatchPage> createState() => _MatchPageState();
 }
 
-class _MatchPageState extends State<MatchPage> {
+class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
   final math.Random _rnd = math.Random();
   final ConfettiField _field = ConfettiField();
   final GlobalKey _stackKey = GlobalKey();
   final List<GlobalKey> _enKeys = List.generate(kPairs, (_) => GlobalKey());
   final List<GlobalKey> _zhKeys = List.generate(kPairs, (_) => GlobalKey());
+  final List<GlobalKey> _shelfKeys = List.generate(3, (_) => GlobalKey());
 
-  final List<_Card> _en = List.generate(kPairs, (_) => _Card());
-  final List<_Card> _zh = List.generate(kPairs, (_) => _Card());
+  late final AnimationController _hop =
+      AnimationController(vsync: this, duration: _T.hop);
+  late final AnimationController _shake =
+      AnimationController(vsync: this, duration: _T.shake);
+  late final AnimationController _shift =
+      AnimationController(vsync: this, duration: _T.shelfShift);
 
+  final List<_Card> _en = List.generate(kPairs, (_) => _Card(isEn: true));
+  final List<_Card> _zh = List.generate(kPairs, (_) => _Card(isEn: false));
   final List<Word> _queue = [];
+
+  /// 巩固台：最多 3 个，左旧右新
+  final List<_ShelfItem> _shelf = [];
+
+  /// 正在滑入的第 4 格（只在左移动画期间存在）
+  _ShelfItem? _incoming;
+  int _shelfSeq = 0;
+
+  /// 局数。重开时 +1，异步流程（退场、落位）恢复后靠它判断自己是不是上一局的，
+  /// 否则上一局还在飞的克隆卡会补到新棋盘、旧定时器会把新巩固台提前灭灯。
+  int _round = 0;
+
+  /// 落位串行化：左移动画没走完不插下一张，否则第二张会算错位置
+  Future<void> _shelfChain = Future<void>.value();
+
+  /// 巩固台的高亮定时器：dispose 时要一起收掉，否则页面关掉还挂着 timer
+  final List<Timer> _shelfTimers = [];
+
+  final List<_Flight> _flights = [];
 
   final Set<String> _wrong = {};
   int _done = 0;
@@ -198,6 +156,12 @@ class _MatchPageState extends State<MatchPage> {
   String _ftB = '';
   _FtKind _ftKind = _FtKind.hint;
 
+  String _cheer = '';
+  bool _cheerOn = false;
+  bool _cheerBig = false;
+  int _cheerSeq = 0;
+  Timer? _cheerTimer;
+
   int get _total => widget.words.length;
 
   @override
@@ -205,7 +169,6 @@ class _MatchPageState extends State<MatchPage> {
     super.initState();
     _start();
     if (widget.autoDemo > 0) {
-      // 3 = 连打三对（每对间隔 6s），用来复现「纸屑会不会越积越多」
       _autoLeft = widget.autoDemo == 3 ? 3 : 1;
       Future<void>.delayed(const Duration(milliseconds: 400), _autoStep);
     }
@@ -226,10 +189,10 @@ class _MatchPageState extends State<MatchPage> {
     if (!mounted || _over) return;
     for (var i = 0; i < kPairs; i++) {
       final w = _en[i].w;
-      if (w == null || _en[i].retired) continue;
+      if (w == null) continue;
       final zi = widget.autoDemo == 2
-          ? _zh.indexWhere((c) => c.w != null && !c.retired && c.w!.en != w.en)
-          : _zh.indexWhere((c) => !c.retired && c.w?.en == w.en);
+          ? _zh.indexWhere((c) => c.w != null && c.w!.en != w.en)
+          : _zh.indexWhere((c) => c.w?.en == w.en);
       if (zi < 0) continue;
       _tap(true, i);
       _tap(false, zi);
@@ -241,6 +204,17 @@ class _MatchPageState extends State<MatchPage> {
   void dispose() {
     _over = true;
     _clock?.cancel();
+    _cheerTimer?.cancel();
+    for (final t in _shelfTimers) {
+      t.cancel();
+    }
+    _shelfTimers.clear();
+    _hop.dispose();
+    _shake.dispose();
+    _shift.dispose();
+    for (final f in _flights) {
+      f.ctrl.dispose();
+    }
     _field.dispose();
     super.dispose();
   }
@@ -248,17 +222,35 @@ class _MatchPageState extends State<MatchPage> {
   // ------------------------------------------------------------ 开局
 
   void _start() {
+    // 重开时把上一局残留的动画和定时器收干净：
+    // 还在飞的克隆卡会继续飞向旧槽位，巩固台的高亮定时器也会一局局累积。
+    _round++;
+    _cheerTimer?.cancel();
+    for (final t in _shelfTimers) {
+      t.cancel();
+    }
+    _shelfTimers.clear();
+    for (final f in _flights) {
+      f.ctrl.dispose();
+    }
+    _flights.clear();
+    _shelfChain = Future<void>.value();
+
     _queue
       ..clear()
       ..addAll(widget.words)
       ..shuffle(_rnd);
-    _wrong.clear();
     for (final c in _en) {
-      c.reset();
+      c.clear();
     }
     for (final c in _zh) {
-      c.reset();
+      c.clear();
     }
+    _shelf.clear();
+    _incoming = null;
+    _shelfSeq = 0;
+    _shift.value = 0;
+    _wrong.clear();
     _done = _combo = _maxCombo = _firstTry = 0;
     _selEn = _selZh = null;
     _lock = false;
@@ -267,6 +259,7 @@ class _MatchPageState extends State<MatchPage> {
     _elapsed = Duration.zero;
     _t0 = DateTime.now();
     _field.clear();
+    _cheerOn = false;
     _setHint('先点左边英文，再点右边对应的中文');
 
     _clock?.cancel();
@@ -275,7 +268,7 @@ class _MatchPageState extends State<MatchPage> {
       setState(() => _elapsed = DateTime.now().difference(_t0));
     });
 
-    // 首屏：从队列里取 5 个词，两列各自打乱
+    // 首屏：取 4 个词，两列各自打乱
     final first = <Word>[];
     for (var i = 0; i < kPairs; i++) {
       if (_queue.isEmpty) break;
@@ -284,177 +277,87 @@ class _MatchPageState extends State<MatchPage> {
     final forEn = List<Word>.from(first)..shuffle(_rnd);
     final forZh = List<Word>.from(first)..shuffle(_rnd);
 
-    // 两列各自打乱，偶尔会正好让某一行左右是同一个词。那一行就是
-    // 「闭眼点都对」的白送格子，和补位落到同一行是同一个毛病 ——
-    // 把中文列里这类格子跟别的行换开（换的时候保证两边都还不同词）。
-    for (var i = 0; i < forZh.length; i++) {
-      if (forEn[i].en != forZh[i].en) continue;
-      for (var j = 0; j < forZh.length; j++) {
-        if (j == i) continue;
-        // 换完之后第 i 行、第 j 行都不能再成对
-        if (forZh[j].en == forEn[i].en) continue;
-        if (forEn[j].en == forZh[i].en) continue;
-        final t = forZh[i];
-        forZh[i] = forZh[j];
-        forZh[j] = t;
-        break;
-      }
-    }
-
     for (var i = 0; i < forEn.length; i++) {
-      _paint(_en[i], forEn[i], isEn: true);
+      _paint(_en[i], forEn[i]);
     }
     for (var i = 0; i < forZh.length; i++) {
-      _paint(_zh[i], forZh[i], isEn: false);
+      _paint(_zh[i], forZh[i]);
     }
+    // 首屏也可能出现「同一行左右同词」，按补位同一套规则洗开
+    _reshuffleZh();
+
     setState(() {});
   }
 
-  void _paint(_Card c, Word w, {required bool isEn}) {
-    c.reset();
+  void _paint(_Card c, Word w) {
     c.w = w;
-    c.isEn = isEn;
-    c.fx = CardFx.pop;
-    c.fxNonce++;
+    c.ok = false;
+    c.bad = false;
+    c.sel = false;
+    c.gone = false;
+    c.stamp++;
   }
 
-  void _wipe(_Card c) {
-    c.reset();
-    c.w = null;
-    // 清成虚线空格，之后由 _fillPair 补新词
-  }
-
-  /// 原地补一对新词：左列 [ei] 补英文、右列 [zi] 补同一个词的中文。
-  ///
-  /// 为什么不再「空位挪一格」：以前的实现每配一对都让空位上下挪动，
-  /// 于是整块牌桌跟着重排一次 —— 用户刚记住的位置全乱，
-  /// 观感就是「卡一下、然后全部卡片刷新」。
-  /// 现在位置完全固定，只换文字，眼睛不用重新扫桌面。
-  ///
-  /// 唯一需要错位的情况是 `ei == zi`（用户点的左右两张恰好同一行）：
-  /// 两个空位在同一行，直接把同一个词补回去就又造出一个「同行白送」格子。
-  /// 那就把右列这一格跟**相邻一格**换个位置（只动一张卡，仍然不是重排）。
-  void _fillPair(int ei, int zi) {
-    final w = _nextWord();
-    if (w == null) {
-      // 队列空了（收尾阶段）：清成虚线空格。_checkEnd 靠 w == null 判断收尾，
-      // 这里如果只是「不补」，卡片会一直留着旧词，整局永远结算不了。
-      _wipe(_en[ei]);
-      _wipe(_zh[zi]);
-      return;
-    }
-
-    if (ei != zi) {
-      _paint(_en[ei], w, isEn: true);
-      _paint(_zh[zi], w, isEn: false);
-      return;
-    }
-
-    final j = _pickShiftRow(zi);
-    if (j == null) {
-      // 棋盘快空了、周围没有可挪的卡：宁可这一行成对（马上就结算了），
-      // 也不能让左列多出一张永远配不上的孤儿卡。
-      _paint(_en[ei], w, isEn: true);
-      _paint(_zh[zi], w, isEn: false);
-      return;
-    }
-    // 把 j 格的内容搬到 zi 格，j 腾空后补新词
-    _moveHole(_zh, zi, j);
-    _paint(_en[ei], w, isEn: true);
-    _paint(_zh[j], w, isEn: false);
-  }
-
-  /// 给 [zi] 找一个可以「搬家」的右列邻格，让补位行跟 `ei` 错开。
-  ///
-  /// 只往上下一两格看：幅度小，视觉上像卡片轻轻滑了一下。
-  /// 空槽和正在退场的槽都要跳过 —— 搬一个空槽过去等于把空格挪个位置，
-  /// 左列那一格就成孤儿了。
-  int? _pickShiftRow(int zi) {
-    for (final d in const [1, -1, 2, -2]) {
-      final j = zi + d;
-      if (j < 0 || j >= kPairs) continue;
-      // 用户此刻正选着这一格的话不能搬：搬走等于把他选中的卡偷偷换掉
-      if (j == _selZh) continue;
-      final c = _zh[j];
-      if (c.w == null || c.retired) continue;
-      return j;
-    }
-    return null;
-  }
-
-  void _moveHole(List<_Card> list, int hole, int nb) {
-    if (nb == hole) return;
-    final dst = list[hole];
-    dst.absorb(list[nb]);
-    list[nb].reset(); // 邻格腾空，随后由 _fillPair 补新词
-    dst.slideFrom = nb;
-    dst.play(CardFx.slide);
-  }
-
-  Word? _nextWord() => _queue.isEmpty ? null : _queue.removeAt(0);
-
-  // ------------------------------------------------------------ 交互
+  // ------------------------------------------------------------ 点击与判定
 
   void _tap(bool isEn, int i) {
     if (_lock || _over || _finished) return;
     final c = isEn ? _en[i] : _zh[i];
-    // retired 的卡词还在（绿卡停留中），必须在方法里也拦一道：
-    // 解锁那一帧渲染层还没重建，光靠 onTap 置 null 会有个空窗。
-    if (c.w == null || c.retired) return;
-    final sel = isEn ? _selEn : _selZh;
+    if (c.w == null || c.ok || c.gone) return;
 
-    if (sel == i) {
-      setState(() => c.sel = false);
-      if (isEn) {
-        _selEn = null;
-      } else {
-        _selZh = null;
-      }
-      return;
-    }
-    setState(() {
-      if (sel != null) (isEn ? _en[sel] : _zh[sel]).sel = false;
-      c.sel = true;
-      if (isEn) {
-        _selEn = i;
-      } else {
-        _selZh = i;
-      }
-    });
-    HapticFeedback.selectionClick();
-
-    final picked = c.w!;
     if (isEn) {
-      _setHint('已选 ${picked.en}，请点右侧对应中文', em: picked.en);
+      if (_selEn == i) {
+        setState(() => _en[i].sel = false);
+        _selEn = null;
+        return;
+      }
+      final prev = _selEn;
+      setState(() {
+        if (prev != null) _en[prev].sel = false;
+        _selEn = i;
+        _en[i].sel = true;
+      });
     } else {
-      _setHint('已选中文，请点左侧对应的英文');
+      if (_selZh == i) {
+        setState(() => _zh[i].sel = false);
+        _selZh = null;
+        return;
+      }
+      final prev = _selZh;
+      setState(() {
+        if (prev != null) _zh[prev].sel = false;
+        _selZh = i;
+        _zh[i].sel = true;
+      });
     }
 
     if (_selEn != null && _selZh != null) _judge();
   }
 
   Future<void> _judge() async {
+    final ei = _selEn!;
+    final zi = _selZh!;
+    final a = _en[ei].w;
+    final b = _zh[zi].w;
+    if (a == null || b == null) return;
+
     _lock = true;
-    final ei = _selEn!, zi = _selZh!;
-    final w1 = _en[ei].w, w2 = _zh[zi].w;
-    final ok = w1 != null && w2 != null && w1.en == w2.en;
+    setState(() {
+      _en[ei].sel = false;
+      _zh[zi].sel = false;
+    });
 
     await Future<void>.delayed(_T.judge);
     if (!mounted || _over) return;
+    _selEn = _selZh = null;
 
-    if (ok) {
-      _onMatch(ei, zi, w1);
+    if (a.en == b.en) {
+      _onMatch(ei, zi, a);
     } else {
-      await _onMiss(ei, zi, w1, w2);
+      _onMiss(ei, zi);
     }
   }
 
-  /// 配对成功：记账 → 两张卡变绿出局 → **立刻解锁**，退场交给 [_retire]。
-  ///
-  /// 解锁必须在这里做，不能等退场动画跑完。以前一路 await 到补位结束才放锁，
-  /// 中间 1.7 秒用户点什么都没反应 —— 手快的人会觉得卡死，
-  /// 点下去的卡还会在补位时被换掉，所以「选中了也会消失」。
-  /// 现在 `_lock` 只覆盖 [judge] 那一下，绿卡在背景里自己走完退场。
   void _onMatch(int ei, int zi, Word w) {
     _done++;
     _combo++;
@@ -462,137 +365,333 @@ class _MatchPageState extends State<MatchPage> {
     if (!_wrong.contains(w.en)) _firstTry++;
     widget.onProgress?.call(_done);
     HapticFeedback.mediumImpact();
+    _beep();
+
+    final pa = _centerOf(_enKeys[ei]);
+    final pb = _centerOf(_zhKeys[zi]);
 
     setState(() {
-      for (final c in [_en[ei], _zh[zi]]) {
-        c
-          ..sel = false
-          ..ok = true
-          // 变绿的同一帧就出局：停留期间点它不会被选成「当前选中」
-          ..retired = true
-          ..play(CardFx.hop);
-      }
-      _selEn = _selZh = null;
-      _lock = false; // ← 本次改造的核心：判定完就放手
-      _setHint(
-        _combo >= 2 ? '连对 $_combo 对 · ${w.en} = ${w.zh}' : '✓ ${w.en} = ${w.zh}',
-        kind: _FtKind.ok,
-      );
+      _en[ei].ok = true;
+      _zh[zi].ok = true;
     });
+    _hop.forward(from: 0);
 
-    _retire(ei, zi);
+    // 纸屑从两张卡的连线中点炸一簇：在各自中心炸会正好盖住刚配对的词
+    if (pa != null && pb != null) {
+      _field.burstAt(
+        Offset((pa.dx + pb.dx) / 2, (pa.dy + pb.dy) / 2),
+        n: _combo % 5 == 0 ? 26 : 14,
+        boost: 2.2,
+      );
+    }
+
+    _setHint(
+      _combo >= 2 ? '连对 $_combo 对 · ${w.en} = ${w.zh}' : '✓ ${w.en} = ${w.zh}',
+      kind: _FtKind.ok,
+    );
+    if (_combo >= 2) _showCheer('连对 $_combo！');
+
+    // 关键：判定一结束就解锁，绿卡停留期间就能点下一组
+    _lock = false;
+
+    final rect = _rectOf(_enKeys[ei]);
+    Future<void>.delayed(_T.flyStart, () => _retire(ei, zi, w, pa, pb, rect));
   }
 
-  /// 绿卡退场：原地停一会儿（让用户再看一眼词形）→ 淡出 → 原地补新词。
-  ///
-  /// 全程**不持有 `_lock`**，用户可以在这期间继续配别的卡。
-  /// 连按很快时这里会有多份任务并行，但它们只碰各自的 (ei, zi) 两个槽，
-  /// 不会互相踩；取词是同线程的 `_queue.removeAt(0)`，也不会重复消费。
-  Future<void> _retire(int ei, int zi) async {
-    await Future<void>.delayed(_T.hold);
-    if (!mounted || _over) return;
+  Future<void> _onMiss(int ei, int zi) async {
+    _combo = 0;
+    final a = _en[ei].w;
+    final b = _zh[zi].w;
+    if (a != null) _wrong.add(a.en);
+    if (b != null) _wrong.add(b.en);
 
-    final a = _center(_enKeys[ei]);
-    final b = _center(_zhKeys[zi]);
+    HapticFeedback.heavyImpact();
     setState(() {
-      for (final c in [_en[ei], _zh[zi]]) {
-        c
-          ..opacity = 0
-          ..opacityDur = _T.fade;
-      }
+      _en[ei].bad = true;
+      _zh[zi].bad = true;
     });
-    if (a != null && b != null) _field.burstBetween(a, b);
-    HapticFeedback.lightImpact();
+    _shake.forward(from: 0);
+    _setHint('不对，再看看', kind: _FtKind.bad);
 
-    await Future<void>.delayed(_T.fade);
+    await Future<void>.delayed(_T.wrong);
     if (!mounted || _over) return;
+    setState(() {
+      _en[ei]
+        ..bad = false
+        ..sel = false;
+      _zh[zi]
+        ..bad = false
+        ..sel = false;
+    });
+    _lock = false;
+    _selEn = _selZh = null;
+    _setHint('再试一次');
+  }
 
-    setState(() => _fillPair(ei, zi));
+  // ------------------------------------------------------------ 退场 / 补位
+
+  /// 绿卡先藏起来 → 两张「飞到」巩固台 → 棋盘原地补新词 → 落位。
+  Future<void> _retire(
+    int ei,
+    int zi,
+    Word w,
+    Offset? fromEn,
+    Offset? fromZh,
+    Rect? rect,
+  ) async {
+    if (!mounted || _over) return;
+    final r = _round;
+
+    final target = _shelfTarget();
+    if (fromEn != null && fromZh != null && target != null && rect != null) {
+      _launchFlyer(w, fromEn, target, rect);
+      _launchFlyer(w, fromZh, target, rect);
+    }
+
+    setState(() {
+      _en[ei].gone = true;
+      _zh[zi].gone = true;
+    });
+
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (!mounted || _over || r != _round) return;
+    _refill(ei, zi);
+
+    // 飞行结束的那一刻才落位，卡片「到达」和巩固台高亮是同一瞬间
+    await Future<void>.delayed(_T.flyDur - const Duration(milliseconds: 120));
+    if (!mounted || _over || r != _round) return;
+    _enqueueShelf(w);
+  }
+
+  /// 英文列位置固定（哪格消失补哪格），中文列整列重排。
+  void _refill(int ei, int zi) {
+    final next = _queue.isEmpty ? null : _queue.removeAt(0);
+
+    if (next == null) {
+      // 队列空了 = 收尾：这一对清掉，剩下的卡片收拢到底部对齐
+      setState(() {
+        _en[ei].clear();
+        _zh[zi].clear();
+        _selEn = _selZh = null;
+        _compact();
+      });
+      _checkEnd();
+      return;
+    }
+
+    setState(() {
+      _selEn = _selZh = null;
+      _paint(_en[ei], next); // 英文：原位补，位置永远不动
+      _zh[zi].w = next; // 中文：先塞进空位，再整列洗
+      _reshuffleZh();
+    });
     _checkEnd();
   }
 
-  Future<void> _onMiss(int ei, int zi, Word? w1, Word? w2) async {
-    _combo = 0;
-    for (final w in [w1, w2]) {
-      if (w == null) continue;
-      _wrong.add(w.en);
+  /// 中文列整列重排：位置全打乱，且保证没有任何一行左右是同一个词。
+  void _reshuffleZh() {
+    final idxs = <int>[for (var i = 0; i < kPairs; i++) if (_zh[i].w != null) i];
+    if (idxs.length < 2) return;
+    final items = <Word>[for (final i in idxs) _zh[i].w!];
+
+    for (var t = 0; t < 30; t++) {
+      items.shuffle(_rnd);
+      var bad = false;
+      for (var k = 0; k < idxs.length; k++) {
+        final e = _en[idxs[k]].w;
+        if (e != null && e.en == items[k].en) {
+          bad = true;
+          break;
+        }
+      }
+      if (!bad) break;
     }
-    HapticFeedback.heavyImpact();
 
-    // 配错：只把被点的那两张变红颠一下，然后原样恢复。
-    //
-    // 卡片不退场、不换词、不挪位 —— 用户点错了不该被“惩罚式换牌”：
-    // 牌一换，桌面布局跳一下，注意力就被打断了；而且换牌会把这两个词
-    // 重新洗到别处，用户反而不用记住「我刚才错在哪」。
-    // 现在红卡抖完就恢复白卡，人留在原地继续想，直到真的配对成功。
-    //
-    // 另一条底线照旧：同一个词的另一半什么都不做（不变色、不变虚线、
-    // 不淡出、不抖），否则等于直接把「这张才是正确搭档」指给用户。
-    setState(() {
-      for (final c in [_en[ei], _zh[zi]]) {
-        c
-          ..sel = false
-          ..bad = true
-          ..play(CardFx.shake);
+    for (var k = 0; k < idxs.length; k++) {
+      final c = _zh[idxs[k]];
+      if (c.w?.en != items[k].en) {
+        c.w = items[k];
+        c.stamp++;
       }
-      _setHint('配错了 · 再想想这两个词各自的意思', kind: _FtKind.bad);
-    });
+      c.ok = false;
+      c.bad = false;
+      c.sel = false;
+      c.gone = false;
+    }
+  }
 
-    await Future<void>.delayed(_T.wrongClear);
-    if (!mounted || _over) return;
+  /// 收尾收拢：剩余卡片往前挤，空位统一压到底部。
+  /// 不做的话左右两列会各剩几个虚线空格、位置还错开，看着像界面坏了。
+  void _compact() {
+    final eItems = <Word>[for (final c in _en) if (c.w != null) c.w!];
+    final zItems = <Word>[for (final c in _zh) if (c.w != null) c.w!];
 
-    setState(() {
-      // 红标撤掉，两张卡回到普通白卡，可以重新点
-      for (final c in [_en[ei], _zh[zi]]) {
-        c.bad = false;
+    for (var t = 0; t < 30 && zItems.length > 1; t++) {
+      zItems.shuffle(_rnd);
+      var bad = false;
+      for (var k = 0; k < eItems.length && k < zItems.length; k++) {
+        if (eItems[k].en == zItems[k].en) {
+          bad = true;
+          break;
+        }
       }
-      _selEn = _selZh = null;
-      _lock = false;
-    });
+      if (!bad) break;
+    }
+
+    for (var i = 0; i < kPairs; i++) {
+      if (i < eItems.length) {
+        _paint(_en[i], eItems[i]);
+      } else {
+        _en[i].clear();
+      }
+      if (i < zItems.length) {
+        _paint(_zh[i], zItems[i]);
+      } else {
+        _zh[i].clear();
+      }
+    }
   }
 
   void _checkEnd() {
-    final empty = _en.every((c) => c.w == null) && _zh.every((c) => c.w == null);
-    if (!empty || _queue.isNotEmpty) return;
+    if (_over) return;
+    if (_queue.isNotEmpty) return;
+    if (_en.any((c) => c.w != null)) return;
+    _finished = true;
     Future<void>.delayed(const Duration(milliseconds: 460), () {
-      if (mounted && !_over) _finish();
+      if (!mounted || !_finished) return;
+      _finish();
     });
+    setState(() {});
   }
 
   void _finish() {
-    if (_over) return;
     _over = true;
     _clock?.cancel();
-    setState(() => _finished = true);
-    HapticFeedback.vibrate();
+    setState(() {});
+    for (var i = 0; i < 3; i++) {
+      Future<void>.delayed(Duration(milliseconds: i * 110), () {
+        if (!mounted) return;
+        _field.burstAt(Offset(60.0 + i * 130, 120), n: 30, boost: 1.4);
+      });
+    }
   }
 
-  // ------------------------------------------------------------ 小工具
+  // ------------------------------------------------------------ 巩固台
 
-  void _setHint(String text, {String? em, _FtKind kind = _FtKind.hint}) {
-    if (em == null) {
+  Offset? _shelfTarget() {
+    final idx = math.min(_shelf.length, 2);
+    return _centerOf(_shelfKeys[idx]);
+  }
+
+  void _enqueueShelf(Word w) {
+    _shelfChain = _shelfChain.then((_) => _landOnShelf(w));
+  }
+
+  Future<void> _landOnShelf(Word w) async {
+    if (!mounted || _over) return;
+    final r = _round;
+
+    // 还有空格：直接落进去（弹一下）
+    if (_shelf.length < 3) {
+      final item = _ShelfItem(w, _shelfSeq++);
+      setState(() => _shelf.add(item));
+      _freshTimer(item);
+      return;
+    }
+
+    // 满了：整条左移一格（新词先挂到轨道尾部，此时在右边界外被裁掉）
+    final item = _ShelfItem(w, _shelfSeq++, slid: true);
+    setState(() => _incoming = item);
+    try {
+      // orCancel：重开时 _shift 会被归零（动画取消），直接 await 原 future
+      // 在取消后永远不完成，会把整条落位队列卡死在这一局。
+      await _shift.forward(from: 0).orCancel;
+    } catch (_) {
+      return;
+    }
+    if (!mounted || _over || r != _round) return;
+
+    // 数据换掉的同时把位移归零：同一帧内完成，不会闪
+    _shift.value = 0;
+    setState(() {
+      _shelf.removeAt(0);
+      _shelf.add(item);
+      _incoming = null;
+    });
+    _freshTimer(item, minus: _T.shelfShift);
+  }
+
+  void _freshTimer(_ShelfItem item, {Duration minus = Duration.zero}) {
+    _shelfTimers.add(Timer(_T.fresh - minus, () {
+      if (!mounted) return;
+      setState(() => item.fresh = false);
+    }));
+  }
+
+  // ------------------------------------------------------------ 飞行
+
+  void _launchFlyer(Word w, Offset from, Offset to, Rect rect) {
+    final c = AnimationController(vsync: this, duration: _T.flyDur);
+    final f = _Flight(ctrl: c, word: w, from: from, to: to, size: rect.size);
+    c.addStatusListener((s) {
+      if (s != AnimationStatus.completed) return;
+      if (!mounted) return;
+      setState(() => _flights.remove(f));
+      WidgetsBinding.instance.addPostFrameCallback((_) => c.dispose());
+    });
+    setState(() => _flights.add(f));
+    c.forward();
+  }
+
+  // ------------------------------------------------------------ 坐标工具
+
+  Rect? _rectOf(GlobalKey k) {
+    final box = k.currentContext?.findRenderObject() as RenderBox?;
+    final stack = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || stack == null || !box.hasSize) return null;
+    final topLeft = box.localToGlobal(Offset.zero);
+    final local = stack.globalToLocal(topLeft);
+    return local & box.size;
+  }
+
+  Offset? _centerOf(GlobalKey k) => _rectOf(k)?.center;
+
+  // ------------------------------------------------------------ 文案
+
+  void _setHint(String text, {_FtKind kind = _FtKind.hint}) {
+    setState(() {
       _ftA = text;
       _ftEm = '';
       _ftB = '';
-    } else {
-      final i = text.indexOf(em);
-      _ftA = text.substring(0, i);
-      _ftEm = em;
-      _ftB = text.substring(i + em.length);
-    }
-    _ftKind = kind;
+      _ftKind = kind;
+    });
   }
 
-  Offset? _center(GlobalKey key) {
-    final ro = key.currentContext?.findRenderObject() as RenderBox?;
-    final root = _stackKey.currentContext?.findRenderObject() as RenderBox?;
-    if (ro == null || root == null || !ro.hasSize) return null;
-    return root.globalToLocal(ro.localToGlobal(ro.size.center(Offset.zero)));
+  void _showCheer(String text, {bool big = false}) {
+    _cheerTimer?.cancel();
+    setState(() {
+      _cheer = text;
+      _cheerBig = big;
+      _cheerOn = true;
+      _cheerSeq++;
+    });
+    _cheerTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _cheerOn = false);
+    });
+  }
+
+  void _beep() {
+    // 音效用系统点击声（WebAudio 那套没法直接搬过来），失败不影响玩法
+    try {
+      SystemSound.play(SystemSoundType.click);
+    } catch (_) {}
   }
 
   String _clockText() {
     final s = _elapsed.inSeconds;
-    return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
+    final m = s ~/ 60;
+    final r = s % 60;
+    return '$m:${r.toString().padLeft(2, '0')}';
   }
 
   String _durationText() {
@@ -600,27 +699,125 @@ class _MatchPageState extends State<MatchPage> {
     return s >= 60 ? '${s ~/ 60} 分 ${s % 60} 秒' : '$s 秒';
   }
 
+  // ------------------------------------------------------------ 构建
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
         bottom: false,
-        child: Stack(
-          key: _stackKey,
-          children: [
-            Column(
-              children: [
-                _top(),
-                _colHead(),
-                Expanded(child: _desk()),
-                _foot(),
+        child: LayoutBuilder(
+          builder: (context, box) => Stack(
+            key: _stackKey,
+            children: [
+              Column(
+                children: [
+                  _top(),
+                  _shelfBar(),
+                  Expanded(child: _desk()),
+                  _foot(),
+                ],
+              ),
+              // 纸屑层盖在牌桌上，不挡点击
+              Positioned.fill(child: ConfettiOverlay(field: _field)),
+              // 飞行中的卡片
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge(
+                      [for (final f in _flights) f.ctrl],
+                    ),
+                    builder: (context, _) => Stack(
+                      clipBehavior: Clip.none,
+                      children: [for (final f in _flights) _flyer(f)],
+                    ),
+                  ),
+                ),
+              ),
+              // 连击飘字（放在巩固台下方，不压住牌面）
+              Positioned(
+                left: 0,
+                right: 0,
+                top: box.maxHeight * .245 - 10,
+                child: IgnorePointer(child: _cheerWidget()),
+              ),
+              if (_finished) _sheet(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _flyer(_Flight f) {
+    final t = Curves.easeInOutCubic.transform(f.ctrl.value);
+    final p = Offset.lerp(f.from, f.to, t)! - Offset(0, math.sin(t * math.pi) * 16);
+    return Positioned(
+      left: p.dx - f.size.width / 2,
+      top: p.dy - f.size.height / 2,
+      width: f.size.width,
+      height: f.size.height,
+      child: Opacity(
+        opacity: (1 - t).clamp(0.0, 1.0),
+        child: Transform.scale(
+          scale: 1 - .5 * t,
+          child: Container(
+            decoration: BoxDecoration(
+              color: _ok50,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: _okColor, width: 1.5),
+              boxShadow: const [
+                BoxShadow(color: Color(0x3D58CC02), blurRadius: 22, offset: Offset(0, 8)),
               ],
             ),
-            // 纸屑层盖在牌桌上，不挡点击
-            Positioned.fill(child: ConfettiOverlay(field: _field)),
-            if (_finished) _sheet(),
-          ],
+            alignment: Alignment.center,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Text(
+                f.word.en,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: _okInk,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _cheerWidget() {
+    return Center(
+      child: AnimatedOpacity(
+        opacity: _cheerOn ? 1 : 0,
+        duration: const Duration(milliseconds: 220),
+        child: TweenAnimationBuilder<double>(
+          key: ValueKey(_cheerSeq),
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 420),
+          curve: Curves.easeOutCubic,
+          builder: (context, t, child) => Transform.translate(
+            offset: Offset(0, 14 * (1 - t)),
+            child: Opacity(opacity: t.clamp(0.0, 1.0), child: child),
+          ),
+          child: Text(
+            _cheer,
+            style: TextStyle(
+              fontSize: _cheerBig ? 32 : 26,
+              fontWeight: FontWeight.w800,
+              color: _okColor,
+              // 白描边光晕：飘字压在棋盘顶边上时，靠它和卡片分开
+              shadows: const [
+                Shadow(color: Color(0xFFFFFFFF), blurRadius: 14),
+                Shadow(color: Color(0xFFFFFFFF), blurRadius: 7),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -665,13 +862,15 @@ class _MatchPageState extends State<MatchPage> {
                         color: _ink,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 10.5, color: _ink3),
-                    ),
+                    if (widget.subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 10.5, color: _ink3),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -701,7 +900,7 @@ class _MatchPageState extends State<MatchPage> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -713,10 +912,9 @@ class _MatchPageState extends State<MatchPage> {
                     curve: Curves.easeOutCubic,
                     builder: (context, v, child) => LinearProgressIndicator(
                       value: v,
-                      minHeight: 7,
-                      backgroundColor: const Color(0xFFE3E0F4),
-                      valueColor:
-                          const AlwaysStoppedAnimation(Color(0xFF5A50E0)),
+                      minHeight: 6,
+                      backgroundColor: const Color(0xFFE7E3F4),
+                      valueColor: const AlwaysStoppedAnimation(_primary),
                     ),
                   ),
                 ),
@@ -728,45 +926,22 @@ class _MatchPageState extends State<MatchPage> {
                     TextSpan(
                       text: '$_done',
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: _primary,
+                        fontFeatures: [FontFeature.tabularFigures()],
                       ),
                     ),
                     TextSpan(
                       text: ' / $_total',
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                         color: _ink2,
+                        fontFeatures: [FontFeature.tabularFigures()],
                       ),
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              AnimatedScale(
-                scale: _combo >= 2 ? 1 : .8,
-                duration: const Duration(milliseconds: 220),
-                child: AnimatedOpacity(
-                  opacity: _combo >= 2 ? 1 : 0,
-                  duration: const Duration(milliseconds: 220),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _amber50,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      '🔥 $_combo',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFFB26A0B),
-                      ),
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -776,30 +951,190 @@ class _MatchPageState extends State<MatchPage> {
     );
   }
 
-  Widget _colHead() {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-      child: Row(
+  // ------------------------------------------------------------ 巩固台
+
+  Widget _shelfBar() {
+    final n = _shelf.length;
+    final items = [..._shelf, ?_incoming];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+      child: Column(
         children: [
-          Expanded(
-            child: Text('ENGLISH',
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.4,
-                    color: _ink3)),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 5, left: 2, right: 2),
+            child: Row(
+              children: [
+                const Text('刚配对',
+                    style: TextStyle(
+                        fontSize: 10.5, color: _ink3, letterSpacing: .3)),
+                const Spacer(),
+                Text(
+                  n == 0 ? '配对成功的词会停在这里' : '最近 $n 个',
+                  style: const TextStyle(
+                      fontSize: 10.5, color: _ink3, letterSpacing: .3),
+                ),
+              ],
+            ),
           ),
-          Expanded(
-            child: Text('中文',
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.4,
-                    color: _ink3)),
+          Container(
+            key: const ValueKey('shelf'),
+            height: 76,
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: _shelfBg,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(9),
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  const gap = 6.0;
+                  final w = (box.maxWidth - gap * 2) / 3;
+                  return AnimatedBuilder(
+                    animation: _shift,
+                    builder: (context, _) {
+                      final dx = _shift.value * (w + gap);
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          for (var k = 0; k < 3; k++)
+                            Positioned(
+                              left: k * (w + gap) - dx,
+                              top: 0,
+                              width: w,
+                              height: box.maxHeight,
+                              child: _shelfSlot(
+                                k < items.length ? items[k] : null,
+                                _shelfKeys[k],
+                                pop: k < items.length &&
+                                    items[k].fresh &&
+                                    !items[k].slid,
+                              ),
+                            ),
+                          // 左移时多出来的第 4 格（此刻在右边界外）
+                          if (items.length > 3)
+                            Positioned(
+                              left: 3 * (w + gap) - dx,
+                              top: 0,
+                              width: w,
+                              height: box.maxHeight,
+                              child: _shelfSlot(items[3], null),
+                            ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _shelfSlot(_ShelfItem? it, Key? key, {bool pop = false}) {
+    final filled = it != null;
+    final fresh = it?.fresh ?? false;
+
+    final Color bg = !filled
+        ? Colors.transparent
+        : fresh
+            ? _ok50
+            : Colors.white;
+    final Color border = !filled
+        ? const Color(0xFFDCD7EC)
+        : fresh
+            ? _okColor
+            : const Color(0xFFE4DFF3);
+
+    Widget content = Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle())
+                    .merge(TextStyle(
+                    fontSize: fresh ? 15 : 12.5,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                    color: fresh ? _okInk : _ink,
+                  )),
+              child: Text(it?.w.en ?? ''),
+            ),
+            const SizedBox(height: 2),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle())
+                    .merge(TextStyle(
+                    fontSize: fresh ? 12.5 : 11,
+                    height: 1.15,
+                    color: fresh ? _okInk2 : const Color(0xFF86809C),
+                  )),
+              child: Text(it?.w.zh ?? ''),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (pop) {
+      content = TweenAnimationBuilder<double>(
+        key: ValueKey(it!.seq),
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 420),
+        builder: (context, t, child) => Transform.scale(
+          scale: .72 + .28 * Curves.easeOutBack.transform(t),
+          child: child,
+        ),
+        child: content,
+      );
+    }
+
+    return Stack(
+      key: key,
+      fit: StackFit.expand,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(9),
+            border: filled ? Border.all(color: border, width: 1) : null,
+            boxShadow: fresh
+                ? const [
+                    BoxShadow(
+                        color: Color(0x2E58CC02),
+                        blurRadius: 12,
+                        offset: Offset(0, 3)),
+                  ]
+                : null,
+          ),
+          child: filled ? content : null,
+        ),
+        if (!filled)
+          IgnorePointer(
+            child: CustomPaint(
+              painter: _DashBorder(color: border, radius: 9, width: 1),
+            ),
+          ),
+        if (fresh)
+          const Positioned(
+            top: 3,
+            right: 4,
+            child: Text('✓', style: TextStyle(fontSize: 9, color: _okColor)),
+          ),
+      ],
     );
   }
 
@@ -807,51 +1142,206 @@ class _MatchPageState extends State<MatchPage> {
 
   Widget _desk() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-      child: Stack(
-        // 答对的卡会往上浮 5px、影子再往下探十几 px，Stack 默认 hardEdge 会把
-        // 首行/末行这两头切掉，所以这里必须放开裁剪
-        clipBehavior: Clip.none,
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 6),
+      child: Column(
+        key: const ValueKey('desk'),
         children: [
-          // 中缝虚线：暗示“左边英文 · 右边中文”
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(painter: _SeamPainter()),
-            ),
-          ),
-          Column(
-            key: const ValueKey('desk'),
-            children: [
-              for (var i = 0; i < kPairs; i++)
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: i == 0 ? 0 : 9),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(child: _cardView(_en[i], i, true)),
-                        const SizedBox(width: 10),
-                        Expanded(child: _cardView(_zh[i], i, false)),
-                      ],
+          for (var i = 0; i < kPairs; i++)
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(top: i == 0 ? 0 : 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: KeyedSubtree(
+                        key: ValueKey('en$i'),
+                        child: _cardView(_en[i], i, true),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: KeyedSubtree(
+                        key: ValueKey('zh$i'),
+                        child: _cardView(_zh[i], i, false),
+                      ),
+                    ),
+                  ],
                 ),
-            ],
-          ),
+              ),
+            ),
         ],
       ),
     );
   }
 
   Widget _cardView(_Card c, int i, bool isEn) {
-    return _CardView(
-      key: ValueKey('${isEn ? 'en' : 'zh'}$i'),
-      card: c,
-      boxKey: isEn ? _enKeys[i] : _zhKeys[i],
-      slot: i,
-      onTap: (c.w == null || c.bad || c.retired)
-          ? null
-          : () => _tap(isEn, i),
+    return AnimatedBuilder(
+      animation: Listenable.merge([_hop, _shake]),
+      builder: (context, _) {
+        var dy = 0.0;
+        var scale = 1.0;
+
+        if (c.ok) {
+          // 轻轻一抬就停在半空（-3.5），不落回桌面 —— 落回去像「凹进桌子」
+          final k = _hop.value;
+          if (k < .32) {
+            dy = -10 * (k / .32);
+            scale = 1 + .035 * (k / .32);
+          } else if (k < .58) {
+            final u = (k - .32) / .26;
+            dy = -10 + 9 * u;
+            scale = 1.035 - .027 * u;
+          } else if (k < .80) {
+            final u = (k - .58) / .22;
+            dy = -1 - 3.5 * u;
+            scale = 1.008 + .012 * u;
+          } else {
+            final u = (k - .80) / .20;
+            dy = -4.5 + u;
+            scale = 1.020 - .002 * u;
+          }
+        } else if (c.bad) {
+          const ys = [0.0, -8.0, 7.0, -5.0, 4.0, -2.0, 0.0];
+          final p = _shake.value * (ys.length - 1);
+          final idx = p.floor().clamp(0, ys.length - 2);
+          dy = ys[idx] + (ys[idx + 1] - ys[idx]) * (p - idx);
+        }
+
+        final lift = c.sel ? -3.0 : 0.0;
+        return Transform.translate(
+          offset: Offset(0, dy + lift),
+          child: Transform.scale(scale: scale, child: _cardBox(c, i, isEn)),
+        );
+      },
+    );
+  }
+
+  Widget _cardBox(_Card c, int i, bool isEn) {
+    final word = c.w;
+    final blank = word == null;
+
+    Color bg = Colors.white;
+    Color border = _line;
+    Color textColor = _ink;
+    Color subColor = _ink3;
+    var dashed = false;
+    List<BoxShadow> shadow = const [
+      BoxShadow(color: Color(0xFFE4E0F4), offset: Offset(0, 2.5)),
+      BoxShadow(color: Color(0x0F463CBE), offset: Offset(0, 8), blurRadius: 16),
+    ];
+    var borderWidth = 1.5;
+
+    if (blank) {
+      bg = Colors.transparent;
+      border = const Color(0xFFDEDAF0);
+      dashed = true;
+      shadow = const [];
+    } else if (c.ok) {
+      bg = _ok50;
+      border = _okColor;
+      textColor = _okInk;
+      subColor = _okInk2;
+      shadow = const [
+        BoxShadow(color: Color(0xFFB7E2D2), offset: Offset(0, 3.5)),
+        BoxShadow(
+            color: Color(0x2E58CC02),
+            blurRadius: 20,
+            offset: Offset(0, 11),
+            spreadRadius: 1),
+      ];
+    } else if (c.bad) {
+      bg = _bad50;
+      border = _badColor;
+      textColor = const Color(0xFFA32D2D);
+      subColor = const Color(0xFFA32D2D);
+    } else if (c.sel) {
+      bg = _primary50;
+      border = _primary;
+      textColor = _primaryDeep;
+      subColor = _primaryDeep;
+      shadow = const [
+        BoxShadow(color: Color(0xFFCFC8FA), offset: Offset(0, 4.5)),
+        BoxShadow(color: Color(0x385A50E0), blurRadius: 22, offset: Offset(0, 14)),
+      ];
+    }
+
+    final main = blank ? '' : (isEn ? word.en : word.zh);
+    final sub = blank ? '' : (isEn ? word.phUs : word.detail);
+
+    return AnimatedOpacity(
+      opacity: c.gone ? 0 : 1,
+      duration: const Duration(milliseconds: 140),
+      child: AnimatedContainer(
+        key: isEn ? _enKeys[i] : _zhKeys[i],
+        duration: const Duration(milliseconds: 160),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(15),
+          border: dashed ? null : Border.all(color: border, width: borderWidth),
+          boxShadow: shadow,
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (!blank)
+              Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(15),
+                child: InkWell(
+                  onTap: (c.gone) ? null : () => _tap(isEn, i),
+                  borderRadius: BorderRadius.circular(15),
+                  splashColor: _primary.withValues(alpha: .06),
+                  highlightColor: _primary.withValues(alpha: .03),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            main,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: isEn ? 19 : 17,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: .1,
+                              height: 1.15,
+                              color: textColor,
+                            ),
+                          ),
+                          if (sub.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            // 中文释义保留（自己玩的时候要看），太长就截断加省略号
+                            Text(
+                              sub,
+                              maxLines: isEn ? 1 : 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: isEn ? 11.5 : 10.5,
+                                height: 1.25,
+                                color: subColor,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (dashed)
+              IgnorePointer(
+                child: CustomPaint(
+                  painter: _DashBorder(color: border, radius: 15, width: borderWidth),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -859,23 +1349,26 @@ class _MatchPageState extends State<MatchPage> {
 
   Widget _foot() {
     final color = switch (_ftKind) {
-      _FtKind.ok => _okColor,
+      _FtKind.ok => _okInk,
       _FtKind.bad => _badColor,
       _FtKind.hint => _ink3,
     };
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 26),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 34),
+        constraints: const BoxConstraints(minHeight: 30),
         child: Center(
           child: AnimatedDefaultTextStyle(
             duration: const Duration(milliseconds: 180),
-            style: TextStyle(
-              fontSize: 11.5,
-              height: 1.5,
-              color: color,
-              fontWeight: _ftKind == _FtKind.hint ? FontWeight.w400 : FontWeight.w700,
-            ),
+            style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle())
+                    .merge(TextStyle(
+                  fontSize: 11.5,
+                  height: 1.5,
+                  color: color,
+                  fontWeight: _ftKind == _FtKind.hint
+                      ? FontWeight.w400
+                      : FontWeight.w700,
+                )),
             child: Text.rich(
               TextSpan(
                 children: [
@@ -905,73 +1398,80 @@ class _MatchPageState extends State<MatchPage> {
     final acc = _total == 0 ? 0 : (_firstTry / _total * 100).round();
     final wr = _wrong.toList();
     final theme = widget.scene == MatchScene.theme;
+
     return Positioned.fill(
       child: Container(
-        color: _bg,
-        padding: const EdgeInsets.fromLTRB(26, 90, 26, 32),
-        child: Column(
-          children: [
-            const Text('🏆', style: TextStyle(fontSize: 56)),
-            const SizedBox(height: 16),
-            Text(theme ? '主题完成' : '本关完成',
-                style: const TextStyle(
-                    fontSize: 21, fontWeight: FontWeight.w800, color: _ink)),
-            const SizedBox(height: 7),
-            Text('用时 ${_durationText()} · ${widget.title}',
-                style: const TextStyle(fontSize: 12.5, color: _ink2)),
-            const SizedBox(height: 26),
-            Row(
-              children: [
-                _stat('$_total', '配对正确'),
-                const SizedBox(width: 9),
-                _stat('$acc%', '一次选对率'),
-                const SizedBox(width: 9),
-                _stat('$_maxCombo', '最高连击'),
+        color: const Color(0x6B1C1638),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 26),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          builder: (context, t, child) => Opacity(
+            opacity: t.clamp(0.0, 1.0),
+            child: Transform.scale(scale: .94 + .06 * t, child: child),
+          ),
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxWidth: 340),
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [
+                BoxShadow(color: Color(0x33000000), blurRadius: 30, offset: Offset(0, 12)),
               ],
             ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: _line, width: 1),
-              ),
-              child: Text(
-                wr.isEmpty
-                    ? (theme
-                        ? '🦌 一次全对，直接满星拿下这个主题'
-                        : '🦌 一次全对，直接满星通关')
-                    : '🦌 ${wr.length} 个词配错过（${wr.take(6).join('、')}'
-                        '${wr.length > 6 ? '…' : ''}），'
-                        '${theme ? '本主题' : '本关'}内已反复重现直到配对正确',
-                style: const TextStyle(fontSize: 11.5, height: 1.6, color: _ink2),
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _primary,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15)),
-                  elevation: 0,
-                ),
-                child: Text(widget.nextTitle ?? '完成',
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(theme ? '主题完成' : '本关完成',
                     style: const TextStyle(
-                        fontSize: 14.5, fontWeight: FontWeight.w700)),
-              ),
+                        fontSize: 21, fontWeight: FontWeight.w800, color: _ink)),
+                const SizedBox(height: 6),
+                Text(
+                  wr.isEmpty
+                      ? (theme ? '一次全对，直接满星拿下这个主题' : '一次全对，整关满星')
+                      : '${_durationText()} · ${wr.length} 个词配错过',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12.5, color: _ink2),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    _stat('$_total', '配对'),
+                    const SizedBox(width: 9),
+                    _stat('$acc%', '一次选对'),
+                    const SizedBox(width: 9),
+                    _stat('$_maxCombo', '最高连击'),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _primary,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15)),
+                      elevation: 0,
+                    ),
+                    child: Text(widget.nextTitle ?? '完成',
+                        style: const TextStyle(
+                            fontSize: 14.5, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _start,
+                  child: const Text('再来一局',
+                      style: TextStyle(fontSize: 12.5, color: _ink3)),
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: _start,
-              child: const Text('再来一局',
-                  style: TextStyle(fontSize: 12.5, color: _ink3)),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -980,11 +1480,10 @@ class _MatchPageState extends State<MatchPage> {
   Widget _stat(String value, String label) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 13),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _line, width: 1),
+          color: const Color(0xFFF6F5FC),
+          borderRadius: BorderRadius.circular(13),
         ),
         child: Column(
           children: [
@@ -996,8 +1495,7 @@ class _MatchPageState extends State<MatchPage> {
                   fontFeatures: [FontFeature.tabularFigures()],
                 )),
             const SizedBox(height: 3),
-            Text(label,
-                style: const TextStyle(fontSize: 10, color: _ink3)),
+            Text(label, style: const TextStyle(fontSize: 10, color: _ink3)),
           ],
         ),
       ),
@@ -1007,325 +1505,64 @@ class _MatchPageState extends State<MatchPage> {
 
 enum _FtKind { hint, ok, bad }
 
-// ---------------------------------------------------------------- 单张卡
+// ---------------------------------------------------------------- 模型
 
-class _CardView extends StatefulWidget {
-  const _CardView({
-    super.key,
-    required this.card,
-    required this.boxKey,
-    this.slot = 0,
-    this.onTap,
+class _Card {
+  _Card({required this.isEn});
+
+  final bool isEn;
+  Word? w;
+  bool sel = false;
+  bool ok = false;
+  bool bad = false;
+
+  /// 已退场（原卡隐藏、等补位）：此时不响应点击
+  bool gone = false;
+
+  /// 每次换词 +1，卡片用它重播入场动画
+  int stamp = 0;
+
+  void clear() {
+    w = null;
+    sel = ok = bad = gone = false;
+    stamp++;
+  }
+}
+
+class _ShelfItem {
+  _ShelfItem(this.w, this.seq, {this.slid = false});
+
+  final Word w;
+
+  /// 唯一标识（同一个词可能重复出现），用于重播弹入动画
+  final int seq;
+
+  /// 是不是「整条左移」滑进来的：滑进来的不用再播弹入动画
+  final bool slid;
+  bool fresh = true;
+}
+
+class _Flight {
+  _Flight({
+    required this.ctrl,
+    required this.word,
+    required this.from,
+    required this.to,
+    required this.size,
   });
 
-  final _Card card;
-  final GlobalKey boxKey;
-
-  /// 本卡在第几行（挪位后要朝“自己原来那格”的方向轻轻浮一下）
-  final int slot;
-  final VoidCallback? onTap;
-
-  @override
-  State<_CardView> createState() => _CardViewState();
+  final AnimationController ctrl;
+  final Word word;
+  final Offset from;
+  final Offset to;
+  final Size size;
 }
 
-class _CardViewState extends State<_CardView>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 400),
-  );
-  Timer? _delay;
+// ---------------------------------------------------------------- 绘制
 
-  /// 已经播过的那一版动画序号（自己存，不能拿 old.card 比 —— 见 didUpdateWidget）
-  int _seen = -1;
-
-  @override
-  void initState() {
-    super.initState();
-    _seen = widget.card.fxNonce;
-    _play();
-  }
-
-  @override
-  void didUpdateWidget(_CardView old) {
-    super.didUpdateWidget(old);
-    // 坑：`old.card` 和 `widget.card` 是**同一个可变的 _Card 实例**，
-    // 所以 `old.card.fxNonce != widget.card.fxNonce` 永远是 false ——
-    // 之前写成那样，等于动画只在 initState 播过那一次（首屏 pop），
-    // 之后的 hop / shake / 补位 fade 全都不播，`_t` 一直是 1，
-    // 卡片直接「啪」地跳到终点姿态（用户看到的就是“跳了一下就定格/凹进去”）。
-    // 正确做法：自己记住上一版序号。
-    if (widget.card.fxNonce != _seen) {
-      _seen = widget.card.fxNonce;
-      _play();
-    }
-  }
-
-  void _play() {
-    _delay?.cancel();
-    final fx = widget.card.fx;
-    _c.value = 0;
-    if (fx == CardFx.none) {
-      _c.value = 1;
-      return;
-    }
-    _c.duration = switch (fx) {
-      CardFx.hop => const Duration(milliseconds: 280),
-      CardFx.shake => const Duration(milliseconds: 420),
-      CardFx.pop => const Duration(milliseconds: 340),
-      CardFx.fade => const Duration(milliseconds: 300),
-      CardFx.slide => const Duration(milliseconds: 300),
-      CardFx.none => const Duration(milliseconds: 1),
-    };
-    final delay = widget.card.fxDelay;
-    if (delay == Duration.zero) {
-      _c.forward(from: 0);
-    } else {
-      _delay = Timer(delay, () {
-        if (mounted) _c.forward(from: 0);
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _delay?.cancel();
-    _c.dispose();
-    super.dispose();
-  }
-
-  double get _t => Curves.linear.transform(_c.value.clamp(0.0, 1.0));
-
-  @override
-  Widget build(BuildContext context) {
-    final card = widget.card;
-    return AnimatedOpacity(
-      opacity: card.opacity,
-      duration: card.opacityDur,
-      curve: Curves.easeOut,
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, child) {
-          var dy = 0.0, scale = 1.0;
-          var enter = 1.0;
-          final k = _t;
-          if (card.fx == CardFx.hop) {
-            // 答对的卡要「轻轻弹一下 → 再微弹 → 停在半空中」，
-            // 收尾必须停在悬浮位（dy=-3.5），不能落回 0：
-            // 以前收尾会压到 +3px、scale 掉到 .976，看着就是整张卡「凹进桌面里」。
-            // 现在是刻意的小幅度：抬 10px、放大 3.5%，整段 280ms。
-            // 早先抬 18px / 400ms 太跳了，卡片像在蹦床上弹，抢走了看词的注意力。
-            if (k < .32) {
-              final u = k / .32;
-              dy = -10 * u; //   0 → -10（起跳）
-              scale = 1 + .035 * u; //   1 → 1.035
-            } else if (k < .58) {
-              final u = (k - .32) / .26;
-              dy = -10 + 9 * u; // -10 → -1（下落，几乎贴回桌面）
-              scale = 1.035 - .027 * u; // 1.035 → 1.008
-            } else if (k < .80) {
-              final u = (k - .58) / .22;
-              dy = -1 - 3.5 * u; //  -1 → -4.5（第二次弹起）
-              scale = 1.008 + .012 * u; //       → 1.020
-            } else {
-              final u = (k - .80) / .20;
-              dy = -4.5 + 1 * u; // -4.5 → -3.5（停在悬浮位，不再下落）
-              scale = 1.020 - .002 * u; //       → 1.018
-            }
-          } else if (card.fx == CardFx.shake) {
-            // 上下颠 4 下，不再左右晃
-            const ys = [0.0, -8.0, 7.0, -5.0, 4.0, -2.0, 0.0];
-            final p = k * (ys.length - 1);
-            final i = p.floor().clamp(0, ys.length - 2);
-            dy = ys[i] + (ys[i + 1] - ys[i]) * (p - i);
-          } else if (card.fx == CardFx.pop) {
-            enter = k;
-            scale = .86 + .14 * Curves.easeOutBack.transform(k * .8).clamp(0.0, 1.2);
-            dy = 6 * (1 - k);
-          } else if (card.fx == CardFx.fade) {
-            enter = k;
-          } else if (card.fx == CardFx.slide) {
-            // 邻格那张卡被挪到这一格：朝原来那格的方向轻轻浮一下再落定。
-            // 位移刻意只有 14px —— 早先按「整整一格」滑，滑动的卡会压住
-            // 相邻行的卡，用户点下去就点到了别人的格子上。
-            // 也不做淡入：这张卡本来就是桌上的旧卡，闪一下反而显得刻意。
-            final dir = (card.slideFrom - widget.slot).sign.toDouble();
-            final e = Curves.easeOutCubic.transform(k);
-            dy = dir * 14 * (1 - e);
-            scale = 1 + .02 * math.sin(k * math.pi);
-          }
-          // 选中的卡抬起来 3px
-          final lift = card.sel ? -3.0 : 0.0;
-          return Transform.translate(
-            offset: Offset(0, dy + lift),
-            child: Transform.scale(
-              scale: scale,
-              child: Opacity(opacity: enter, child: child),
-            ),
-          );
-        },
-        child: _cardBox(card),
-      ),
-    );
-  }
-
-  Widget _cardBox(_Card c) {
-    final word = c.w;
-    final blank = word == null;
-
-    Color bg = Colors.white;
-    Color border = _line;
-    Color textColor = _ink;
-    Color subColor = _ink3;
-    bool dashed = false;
-    List<BoxShadow> shadow = const [
-      BoxShadow(color: Color(0xFFE4E0F4), offset: Offset(0, 2.5)),
-      BoxShadow(
-          color: Color(0x0F463CBE),
-          offset: Offset(0, 8),
-          blurRadius: 16),
-    ];
-    double borderWidth = 1.5;
-
-    if (blank) {
-      bg = Colors.transparent;
-      border = const Color(0xFFDEDAF0);
-      dashed = true;
-      shadow = const [];
-    } else if (c.ok) {
-      bg = _ok50;
-      border = _okColor;
-      textColor = const Color(0xFF0F6E56);
-      subColor = const Color(0xFF3E8F76);
-      // 答对的卡是「浮」着的：硬影拉远一点假装离开桌面，
-      // 再加一层又远又虚的绿光，悬浮感才立得住。
-      // 抬升从 18px 收到 10px 后影子也跟着收一点，否则显得卡片飘得太高。
-      shadow = const [
-        BoxShadow(color: Color(0xFFB7E2D2), offset: Offset(0, 3.5)),
-        BoxShadow(
-            color: Color(0x2E1D9E75),
-            blurRadius: 20,
-            offset: Offset(0, 11),
-            spreadRadius: 1),
-      ];
-    } else if (c.bad) {
-      bg = _bad50;
-      border = _badColor;
-      textColor = const Color(0xFFA32D2D);
-      subColor = const Color(0xFFA32D2D);
-    } else if (c.sel) {
-      bg = _primary50;
-      border = _primary;
-      textColor = _primaryDeep;
-      subColor = _primaryDeep;
-      shadow = const [
-        BoxShadow(color: Color(0xFFCFC8FA), offset: Offset(0, 4.5)),
-        BoxShadow(color: Color(0x385A50E0), blurRadius: 22, offset: Offset(0, 14)),
-      ];
-    }
-
-    final isEn = c.isEn && !blank;
-    // 英文卡副行是音标，中文卡副行是释义缩略
-    final sub = word == null ? '' : (isEn ? word.phUs : _brief(word));
-
-    return Container(
-      key: widget.boxKey,
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(15),
-        border: dashed ? null : Border.all(color: border, width: borderWidth),
-        boxShadow: shadow,
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(15),
-        child: InkWell(
-          onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(15),
-          splashColor: _primary.withValues(alpha: .06),
-          highlightColor: _primary.withValues(alpha: .03),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (word != null)
-                    Text(
-                      isEn ? word.en : word.zh,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: .1,
-                        height: 1.15,
-                        color: textColor,
-                      ),
-                    ),
-                  if (sub.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      sub,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: isEn ? 11.5 : 10.5,
-                        height: 1.2,
-                        color: subColor,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-      if (dashed)
-            IgnorePointer(
-              child: CustomPaint(
-                painter: _DashBorder(color: border, radius: 15, width: borderWidth),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 中缝虚线
-class _SeamPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = const Color(0xFFCFC9EE)
-      ..strokeWidth = 1;
-    final x = size.width / 2 - .5;
-    for (var y = 6.0; y < size.height - 6; y += 11) {
-      canvas.drawLine(Offset(x, y), Offset(x, math.min(y + 5, size.height - 6)), p);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_SeamPainter old) => false;
-}
-
-// ---------------------------------------------------------------- 工具
-
-/// 虚线边框（作废卡 / 空格）：Flutter 没有原生 dashed border，沿圆角路径切段画
+/// 虚线边框（空格用）：Flutter 没有原生 dashed border，沿圆角路径切段画
 class _DashBorder extends CustomPainter {
-  _DashBorder({
-    required this.color,
-    required this.radius,
-    this.width = 1.5,
-  });
+  _DashBorder({required this.color, required this.radius, this.width = 1.5});
 
   final Color color;
   final double radius;
@@ -1334,24 +1571,21 @@ class _DashBorder extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-          width / 2, width / 2, size.width - width, size.height - width),
+      Rect.fromLTWH(width / 2, width / 2, size.width - width, size.height - width),
       Radius.circular(radius),
     );
     final path = Path()..addRRect(rrect);
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = width
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = width;
+
     for (final metric in path.computeMetrics()) {
       var d = 0.0;
       while (d < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(d, math.min(d + 5, metric.length)),
-          paint,
-        );
-        d += 11;
+        final end = math.min(d + 5, metric.length);
+        canvas.drawPath(metric.extractPath(d, end), paint);
+        d += 9;
       }
     }
   }
@@ -1359,44 +1593,4 @@ class _DashBorder extends CustomPainter {
   @override
   bool shouldRepaint(_DashBorder old) =>
       old.color != color || old.radius != radius || old.width != width;
-}
-
-/// 释义缩略：丢掉与主释义重复的义项，最多保留 2 条（照搬 game-a-desk.html 的 brief）
-String _brief(Word w) {
-  final d = w.detail.trim();
-  if (d.isEmpty) return '';
-
-  final segs = <(String?, String)>[];
-  String? pos;
-  final chunks = d
-      .replaceAllMapped(
-        RegExp(r'\s+([a-zA-Z]{1,8}\.)'),
-        (m) => '|${m.group(1)}',
-      )
-      .split('|');
-  for (final chunk in chunks) {
-    for (var piece in chunk.split(RegExp(r',\s*|，\s*'))) {
-      piece = piece.trim();
-      if (piece.isEmpty) continue;
-      final m = RegExp(r'^([a-zA-Z]{1,8}\.)\s*(.*)$').firstMatch(piece);
-      if (m != null) pos = m.group(1)!.toLowerCase();
-      segs.add((pos, m != null ? m.group(2)! : piece));
-    }
-  }
-
-  final zh = w.zh.trim();
-  final keep = segs.where((s) {
-    if (s.$2.isEmpty) return false;
-    final core = s.$2.replaceAll(RegExp(r'[的地得]$'), '');
-    return !(zh.isNotEmpty && (zh.contains(s.$2) || core == zh));
-  }).toList();
-  if (keep.isEmpty) return '';
-
-  final picks = keep.take(2).toList();
-  final samePos = picks.every((p) => p.$1 == picks.first.$1);
-  var out = samePos
-      ? '${picks.first.$1 ?? ''}${picks.map((p) => p.$2).join('，')}'
-      : picks.map((p) => '${p.$1 ?? ''}${p.$2}').join('，');
-  if (keep.length > 2) out += '…';
-  return out;
 }

@@ -126,19 +126,6 @@ class ConfettiField extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 两张卡之间爆炸。
-  ///
-  /// 中英两列是各自打乱的，配对的两张卡常常不在同一行，所以两张卡各炸一次，
-  /// 各自 10 片纸屑（合计 20 片：原先各 20 片太满，会糊住旁边的牌面，已减半）。
-  ///
-  /// 不再在两卡连线的中点单独爆一次：中点在屏幕中缝上，那里的纸片即使补了
-  /// 水平速度也容易贴着中线往下走，看起来就是「几片碎纸从屏幕正中掉下来」，
-  /// 正好压在学习区上。去掉中点后，中间由两侧飞溅自然填满。
-  void burstBetween(Offset a, Offset b) {
-    burstAt(a, n: 10);
-    burstAt(b, n: 10);
-  }
-
   /// 推进一帧物理
   void step() {
     if (_parts.isEmpty) return;

@@ -117,7 +117,13 @@ class _HomePageState extends State<HomePage> {
       final l = kLevels[i];
       final on = l.id == c.curLv;
       final dn = c.passedCount(l.id);
-      final pct = dn / Curriculum.unitsPerLevel;
+      // 分母用「当前权益能打的关数」，不是固定的 12 关：
+      // 免费用户只有前 2 关，按 12 算永远卡在 17%，看着像一直没开始。
+      final open = [
+        for (var k = 0; k < Curriculum.unitsPerLevel; k++)
+          if (Ent.I.canLevel(l.id) && Ent.I.canUnit(k)) k,
+      ].length;
+      final pct = open == 0 ? 0.0 : (dn / open).clamp(0.0, 1.0);
       final locked = !Ent.I.canLevel(l.id);
 
       items.add(Expanded(
@@ -622,17 +628,42 @@ class _HomePageState extends State<HomePage> {
 
   // ------------------------------------------------------------ 主题模式
 
+  /// 英雄卡显示「第一个还没学完的主题」。
+  /// 写死第 0 个的话，用户学到第 6 个主题时这张卡还停在第一个，点进去也是它。
+  /// 全部学完则回到第一个，让「继续学习」有个落点。
+  int _heroThemeIndex(Curriculum c) {
+    final n = c.curThemes.length;
+    if (n == 0) return -1;
+    for (var i = 0; i < n; i++) {
+      if (c.themeLearned(i) < c.themeWords(i).length) return i;
+    }
+    return 0;
+  }
+
   List<Widget> _themePanel(Curriculum c) {
-    final ws = c.themeWords(0);
-    final learned = c.themeLearned(0);
+    final hi = _heroThemeIndex(c);
+    // 主题列表为空不能直接取 [0]：后台 topics 表漏配某个级别时
+    // curThemes 会返回空列表，那一下就是 RangeError 把首页打空。
+    if (hi < 0) {
+      return [
+        const _EmptyCard(
+          emoji: '🦌',
+          title: '这个级别还没有主题',
+          sub: '换一个级别看看，或稍后联网同步一次内容',
+        ),
+        const SizedBox(height: 10),
+      ];
+    }
+    final ws = c.themeWords(hi);
+    final learned = c.themeLearned(hi);
     return [
       _heroCard(
         eyebrow: '继续学习 · ${c.curLv} 主题',
-        title: c.curThemes[0].name,
+        title: c.curThemes[hi].name,
         sub: '${ws.length} 词 · 已学 $learned 词 · 剩 ${ws.length - learned} 词',
         done: learned,
         total: ws.length,
-        onTap: () => _openTheme(0),
+        onTap: () => _openTheme(hi),
       ),
       const SizedBox(height: 10),
       Row(
@@ -946,4 +977,51 @@ class _DashPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// 空态卡片：主题列表拿不到数据时占位，避免首页出现空白或报错
+class _EmptyCard extends StatelessWidget {
+  const _EmptyCard({
+    required this.emoji,
+    required this.title,
+    required this.sub,
+  });
+
+  final String emoji;
+  final String title;
+  final String sub;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: kLine),
+      ),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 22)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: kInk)),
+                const SizedBox(height: 3),
+                Text(sub,
+                    style: const TextStyle(
+                        fontSize: 11.5, color: kMuted, height: 1.4)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
