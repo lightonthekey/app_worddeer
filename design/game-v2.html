@@ -64,15 +64,7 @@
   .progtext { font-size: 11.5px; font-weight: 600; color: #5A50E0; font-variant-numeric: tabular-nums; }
 
   /* ---------- 巩固台 ---------- */
-  .shelfwrap { flex: none; padding: 12px 18px 0; }
-  .shelflabel {
-    font-size: 11px; color: #A09BB4; letter-spacing: .3px;
-    margin-bottom: 5px; padding-left: 8px;
-    display: flex; justify-content: space-between; align-items: baseline;
-  }
-  /* 左边是台子名字（跟第一个框左对齐），右边是计数/提示 */
-  .shelflabel .name { font-weight: 600; color: #8079A2; }
-  .shelflabel #shelfHint { color: #AAA5BC; font-variant-numeric: tabular-nums; }
+  .shelfwrap { flex: none; padding: 14px 18px 0; }
   /* 台子自己不做原生滚动：`overflow: hidden` + JS 平移轨道。
      原生横滑在桌面/安卓会画一条滚动条（手机应用里已经很少见），
      而且惯性、回弹各平台不一致 —— 干脆自己接管。 */
@@ -104,6 +96,14 @@
   .slot .zh { font-size: 11px; color: #86809C; margin-top: 2px; line-height: 1.15;
               max-width: 100%; padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .slot.filled { border-style: solid; border-color: #E4DFF3; background: #fff; }
+  /* 空态就是三张背景卡，第一张的上面写「巩固台」当标题 ——
+     卡片被词填上时 className 会被重设，这个标记自然消失。 */
+  .slot.ph::before {
+    content: '巩固台';
+    position: absolute; top: 8px; left: 0; right: 0;
+    text-align: center; font-size: 11px; font-weight: 600;
+    letter-spacing: .8px; color: #A9A3BE;
+  }
   /* 刚落位的词对：放大字号 + 绿框高亮，停 2 秒 */
   .slot.fresh {
     background: #EAF9EF; border-color: #58CC02; box-shadow: 0 3px 12px rgba(88,204,2,.18);
@@ -282,13 +282,9 @@
   </div>
 
   <div class="shelfwrap">
-    <div class="shelflabel">
-      <span class="name">巩固台</span>
-      <span id="shelfHint">配对成功的词会停在这里</span>
-    </div>
     <div class="shelf" id="shelf">
       <div class="track" id="track">
-        <div class="slot" data-slot="0"></div>
+        <div class="slot ph" data-slot="0"></div>
         <div class="slot" data-slot="1"></div>
         <div class="slot" data-slot="2"></div>
       </div>
@@ -361,7 +357,6 @@
   let lock = false;
   let matched = 0, combo = 0, bestCombo = 0, firstTry = 0, attempts = 0;
   let wrongSet = new Set();
-  let shelfItems = [];         // [{en, zh}]
   let over = false, t0 = 0, timer = null;
   const total = WORDS.length;
 
@@ -497,7 +492,7 @@
     zh = zs;
 
     matched = 0; combo = 0; bestCombo = 0; firstTry = 0; attempts = 0;
-    wrongSet.clear(); shelfItems = []; sel = null; lock = false; over = false;
+    wrongSet.clear(); sel = null; lock = false; over = false;
     pieces = [];
     cctx.clearRect(0, 0, cvs._w || 390, cvs._h || 844);
 
@@ -742,8 +737,6 @@
   function landOnShelf(item, done) {
     if (over) { done(); return; }
 
-    shelfItems.push(item);
-
     // 先填开局那 3 个虚线坑，填满了就往轨道尾部加新格
     let el = trackEl.querySelector('.slot:not(.filled)');
     if (!el) {
@@ -755,7 +748,6 @@
     el.classList.add('pop');
     setTimeout(() => el.classList.remove('pop'), 440);
     setTimeout(() => { el.classList.remove('fresh'); item.fresh = false; }, T.fresh);
-    updateShelfHint();
     followShelf();
     done();
   }
@@ -928,14 +920,6 @@
       : '';
   }
 
-  function updateShelfHint() {
-    const n = shelfItems.filter(Boolean).length;
-    if (!n) { $('#shelfHint').textContent = '配对成功的词会停在这里'; return; }
-    // 一屏只露 3 格，超过就提示能滑
-    const more = n > SHELF_SLOTS ? ' · 左右滑动查看' : '';
-    $('#shelfHint').textContent = n + ' / ' + total + ' 对' + more;
-  }
-
   /// 全量重建（开局 / 重开）。平时落位走 landOnShelf，不调这个。
   function renderShelf() {
     shelfQueue = [];
@@ -947,7 +931,8 @@
     trackEl.innerHTML = '';
     for (let k = 0; k < SHELF_SLOTS; k++) {
       const el = document.createElement('div');
-      el.className = 'slot';
+      // 第一格上面印「巩固台」，填上词之后 paintSlot 会重设 className
+      el.className = k === 0 ? 'slot ph' : 'slot';
       el.dataset.slot = k;
       trackEl.appendChild(el);
     }
@@ -956,7 +941,6 @@
     shelfDrag = null;
     shelfPinned = true;
     layoutSlots();
-    updateShelfHint();
   }
 
   // ---------------------------------------------------------------- 提示
