@@ -81,4 +81,45 @@ void main() {
     expect(themesFor('A1').map((t) => t.name), ['问候']);
     expect(themesFor('B1').map((t) => t.name), ['旅行']);
   });
+
+  test('单条坏数据只丢这一条，不会让整份词库解析失败', () {
+    final bank = WordBank.I;
+    bank.applyRaw('''
+      [["good","好的","adj.好的","[gʊd]","[gʊd]",1,"A1","描述人物"],
+       42,
+       ["badlv","坏","x","[a]","[a]","A1","A1",""],
+       ["short"],
+       ["","空英文","x","[a]","[a]",1,"",""]]
+    ''');
+    // 42 不是数组、空英文都该被跳过；少列 / lv 写成字符串要能容错留下来
+    expect(bank.byEn.containsKey('good'), isTrue);
+    expect(bank.byEn.containsKey('badlv'), isTrue);
+    expect(bank.byEn['badlv']!.lv, 1, reason: 'lv 给的是 "A1"，要能换算成 1');
+    expect(bank.byEn.containsKey('short'), isTrue);
+    expect(bank.byEn.containsKey(''), isFalse, reason: '没有英文原形的行没有意义');
+    expect(bank.words, hasLength(3));
+  });
+
+  test('整份词库都解析不出来时，保留现有词库不动（启动白屏的根因）', () {
+    final bank = WordBank.I;
+    bank.applyRaw('[["keep","保留","x","[a]","[a]",1,"A1",""]]');
+    final before = bank.words.length;
+
+    bank.applyRaw('{"words": []}'); // 结构对但没有词
+    expect(bank.words, hasLength(before), reason: '空词库不能替换掉现有内容');
+
+    bank.applyRaw('not json at all');
+    expect(bank.words, hasLength(before));
+
+    bank.applyRaw('[1, 2, 3]');
+    expect(bank.words, hasLength(before));
+  });
+
+  test('级别越界也不崩：levelName 不能 RangeError', () {
+    final bank = WordBank.I;
+    bank.applyRaw('[["x","x","","","",99,"",""],["y","y","","","",0,"",""]]');
+    expect(bank.byEn['x']!.lv, 6);
+    expect(bank.byEn['x']!.levelName, 'C2');
+    expect(bank.byEn['y']!.levelName, 'A1');
+  });
 }

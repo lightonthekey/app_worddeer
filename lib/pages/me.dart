@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../audio.dart';
 import '../auth.dart';
 import '../backend.dart';
+import '../curriculum.dart';
 import '../entitlement.dart';
 import '../progress.dart';
 import '../pay.dart';
@@ -21,8 +22,13 @@ class MePage extends StatefulWidget {
 class _MePageState extends State<MePage> {
   @override
   Widget build(BuildContext context) {
-    final p = Progress.I;
-    return SafeArea(
+    // 学完词切回「我的」时，学过 / 已掌握 / 连续天要跟着变。
+    // IndexedStack 会保活页面状态，不监听 appTick 就永远停在进入那一刻的数字。
+    return ValueListenableBuilder<int>(
+      valueListenable: appTick,
+      builder: (_, _, _) {
+        final p = Progress.I;
+        return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         children: [
@@ -103,7 +109,7 @@ class _MePageState extends State<MePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _row('词库', '7201 词 · A1–C1 · 60 主题'),
+                _row('词库', bankSummary()),
                 _row('记忆算法', '间隔重复（10 分钟 → 30 天，7 档）'),
                 _row('发音',
                     kAudioBase.contains('127.0.0.1') ? '本地服务（开发）' : '在线音频'),
@@ -125,12 +131,15 @@ class _MePageState extends State<MePage> {
               child: const Text('删除账号',
                   style: TextStyle(fontSize: 13, color: kRed)),
             ),
-          const Center(
-            child: Text('词鹿英语 v0.1 · MVP',
-                style: TextStyle(fontSize: 11, color: Color(0xFFC4C0D6))),
+          Center(
+            child: Text('词鹿英语 v$kAppVersion',
+                style: const TextStyle(
+                    fontSize: 11, color: Color(0xFFC4C0D6))),
           ),
         ],
       ),
+    );
+      },
     );
   }
 
@@ -150,7 +159,7 @@ class _MePageState extends State<MePage> {
             radius: 21,
             backgroundColor: kPrimary50,
             child: Text(
-              u == null ? '👤' : u.nickname.characters.first.toUpperCase(),
+              u == null ? '👤' : u.initial,
               style: const TextStyle(fontSize: 16, color: kPrimary),
             ),
           ),
@@ -174,7 +183,7 @@ class _MePageState extends State<MePage> {
                       Row(
                         children: [
                           Flexible(
-                            child: Text(u.nickname,
+                            child: Text(u.displayName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -267,7 +276,7 @@ class _MePageState extends State<MePage> {
                         ? (ent.expireAt.isEmpty
                             ? '永久有效 · 全部内容已开放'
                             : '有效期至 ${ent.expireAt}')
-                        : '5 个级别 · 60 个主题 · 全部关卡',
+                        : '5 个级别 · ${themeCount()} 个主题 · 全部关卡',
                     style: TextStyle(
                         fontSize: 11,
                         color: gold ? kMuted : Colors.white70),

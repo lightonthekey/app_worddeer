@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../auth.dart';
 import '../backend.dart';
+import '../curriculum.dart';
 import '../entitlement.dart';
 import '../pay.dart';
 import '../ui.dart';
@@ -137,7 +138,7 @@ class _PaywallSheetState extends State<_PaywallSheet> {
                 widget.reason ??
                     (ent.vip
                         ? '感谢支持，所有内容已为你开放'
-                        : '5 个级别 · 60 个主题 · 全部关卡'),
+                        : '5 个级别 · ${themeCount()} 个主题 · 全部关卡'),
                 style: const TextStyle(fontSize: 12, color: kMuted),
               ),
             ],
@@ -151,13 +152,22 @@ class _PaywallSheetState extends State<_PaywallSheet> {
     );
   }
 
-  /// 权益对比：优先用套餐自带的 desc（后台可改），没有就用标准四条
+  /// 权益对比：优先用套餐自带的 desc（后台可改），没有就用标准四条。
+  ///
+  /// 这里不写死数字：主题数按当前词库算，新词上限只说「提升」——
+  /// 后端调整额度后，写死的「60 个主题 / 40 个新词」就成了假宣传。
+  /// 也不写「离线发音」：发音目前是在线音频，没有做离线缓存。
   Widget _benefits(Entitlement ent, PlanInfo? plan) {
     final items = plan?.desc.isNotEmpty == true
         ? plan!.desc
         : (ent.vip
-            ? const ['全部级别全部关卡', '全部主题解锁', '离线发音', '后续新增内容免费']
-            : const ['5 个级别全部关卡', '60 个主题全部解锁', '每天最多 40 个新词', '离线发音']);
+            ? const ['全部级别全部关卡', '全部主题解锁', '高清真人发音', '后续新增内容免费']
+            : [
+                '5 个级别全部关卡',
+                '${themeCount()} 个主题全部解锁',
+                '每天新词额度提升',
+                '高清真人发音',
+              ]);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

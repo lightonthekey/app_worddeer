@@ -196,4 +196,19 @@ class UserInfo {
       );
 
   Map<String, dynamic> toJson() => {'id': id, 'username': username, 'nickname': nickname, 'role': role};
+
+  /// 界面显示名：昵称是选填的，留空时退回用户名，避免出现空标题
+  String get displayName {
+    final n = nickname.trim();
+    return n.isNotEmpty ? n : username;
+  }
+
+  /// 头像用的首字：显示名也拿不到时退回人形图标。
+  /// 直接 `characters.first` 在空串上会抛 StateError（昵称可选，空串是常态）；
+  /// 用 runes 取首个码点，emoji 昵称也不会被切成半个代理对。
+  String get initial {
+    final n = displayName.trim();
+    if (n.isEmpty) return '👤';
+    return String.fromCharCode(n.runes.first).toUpperCase();
+  }
 }

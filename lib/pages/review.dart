@@ -133,6 +133,14 @@ class ReviewPage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             ...due.take(30).map((w) => _wordTile(w, p)),
+            // 只渲染前 30 条，剩下的要说清楚还在队列里，
+            // 否则「排队中 100 个」和列表里 30 条对不上，像丢数据
+            if (due.length > 30)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('还有 ${due.length - 30} 个在队列里，学完这批再继续',
+                    style: const TextStyle(fontSize: 11, color: kMuted)),
+              ),
           ],
         ],
       ),

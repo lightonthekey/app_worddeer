@@ -1,7 +1,10 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../audio.dart';
 import '../bank.dart';
+import '../curriculum.dart';
 import '../progress.dart';
 import '../ui.dart';
 
@@ -16,6 +19,10 @@ class _DictPageState extends State<DictPage> {
   final _ctl = TextEditingController();
   List<Word> _res = const [];
   String _kw = '';
+
+  /// 「随便看看」的洗牌种子：每次进页面换一批，同一页面重绘时保持不变
+  /// （用真随机的话，搜索框每次 setState 都会跳一批新词，很晃眼）。
+  final int _idleSeed = Random().nextInt(1 << 30);
 
   @override
   void dispose() {
@@ -89,13 +96,18 @@ class _DictPageState extends State<DictPage> {
 
   Widget _idle() {
     final p = Progress.I;
+    final all = WordBank.I.words;
+    // 优先给「学过的词」；还没有学习记录就随机抽 8 个 ——
+    // 固定取前 8 个的话，每次进词典看到的永远是同一批。
+    final learned = [for (final w in all) if (p.states.containsKey(w.en)) w];
+    final rnd = Random(_idleSeed);
     final picks = <Word>[];
-    for (final w in WordBank.I.words) {
-      if (p.states.containsKey(w.en)) picks.add(w);
-      if (picks.length >= 8) break;
-    }
-    if (picks.isEmpty) {
-      picks.addAll(WordBank.I.words.take(8));
+    if (learned.isNotEmpty) {
+      learned.shuffle(rnd);
+      picks.addAll(learned.take(8));
+    } else {
+      final pool = List<Word>.from(all)..shuffle(rnd);
+      picks.addAll(pool.take(8));
     }
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
@@ -105,7 +117,7 @@ class _DictPageState extends State<DictPage> {
         const SizedBox(height: 10),
         ...picks.map((w) => _tile(w)),
         const SizedBox(height: 18),
-        Text('词库共 ${WordBank.I.words.length} 词 · A1–C1 五级 · 60 个主题',
+        Text('词库共 ${bankSummary()}',
             style: const TextStyle(fontSize: 11, color: kMuted)),
       ],
     );

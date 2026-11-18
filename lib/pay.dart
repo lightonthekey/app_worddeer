@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'backend.dart';
@@ -32,6 +33,12 @@ class Pay {
   /// 沙箱约定：凭证格式 `mock:txid:original:product_id`，服务端仅
   /// pay.sandbox=true 时接受。
   Future<String> purchase(String orderNo, String productId) async {
+    if (!kDebugMode) {
+      // 正式包绝不能自己造凭证：只要服务端还开着 pay.sandbox，
+      // 任何人都能点「立即开通」白拿会员。
+      // 真 IAP 接进来之前，这里直接拒绝，宁可卖不出去也不能白送。
+      throw const ApiException('内购暂未开放，请稍后再试');
+    }
     final tx = 'mock:p${DateTime.now().millisecondsSinceEpoch}'
         ':o${DateTime.now().millisecondsSinceEpoch}:$productId';
     await _rememberReceipt(tx);

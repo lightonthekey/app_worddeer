@@ -6,6 +6,7 @@ import 'package:app_worddeer/bank.dart';
 import 'package:app_worddeer/curriculum.dart';
 import 'package:app_worddeer/entitlement.dart';
 import 'package:app_worddeer/main.dart';
+import 'package:app_worddeer/pages/home.dart';
 import 'package:app_worddeer/pages/match.dart';
 import 'package:app_worddeer/pages/session.dart';
 import 'package:app_worddeer/progress.dart';
@@ -48,9 +49,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 800));
 
-    // 配对棋盘的列头与计数
-    expect(find.text('ENGLISH'), findsOneWidget);
-    expect(find.text('中文'), findsOneWidget);
+    // 配对棋盘：顶部巩固台 + 4 行卡片
+    expect(find.byKey(const ValueKey('shelf')), findsOneWidget);
+    expect(find.text('刚配对'), findsOneWidget);
     expect(find.textContaining('对配对'), findsOneWidget);
   });
 
@@ -72,8 +73,8 @@ void main() {
     // 两列卡片配对：关卡同款棋盘，而不是四选一/拼写/听音混排
     expect(find.byType(MatchPage), findsOneWidget);
     expect(find.byType(SessionPage), findsNothing);
-    expect(find.text('ENGLISH'), findsOneWidget);
-    expect(find.text('中文'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shelf')), findsOneWidget);
+    expect(find.text('刚配对'), findsOneWidget);
     expect(find.textContaining('对配对'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
@@ -113,5 +114,63 @@ void main() {
     await tester.tap(find.text('解锁全部'));
     await tester.pumpAndSettle();
     expect(find.text('解锁全部课程'), findsOneWidget);
+  });
+
+  testWidgets('主题列表为空时不 RangeError，显示空态卡片', (WidgetTester tester) async {
+    // 后台 topics 表漏配一个级别时 themesFor 会返回空列表，
+    // 以前 _themePanel 直接取 [0]，首页当场崩掉。
+    final savedLv = Curriculum.I.curLv;
+    final savedTopics = Map<String, List<String>>.from(WordBank.I.levelTopics);
+    WordBank.I.levelTopics['ZZ'] = const [];
+    Curriculum.I.curLv = 'ZZ';
+    addTearDown(() {
+      WordBank.I.levelTopics
+        ..clear()
+        ..addAll(savedTopics);
+      Curriculum.I.curLv = savedLv;
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: HomePage())),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('主题'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('这个级别还没有主题'), findsOneWidget);
+  });
+
+  testWidgets('主题英雄卡跟着「第一个没学完的主题」走，不再写死第 0 个', (WidgetTester tester) async {
+    final savedLv = Curriculum.I.curLv;
+    final savedThemes = Map<String, int>.from(Curriculum.I.themes);
+    Curriculum.I.curLv = 'A1';
+    addTearDown(() {
+      Curriculum.I.themes
+        ..clear()
+        ..addAll(savedThemes);
+      Curriculum.I.curLv = savedLv;
+    });
+
+    final all = Curriculum.I.curThemes;
+    expect(all.length, greaterThan(1), reason: 'A1 至少要有两个主题才测得出差别');
+
+    // 第一个主题标记为「学完了」，第二个学了一半
+    Curriculum.I.themes['A1:t0'] = Curriculum.I.themeWords(0).length;
+    Curriculum.I.themes['A1:t1'] = 3;
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: HomePage())),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('主题'));
+    await tester.pumpAndSettle();
+
+    // 英雄卡显示第 2 个主题 → 屏上出现两次（英雄卡 + 下面网格卡）；
+    // 已学完的第 1 个只剩网格里那一次
+    expect(find.text(all[1].name), findsNWidgets(2),
+        reason: '英雄卡应切到第一个没学完的主题');
+    expect(find.text(all[0].name), findsOneWidget,
+        reason: '已学完的主题不该再占英雄卡');
   });
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -18,6 +19,9 @@ void main() {
   late List<Map<String, dynamic>> syncBodies;
   Map<String, dynamic>? syncReply;
   bool resetCalled = false;
+
+  /// 让某一次同步「停在路上」：测试可以借此在同步进行中继续学习
+  Future<void> Function()? holdSync;
 
   Map<String, dynamic> user() =>
       {'id': 7, 'username': 'deer', 'nickname': '小鹿', 'role': 1};
@@ -74,6 +78,7 @@ void main() {
           }));
         case '/api/v1/worddeer/progress/sync':
           syncBodies.add(jsonDecode(body) as Map<String, dynamic>);
+          if (holdSync != null) await holdSync!();
           return reply(200, ok(syncReply ?? {'server_time': 111, 'saved': 0, 'cards': []}));
         case '/api/v1/worddeer/progress/reset':
           resetCalled = true;
@@ -194,6 +199,46 @@ void main() {
       syncBodies.clear();
       await ProgressSync.I.syncNow();
       expect((syncBodies.first['cards'] as List).isEmpty, isTrue);
+    });
+  });
+
+  testWidgets('同步期间的进度不会被当成已推送清掉', (tester) async {
+    await tester.runAsync(() async {
+      await Auth.I.login('deer', 'pass123');
+      final now = DateTime.now().millisecondsSinceEpoch;
+      Progress.I.states['apple'] =
+          CardState(box: 1, due: now, seen: 1, right: 1, last: now);
+      await ProgressSync.I.syncNow(); // 首次同步，游标 111
+      syncBodies.clear();
+
+      // 第二轮：推到服务端后卡住不返回，模拟「多批同步跑得慢」
+      ProgressSync.I.markWord('apple');
+      final arrived = Completer<void>();
+      final release = Completer<void>();
+      holdSync = () async {
+        if (!arrived.isCompleted) arrived.complete();
+        await release.future;
+      };
+      final running = ProgressSync.I.syncNow();
+      await arrived.future;
+
+      // 请求已经在路上，用户这时又答了一个新词
+      Progress.I.states['durian'] =
+          CardState(box: 0, due: now, seen: 1, wrong: 1, last: now);
+      ProgressSync.I.markWord('durian');
+
+      release.complete();
+      expect(await running, isTrue);
+      holdSync = null;
+
+      // 下一轮必须把 durian 带上；apple 已经推成功，不需要重推
+      syncBodies.clear();
+      await ProgressSync.I.syncNow();
+      final cards = (syncBodies.first['cards'] as List).cast<Map>();
+      final pushed = cards.map((c) => c['w']).toList();
+      expect(pushed, contains('durian'),
+          reason: '同步进行中新答的词不能被一并清掉，否则永远上不了云');
+      expect(pushed, isNot(contains('apple')));
     });
   });
 

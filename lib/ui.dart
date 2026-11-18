@@ -21,6 +21,9 @@ const kHeroB = Color(0xFF4A41C4);
 /// 会话结束后通知首页/复习页刷新
 final ValueNotifier<int> appTick = ValueNotifier<int>(0);
 
+/// 展示用版本号，务必与 pubspec.yaml 的 version 一致
+const String kAppVersion = '1.0.0';
+
 String greet() {
   final h = DateTime.now().hour;
   if (h < 6) return '夜深了';

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'content_sync.dart';
@@ -30,20 +31,40 @@ class Word {
 
   String get levelName => const ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'][lv - 1];
 
+  /// 宽松解析：词库是后台下发的，格式不完全可控。
+  /// 列缺失、类型不对（比如 lv 变成 "A1" 或 "3"）都不该让整份词库解析失败 ——
+  /// 一条坏数据只丢掉这一条，其余照常用。`en` 为空的行由调用方跳过。
   factory Word.fromJson(List<dynamic> r) => Word(
-        en: r[0] as String,
-        zh: r[1] as String,
-        detail: r[2] as String? ?? '',
-        phUs: r[3] as String? ?? '',
-        phUk: r[4] as String? ?? '',
-        lv: r[5] as int,
-        cefr: _split(r[6]),
-        topic: _split(r[7]),
+        en: _str(r, 0).trim(),
+        zh: _str(r, 1),
+        detail: _str(r, 2),
+        phUs: _str(r, 3),
+        phUk: _str(r, 4),
+        lv: _lvOf(r.length > 5 ? r[5] : null),
+        cefr: _split(r.length > 6 ? r[6] : null),
+        topic: _split(r.length > 7 ? r[7] : null),
       );
 
+  static String _str(List<dynamic> r, int i) =>
+      i < r.length && r[i] != null ? r[i].toString() : '';
+
+  /// 级别列可能是 1..6、也可能是 'A1'..'C2'，统一收敛到 1..6
+  static int _lvOf(dynamic v) {
+    if (v is num) return v.toInt().clamp(1, 6);
+    final s = v?.toString().trim().toUpperCase() ?? '';
+    final n = int.tryParse(s);
+    if (n != null) return n.clamp(1, 6);
+    final i = const ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].indexOf(s);
+    return i >= 0 ? i + 1 : 1;
+  }
+
   static List<String> _split(dynamic v) {
-    final s = (v as String?) ?? '';
-    return s.isEmpty ? const [] : s.split(',');
+    final s = v?.toString() ?? '';
+    if (s.isEmpty) return const [];
+    return [
+      for (final x in s.split(','))
+        if (x.trim().isNotEmpty) x.trim(),
+    ];
   }
 }
 
@@ -66,23 +87,27 @@ class WordBank {
   /// 词库来源：后台下发的 wordbank.json 优先，读不到（还没同步过 / 文件损坏）
   /// 就退回内置 assets/words.json —— 保证 App 永远可用。
   /// 两种容器都认：内置是裸数组，后台包是 {"version":n,"words":[...]}。
+  ///
+  /// 注意「读到文件」和「解析出词条」是两件事：后台包可能 md5 校验通过
+  /// 但结构已经不对（少列、类型变），这时也必须回退到内置词库，
+  /// 否则启动后词库为空，首页直接白屏。
   Future<void> load() async {
-    String raw;
     try {
       final f = await ContentSync.I.localFile();
-      if (f != null) {
-        raw = await f.readAsString();
-      } else {
-        raw = await rootBundle.loadString('assets/words.json');
-      }
-    } catch (_) {
-      raw = await rootBundle.loadString('assets/words.json');
+      if (f != null) applyRaw(await f.readAsString());
+    } catch (e) {
+      debugPrint('[bank] 远程词库读取失败，改用内置：$e');
     }
-    applyRaw(raw);
+    if (words.isNotEmpty) return;
+    try {
+      applyRaw(await rootBundle.loadString('assets/words.json'));
+    } catch (e) {
+      debugPrint('[bank] 内置词库加载失败：$e');
+    }
   }
 
   /// 解析并整体替换当前词库（load 与后台热更新共用）。
-  /// 解析失败抛异常也没关系：调用方不替换现有词库，App 继续用旧数据。
+  /// 解析失败或一条有效词都没有时保持现有词库不动。
   void applyRaw(String raw) {
     final Object? decoded;
     try {
@@ -110,13 +135,32 @@ class WordBank {
     final nextWords = <Word>[];
     final nextByEn = <String, Word>{};
     final nextByLevel = <int, List<Word>>{};
+    var skipped = 0;
     for (final r in list) {
-      final w = Word.fromJson(r as List<dynamic>);
-      nextWords.add(w);
-      nextByEn.putIfAbsent(w.en, () => w);
-      nextByLevel.putIfAbsent(w.lv, () => []).add(w);
+      if (r is! List) {
+        skipped++;
+        continue;
+      }
+      try {
+        final w = Word.fromJson(r);
+        if (w.en.isEmpty) {
+          skipped++;
+          continue;
+        }
+        nextWords.add(w);
+        nextByEn.putIfAbsent(w.en, () => w);
+        nextByLevel.putIfAbsent(w.lv, () => []).add(w);
+      } catch (_) {
+        // 单条坏数据只丢这一条，不让整份词库解析失败
+        skipped++;
+      }
     }
-    // 全部构建成功后才替换，解析中途抛异常不会留下半份词库
+    if (skipped > 0) {
+      debugPrint('[bank] 跳过 $skipped 条无法解析的词条（共 ${list.length} 条）');
+    }
+    // 一条有效词都没有：当成坏包，保留现有词库（首次启动时由 load 回退内置）
+    if (nextWords.isEmpty) return;
+    // 全部构建成功后才替换，解析中途出错不会留下半份词库
     words
       ..clear()
       ..addAll(nextWords);

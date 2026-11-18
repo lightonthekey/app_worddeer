@@ -38,18 +38,23 @@ class SessionPlan {
     }
 
     if (!reviewOnly && items.length > 4) {
-      // 每 5 个里插 1 个新词，避免开头全是新词劝退
+      // 每 5 个里插 1 个新词，避免开头全是新词劝退。
+      // 注意别在这里「清空 fresh 再往下加」—— 以前 while 里无条件 clear()，
+      // 新词多于剩余轮次时（old=10 / fresh=5）后 4 个新词会被整批吞掉。
       final old = items.where((e) => !e.isNew).toList();
       final fresh = items.where((e) => e.isNew).toList();
       items.clear();
-      while (old.isNotEmpty || fresh.isNotEmpty) {
+      var fi = 0;
+      while (old.isNotEmpty && fi < fresh.length) {
         for (var i = 0; i < 4 && old.isNotEmpty; i++) {
           items.add(old.removeAt(0));
         }
-        if (fresh.isNotEmpty) items.add(fresh.removeAt(0));
-        if (old.isEmpty) items.addAll(fresh);
-        fresh.clear();
+        items.add(fresh[fi++]);
       }
+      // 旧词或新词哪一头先耗尽，剩下的原序接上
+      items
+        ..addAll(old)
+        ..addAll(fresh.sublist(fi));
     }
     return items;
   }

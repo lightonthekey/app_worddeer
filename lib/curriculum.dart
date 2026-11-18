@@ -73,6 +73,29 @@ const Map<String, String> kTopicEmoji = {
 
 ThemeInfo _theme(String name) => ThemeInfo(name, kTopicEmoji[name] ?? '📖');
 
+/// 全校主题总数（各年级主题不重复，直接相加）
+int themeCount() {
+  var n = 0;
+  for (final l in kLevels) {
+    n += themesFor(l.id).length;
+  }
+  return n;
+}
+
+/// 词库规模摘要，如「7201 词 · A1–C1 · 60 主题」。
+/// 全部按当前词库实时算：界面里写死数字，后台换一版词库就会变成假话。
+String bankSummary() {
+  final n = WordBank.I.words.length;
+  if (n == 0) return '词库加载中…';
+  final codes = WordBank.I.byLevel.keys.toList()..sort();
+  final ids = [for (final l in kLevels) l.id];
+  final range = codes.isEmpty
+      ? 'A1–C1'
+      : '${ids[(codes.first - 1).clamp(0, ids.length - 1)]}'
+          '–${ids[(codes.last - 1).clamp(0, ids.length - 1)]}';
+  return '$n 词 · $range · ${themeCount()} 主题';
+}
+
 /// 推导结果的缓存（按级别），热更新词库后随 [Curriculum.invalidateCache] 清空
 Map<String, List<ThemeInfo>>? _derivedThemeCache;
 
@@ -167,6 +190,12 @@ class Curriculum {
   /// 只在真正发生学习行为时更新，读档/存盘不碰，否则每次启动都会把自己变成"最新"。
   int updatedAt = 0;
 
+  /// 演示数据标记：debug 包写入的假进度**只存在于内存**，绝不落盘。
+  /// 之前会跟着 save() 写进 prefs，而 debug / release 同包名同签名共用一份
+  /// 本地存储 —— 用户装上正式版后，会看到「已通关 U1/U2、今日 30 词」
+  /// 这种根本不是自己学出来的进度。
+  bool _demo = false;
+
   /// 进度变化回调（由 ProgressSync 注册，用于标记待同步）
   void Function()? onChanged;
 
@@ -214,6 +243,8 @@ class Curriculum {
 
   Future<void> save() async {
     if (_sp == null) return;
+    // 演示数据不落盘：demo 只在本次会话里好看，不能污染用户的真实存档
+    if (_demo) return;
     await _sp!.setString(
       _kStore,
       jsonEncode({
@@ -246,15 +277,26 @@ class Curriculum {
     todayWords = 0;
   }
 
-  /// 演示数据：只在 debug 包、且从未玩过时写入，方便对照设计稿
+  /// 演示数据：只在 debug 包、且从未玩过时写入内存，方便对照设计稿
   void _seedIfEmpty() {
     if (!kDebugMode) return;
     if (passed.isNotEmpty || part.isNotEmpty || themes.isNotEmpty) return;
+    _demo = true;
     passed['A1:U1'] = true;
     passed['A1:U2'] = true;
     part['A1:U3'] = 32;
     themes['A1:t0'] = 18;
     todayWords = 30;
+  }
+
+  /// 用户真的开始学了：先丢掉演示数据，再让本次改动正常落盘
+  void _endDemo() {
+    if (!_demo) return;
+    _demo = false;
+    passed.clear();
+    part.clear();
+    themes.clear();
+    todayWords = 0;
   }
 
   // ---------------------------------------------------------------- 课程树
@@ -328,6 +370,7 @@ class Curriculum {
   }
 
   void markPassed(String lv, String unitId) {
+    _endDemo();
     passed[_key(lv, unitId)] = true;
     part.remove(_key(lv, unitId));
     _touch();
@@ -336,6 +379,7 @@ class Curriculum {
 
   /// 只前进不后退：重做同一关不会把已学比例做小
   void setPart(String lv, String unitId, int done) {
+    _endDemo();
     final k = _key(lv, unitId);
     if (passed[k] == true) return;
     final old = part[k] ?? 0;
@@ -348,6 +392,7 @@ class Curriculum {
 
   /// 结算后累加今日词数（跨天自动清零）
   void addToday(int n) {
+    _endDemo();
     _rollDay();
     todayWords += n;
     _touch();
@@ -397,6 +442,7 @@ class Curriculum {
   }
 
   void markTheme(String lv, int i, int learned) {
+    _endDemo();
     final key = '$lv:t$i';
     if (learned > (themes[key] ?? 0)) {
       themes[key] = learned;

@@ -1,6 +1,7 @@
 import 'package:app_worddeer/auth.dart';
 import 'package:app_worddeer/entitlement.dart';
 import 'package:app_worddeer/pages/me.dart';
+import 'package:app_worddeer/progress.dart';
 import 'package:app_worddeer/progress_sync.dart';
 import 'package:app_worddeer/ui.dart';
 import 'package:flutter/material.dart';
@@ -76,6 +77,33 @@ void main() {
     expect(find.text('月度会员'), findsOneWidget);
     expect(find.text('年度会员'), findsOneWidget);
     expect(find.text('立即开通 ¥98'), findsOneWidget, reason: '默认选中最划算的年度套餐');
+  });
+
+  testWidgets('已登录：昵称为空（选填）不崩，头像与显示名退回用户名', (tester) async {
+    // 注册页明写「昵称（可选）」，空串是常态。
+    // 之前头像取 `nickname.characters.first`，空串直接抛 StateError → 白屏。
+    Auth.I.user = const UserInfo(id: 7, username: 'deer', nickname: '');
+    await pump(tester);
+    expect(tester.takeException(), isNull);
+    expect(find.text('deer'), findsOneWidget, reason: '没有昵称就显示用户名');
+    expect(find.text('D'), findsOneWidget, reason: '头像取用户名的首字');
+  });
+
+  testWidgets('已登录：我的页监听 appTick，学完词切回来统计会跟着变', (tester) async {
+    Auth.I.user = const UserInfo(id: 7, username: 'deer', nickname: '小鹿');
+    Progress.I.states.clear();
+    await pump(tester);
+    expect(find.text('0'), findsWidgets); // 三个统计初始都是 0
+
+    // 模拟在别处学完一个词，然后通知全局刷新
+    final now = DateTime.now().millisecondsSinceEpoch;
+    Progress.I.states['apple'] =
+        CardState(box: 1, due: now, seen: 1, right: 1, last: now);
+    appTick.value++;
+    await tester.pumpAndSettle();
+
+    expect(find.text('1'), findsOneWidget, reason: '学过 1 —— 不监听 appTick 就停在 0');
+    Progress.I.states.clear();
   });
 
   testWidgets('我的页：会员显示有效期，不再显示购买按钮', (tester) async {

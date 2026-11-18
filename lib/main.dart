@@ -17,11 +17,7 @@ import 'ui.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await WordBank.I.load();
-  await Progress.I.load();
-  await Curriculum.I.load();
-  await ProgressSync.I.init();
-  await Ent.I.load();
+  await _boot();
   runApp(const EngApp());
   // 内容检查与会话恢复都放后台跑：不阻塞首屏，失败静默降级。
   // 下载到新版词库后热替换，正在进行的对局用的是旧数据，下一局生效。
@@ -40,6 +36,28 @@ void main() async {
       Ent.I.onAuthChanged();
     }
   }));
+}
+
+/// 逐项初始化，单项失败不影响其余模块、更不影响 runApp。
+///
+/// 之前这里是串行 `await`：词库文件被换成结构不对的包、或者某台机器上
+/// prefs 读写异常，都会在 `runApp` 之前抛出，用户看到的是**永久白屏**。
+/// 现在最坏情况是某个模块没数据（词库为空 → 首页显示空态），但 App 打得开。
+Future<void> _boot() async {
+  final steps = <String, Future<void> Function()>{
+    '词库': WordBank.I.load,
+    '学习进度': Progress.I.load,
+    '课程进度': Curriculum.I.load,
+    '进度同步': ProgressSync.I.init,
+    '会员权益': Ent.I.load,
+  };
+  for (final e in steps.entries) {
+    try {
+      await e.value();
+    } catch (err, st) {
+      debugPrint('[boot] ${e.key}初始化失败：$err\n$st');
+    }
+  }
 }
 
 class EngApp extends StatelessWidget {

@@ -53,6 +53,11 @@ class ProgressSync {
 
   final Set<String> _dirty = <String>{};
   bool _dirtyCur = false;
+
+  /// 课程进度的改动版本号：同步期间又有改动时，靠它判断这份数据推没推过。
+  /// 只用一个 bool 的话「同步中又学了一关」会和「同步前就是脏的」混在一起，
+  /// 收尾时被一起清掉，那部分进度就永远上不了云。
+  int _curVersion = 0;
   bool _loaded = false;
   bool _running = false;
   Timer? _debounce;
@@ -90,6 +95,7 @@ class ProgressSync {
   /// 课程进度（关卡/主题/今日）有改动
   void markCurriculum() {
     _dirtyCur = true;
+    _curVersion++;
     _persistDirty();
     schedule();
   }
@@ -112,6 +118,7 @@ class ProgressSync {
     if (_running) return false;
     _running = true;
     _set(statusSyncing);
+    var pushedAll = false;
     try {
       final prefs = await SharedPreferences.getInstance();
       final uid = Auth.I.user!.id;
@@ -126,6 +133,14 @@ class ProgressSync {
               .where((w) => (Progress.I.states[w]?.seen ?? 0) > 0)
               .toList()
           : _dirty.toList();
+
+      // 推送时的快照：多批同步最长可能跑 20 秒，这期间用户还在学。
+      // 只有「推上去的就是此刻的最新状态」才算推过，否则脏标记必须留着，
+      // 不能像以前那样在收尾时整体 clear() —— 那会把同步期间的进度直接抹掉。
+      final sentLast = <String, int>{
+        for (final w in words) w: Progress.I.states[w]?.last ?? 0,
+      };
+      final curVersionAtStart = _curVersion;
 
       final batches = <List<String>>[];
       for (var i = 0; i < words.length; i += _batch) {
@@ -163,8 +178,14 @@ class ProgressSync {
       await prefs.setInt(atKey, serverTime);
       lastAt = DateTime.now().millisecondsSinceEpoch;
       await prefs.setInt(_kLastAt, lastAt);
-      _dirty.clear();
-      _dirtyCur = false;
+      // 只清掉本轮真正推成功的标记，同步期间的新改动原样留下
+      for (final e in sentLast.entries) {
+        if ((Progress.I.states[e.key]?.last ?? 0) <= e.value) {
+          _dirty.remove(e.key);
+        }
+      }
+      if (pushCur && _curVersion == curVersionAtStart) _dirtyCur = false;
+      pushedAll = true;
       await _persistDirty();
       lastError = null;
       _set(statusOk);
@@ -182,6 +203,13 @@ class ProgressSync {
       return false;
     } finally {
       _running = false;
+      // 这一轮没推完（同步期间又有改动）：立刻再排一轮，别等用户下次操作。
+      // 只在成功时重排 —— 失败时重排会变成断网下每几秒打一次接口。
+      if (pushedAll && (_dirty.isNotEmpty || _dirtyCur)) {
+        _debounce?.cancel();
+        _debounce =
+            Timer(const Duration(seconds: 1), () => unawaited(syncNow()));
+      }
     }
   }
 
@@ -216,6 +244,7 @@ class ProgressSync {
     _debounce = null;
     _dirty.clear();
     _dirtyCur = false;
+    _curVersion = 0;
     _loaded = false;
     _running = false;
     lastAt = 0;
