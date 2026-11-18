@@ -39,6 +39,11 @@
   }
   .name { font-size: 13.5px; font-weight: 700; letter-spacing: -.1px; }
   .desc { font-size: 10.5px; color: #86868B; margin-top: 2px; line-height: 1.4; }
+  .picked {
+    margin-left: auto; align-self: flex-start;
+    font-size: 9.5px; font-weight: 700; color: #fff;
+    background: #3E63E8; padding: 3px 7px; border-radius: 6px; letter-spacing: .2px;
+  }
 
   /* ---------------- 手机预览 ---------------- */
   .screen {
@@ -137,13 +142,14 @@
 <div class="grid" id="grid"></div>
 
 <div class="foot">
-  选好后我会把<b>首页 / 主题 / 打卡 / 游戏</b>四个页面的主色、深色、浅底、描边、标题色一起换掉，并同步 Flutter 的 <b>theme.dart</b> 与各页硬编码的色值。
+  <b>已选 A 靛蓝</b>（2026-11-18）：首页 / 主题 / 打卡 / 游戏四个页面的 HTML 已全部换色；Flutter 待同步。<br>
+  保留没换的两处语义色：<b>配对成功绿 #58CC02</b>、<b>打卡页的连胜火焰红橙</b>。
 </div>
 
 <script>
 const THEMES = [
   {
-    key: 'A', name: '靛蓝', desc: '冷静专注，蓝系最稳',
+    key: 'A', name: '靛蓝', desc: '冷静专注，蓝系最稳', chosen: true,
     pri: '#3E63E8', deep: '#2A47B8', soft: '#EDF1FE', bg: '#F4F6FD',
     line: '#E2E7F5', dash: '#C6D1F2', ink: '#1E2430', muted: '#7C87A3',
     note: '背单词这类需要长时间盯屏的场景，蓝最不容易看烦；和成功绿的对比也最干净。'
@@ -275,6 +281,7 @@ document.getElementById('grid').innerHTML = THEMES.map(t => `
         <div class="name">${t.name}</div>
         <div class="desc">${t.desc}</div>
       </div>
+      ${t.chosen ? '<div class="picked">已选</div>' : ''}
     </div>
     ${screenHTML(t)}
     <div class="chips">

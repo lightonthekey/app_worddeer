@@ -18,14 +18,14 @@
   .phone {
     position: relative;
     width: 390px; height: 844px;
-    background: #FBFAFE;
+    background: #FBFCFE;
     border-radius: 30px;
     overflow: hidden;
     display: flex; flex-direction: column;
-    box-shadow: 0 18px 50px rgba(60, 52, 137, .18);
+    box-shadow: 0 18px 50px rgba(36, 58, 126, .18);
   }
   @media (max-width: 420px) {
-    html, body { display: block; background: #FBFAFE; }
+    html, body { display: block; background: #FBFCFE; }
     .phone { width: 100%; height: 100vh; height: 100dvh; border-radius: 0; box-shadow: none; }
   }
 
@@ -37,31 +37,31 @@
   }
   .xbtn {
     flex: none; width: 34px; height: 34px; border-radius: 50%;
-    border: 1px solid #E6E3F0; background: #fff; color: #6F6A85;
+    border: 1px solid #E3E9F2; background: #fff; color: #656F87;
     font-size: 15px; line-height: 1; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     padding: 0;
   }
-  .xbtn:active { background: #F2F0F8; }
+  .xbtn:active { background: #F0F3F9; }
   .title-wrap { flex: 1; min-width: 0; padding-top: 1px; }
-  .title { font-size: 16px; font-weight: 700; color: #2A1F4A; letter-spacing: .2px; }
-  .subtitle { font-size: 11.5px; color: #8F8AA6; margin-top: 2px; }
+  .title { font-size: 16px; font-weight: 700; color: #1B2438; letter-spacing: .2px; }
+  .subtitle { font-size: 11.5px; color: #8089A3; margin-top: 2px; }
   .timer {
-    flex: none; font-size: 11.5px; color: #6F6A85;
-    border: 1px solid #E6E3F0; background: #fff;
+    flex: none; font-size: 11.5px; color: #656F87;
+    border: 1px solid #E3E9F2; background: #fff;
     border-radius: 11px; padding: 5px 10px;
     font-variant-numeric: tabular-nums;
   }
 
   /* ---------- 进度 ---------- */
   .progwrap { flex: none; padding: 11px 18px 0; display: flex; align-items: center; gap: 9px; }
-  .progbar { flex: 1; height: 6px; border-radius: 4px; background: #E7E3F4; overflow: hidden; }
+  .progbar { flex: 1; height: 6px; border-radius: 4px; background: #E3E9F5; overflow: hidden; }
   .progbar > i {
     display: block; height: 100%; width: 0%; border-radius: 4px;
-    background: linear-gradient(90deg, #6F63E8, #8E7CF0);
+    background: linear-gradient(90deg, #3E63E8, #5273EE);
     transition: width .35s cubic-bezier(.25,.8,.3,1);
   }
-  .progtext { font-size: 11.5px; font-weight: 600; color: #5A50E0; font-variant-numeric: tabular-nums; }
+  .progtext { font-size: 11.5px; font-weight: 600; color: #3E63E8; font-variant-numeric: tabular-nums; }
 
   /* ---------- 巩固台 ---------- */
   .shelfwrap { flex: none; padding: 14px 18px 0; }
@@ -69,7 +69,7 @@
      原生横滑在桌面/安卓会画一条滚动条（手机应用里已经很少见），
      而且惯性、回弹各平台不一致 —— 干脆自己接管。 */
   .shelf {
-    height: 78px; padding: 6px; border-radius: 13px; background: #F3F1F9;
+    height: 78px; padding: 6px; border-radius: 13px; background: #F1F4FA;
     overflow: hidden; position: relative;
     touch-action: pan-y; user-select: none; -webkit-user-select: none;
   }
@@ -86,16 +86,16 @@
        这样开局三个空框刚好铺满，右边不留一条灰缝。 */
     flex: 0 0 var(--slotW, 106px);
     scroll-snap-align: start;
-    border: 1px dashed #DCD7EC; background: transparent;
+    border: 1px dashed #D7DDEA; background: transparent;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     overflow: hidden;
     transition: background .25s ease, border-color .25s ease, box-shadow .25s ease;
   }
-  .slot .en { font-size: 12.5px; font-weight: 700; color: #2A1F4A; line-height: 1.15;
+  .slot .en { font-size: 12.5px; font-weight: 700; color: #1B2438; line-height: 1.15;
               max-width: 100%; padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .slot .zh { font-size: 11px; color: #86809C; margin-top: 2px; line-height: 1.15;
+  .slot .zh { font-size: 11px; color: #79849C; margin-top: 2px; line-height: 1.15;
               max-width: 100%; padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .slot.filled { border-style: solid; border-color: #E4DFF3; background: #fff; }
+  .slot.filled { border-style: solid; border-color: #DCE4F4; background: #fff; }
   /* 空态就是三张背景卡，第一张的上面写「巩固台」当标题 ——
      卡片被词填上时 className 会被重设，这个标记自然消失。 */
   .slot.ph::before {
@@ -103,7 +103,7 @@
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
     font-size: 11.5px; font-weight: 400;
-    letter-spacing: 1.2px; color: #ACA6C1;
+    letter-spacing: 1.2px; color: #9EA8BE;
   }
   /* 刚落位的词对：放大字号 + 绿框高亮，停 2 秒 */
   .slot.fresh {
@@ -133,8 +133,8 @@
   .cell {
     position: relative;
     border-radius: 15px; background: #fff;
-    border: 1.5px solid #E8E5F2;
-    box-shadow: 0 2px 3px rgba(70,60,190,.06);
+    border: 1.5px solid #E5EAF3;
+    box-shadow: 0 2px 3px rgba(42,71,184,.06);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 3px; padding: 6px 9px;
     cursor: pointer; user-select: none;
@@ -143,31 +143,31 @@
     overflow: hidden;
   }
   .cell .main {
-    font-size: 19px; font-weight: 600; color: #2A1F4A; line-height: 1.15;
+    font-size: 19px; font-weight: 600; color: #1B2438; line-height: 1.15;
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .cell .sub {
-    font-size: 11.5px; color: #A09BB4; line-height: 1.15;
+    font-size: 11.5px; color: #93A0B8; line-height: 1.15;
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .cell:active { transform: scale(.985); }
   .cell.sel {
-    background: #EFEBFF; border-color: #6F63E8;
-    box-shadow: 0 5px 14px rgba(111,99,232,.22);
+    background: #EAF1FE; border-color: #3E63E8;
+    box-shadow: 0 5px 14px rgba(62,99,232,.22);
     transform: translateY(-2px);
   }
-  .cell.sel .main { color: #3E33B8; }
-  .cell.sel .sub { color: #6E63C8; }
+  .cell.sel .main { color: #24389E; }
+  .cell.sel .sub { color: #4459BC; }
   .cell.ok { background: #E8F8EE; border-color: #58CC02; box-shadow: 0 4px 14px rgba(88,204,2,.2); }
   .cell.ok .main { color: #237A00; }
   .cell.ok .sub { color: #3E8F76; }
   /* 最后 4 对：配对完成后不消失，原地置灰留在盘上（一眼看出整盘做完了） */
   .cell.done {
-    background: #F4F3F8; border-color: #E9E7F2; box-shadow: none;
+    background: #F3F6FB; border-color: #E6EBF3; box-shadow: none;
     pointer-events: none; cursor: default;
   }
-  .cell.done .main { color: #B7B3C6; }
-  .cell.done .sub { color: #C4C1D0; }
+  .cell.done .main { color: #AAB3C6; }
+  .cell.done .sub { color: #B9C1D2; }
   .cell.done::after {
     content: '✓'; position: absolute; top: 6px; right: 8px;
     font-size: 11px; font-weight: 800; color: #C3DDB4;
@@ -182,7 +182,7 @@
     78% { transform: translateX(3px); }
   }
   .cell.blank {
-    background: transparent; border: 1.5px dashed #DEDAF0; box-shadow: none; cursor: default;
+    background: transparent; border: 1.5px dashed #D8DFF0; box-shadow: none; cursor: default;
   }
   .cell.blank .main, .cell.blank .sub { opacity: 0; }
   .cell.enter { animation: enter .34s cubic-bezier(.34,1.4,.64,1); }
@@ -195,7 +195,7 @@
   .foot {
     flex: none; height: 46px; padding: 0 18px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 600; color: #8F8AA6;
+    font-size: 13px; font-weight: 600; color: #8089A3;
     transition: color .18s ease;
   }
   .foot.ok { color: #2E8B00; }
@@ -239,7 +239,7 @@
   /* ---------- 结算 ---------- */
   .over {
     position: absolute; inset: 0; z-index: 30; display: none;
-    background: rgba(28, 22, 56, .42);
+    background: rgba(17, 23, 40, .42);
     align-items: center; justify-content: center;
     backdrop-filter: blur(2px);
   }
@@ -251,18 +251,18 @@
   }
   @keyframes cardIn { from { transform: scale(.9) translateY(10px); opacity: 0; }
                       to { transform: scale(1) translateY(0); opacity: 1; } }
-  .card h2 { margin: 0 0 2px; font-size: 20px; font-weight: 800; color: #2A1F4A; }
-  .card .sm { font-size: 12px; color: #8F8AA6; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 2px; font-size: 20px; font-weight: 800; color: #1B2438; }
+  .card .sm { font-size: 12px; color: #8089A3; margin-bottom: 16px; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 16px; }
-  .st { background: #F4F3FA; border-radius: 11px; padding: 10px 4px; }
-  .st b { display: block; font-size: 19px; color: #2A1F4A; font-variant-numeric: tabular-nums; }
-  .st span { font-size: 10.5px; color: #8F8AA6; }
+  .st { background: #F4F6FD; border-radius: 11px; padding: 10px 4px; }
+  .st b { display: block; font-size: 19px; color: #1B2438; font-variant-numeric: tabular-nums; }
+  .st span { font-size: 10.5px; color: #8089A3; }
   .again {
     width: 100%; padding: 13px; border: 0; border-radius: 13px;
-    background: #5A50E0; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer;
+    background: #3E63E8; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer;
     font-family: inherit;
   }
-  .again:active { background: #4A41C4; }
+  .again:active { background: #2A47B8; }
 </style>
 </head>
 <body>
@@ -393,7 +393,7 @@
   const cvs = $('#fx');
   const cctx = cvs.getContext('2d');
   let cfRunning = false, pieces = [];
-  const CF_COLORS = ['#58CC02', '#FFD700', '#FF6B6B', '#5B8DEF', '#C586E0', '#FF9F43'];
+  const CF_COLORS = ['#58CC02', '#FFD700', '#FF6B6B', '#5B8DEF', '#8FB0F2', '#FF9F43'];
 
   function sizeCvs() {
     const r = phoneEl.getBoundingClientRect();
