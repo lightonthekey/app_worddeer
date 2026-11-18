@@ -71,18 +71,21 @@
   }
   .shelf {
     height: 78px; padding: 6px; border-radius: 13px; background: #F3F1F9;
-    overflow: hidden; position: relative;
+    overflow-x: auto; overflow-y: hidden; position: relative;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
   }
-  /* 轨道：三个槽位并排，超出部分被 .shelf 裁掉。
-     满 3 个时整体向左平移一格 —— 老词滑出左边，新词从右边滑进来，
-     比原来「三个格子同时换字」柔和得多。 */
+  .shelf::-webkit-scrollbar { display: none; }
+  /* 轨道：一关的词全留在这儿，横着排、可以左右滑。
+     槽宽 106 → 一屏正好露出 3 格 + 第 4 格的一条边，能看出「后面还有」。 */
   .track {
     display: flex; flex-wrap: nowrap; gap: 6px; height: 100%;
-    will-change: transform;
+    width: max-content;
   }
   .slot {
     position: relative; border-radius: 9px;
-    flex: 0 0 calc((100% - 12px) / 3);
+    flex: 0 0 106px;
+    scroll-snap-align: start;
     border: 1px dashed #DCD7EC; background: transparent;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     overflow: hidden;
@@ -149,12 +152,16 @@
   .cell.ok { background: #E8F8EE; border-color: #58CC02; box-shadow: 0 4px 14px rgba(88,204,2,.2); }
   .cell.ok .main { color: #237A00; }
   .cell.ok .sub { color: #3E8F76; }
-  .cell.hop { animation: hop .3s ease; }
-  @keyframes hop {
-    0% { transform: translateY(0) scale(1); }
-    38% { transform: translateY(-9px) scale(1.035); }
-    70% { transform: translateY(-2px) scale(1.012); }
-    100% { transform: translateY(-3.5px) scale(1.015); }
+  /* 最后 4 对：配对完成后不消失，原地置灰留在盘上（一眼看出整盘做完了） */
+  .cell.done {
+    background: #F4F3F8; border-color: #E9E7F2; box-shadow: none;
+    pointer-events: none; cursor: default;
+  }
+  .cell.done .main { color: #B7B3C6; }
+  .cell.done .sub { color: #C4C1D0; }
+  .cell.done::after {
+    content: '✓'; position: absolute; top: 6px; right: 8px;
+    font-size: 11px; font-weight: 800; color: #C3DDB4;
   }
   .cell.bad { background: #FFEBEB; border-color: #FF4B4B; }
   .cell.bad .main { color: #C0392B; }
@@ -268,7 +275,7 @@
 
   <div class="shelfwrap">
     <div class="shelflabel">
-      <span>刚配对</span>
+      <span>本关已学</span>
       <span id="shelfHint">配对成功的词会停在这里</span>
     </div>
     <div class="shelf" id="shelf">
@@ -321,14 +328,14 @@
     { en: 'beautiful', ph: '[ˈbjuːtɪfl]',   zh: '美丽的', pos: 'adj.' }
   ];
 
-  const ROWS = 4;               // 棋盘行数
-  const SHELF_MAX = 3;          // 巩固台槽位数
+  const ROWS = 4;               // 棋盘行数（= 一屏 4 对）
+  const SHELF_SLOTS = 3;        // 巩固台一屏先摆 3 个虚线坑，之后一直往右加
 
   // 时序（毫秒）—— 与需求文档一致
   const T = {
     judge:    140,   // 判定缓冲
-    flyStart: 480,   // 绿卡开始起飞
-    flyDur:   340,   // 飞行时长
+    flyStart: 40,    // 绿卡开始起飞（不留停顿：对完就直接收走）
+    flyDur:   300,   // 飞行时长
     fresh:    2000,  // 巩固台高亮停留
     wrong:    520    // 配错恢复
   };
@@ -609,8 +616,9 @@
     if (!wrongSet.has(w.en)) firstTry++;
     updateHud();
 
-    enEl.classList.add('ok', 'hop');
-    zhEl.classList.add('ok', 'hop');
+    // 不再抖一下：绿一帧就收走，反馈交给纸屑和巩固台那一格
+    enEl.classList.add('ok');
+    zhEl.classList.add('ok');
     setFoot('✓ ' + w.en + ' = ' + w.zh, 'ok');
 
     const big = isBig(combo);
@@ -626,19 +634,37 @@
     // 关键：判定完立刻解锁，绿卡停留期间用户就能点下一组
     lock = false;
 
+    // 词池空了 = 盘上这几对就是最后的 4 对：原地置灰，不再消失（也不补位）
+    if (!queue.length) {
+      markDone(enEl, zhEl);
+      en[ei] = null;
+      zh[zi] = null;
+      setTimeout(() => {
+        if (!over) enqueueShelf({ en: w.en, zh: w.zh, fresh: true });
+      }, 240);
+      checkEnd();
+      return;
+    }
+
     setTimeout(() => flyToShelf(ei, zi, enEl, zhEl, w), T.flyStart);
+  }
+
+  /// 收尾的那几对：留着，只是灰掉 + 右上角一个淡对勾
+  function markDone(enEl, zhEl) {
+    [enEl, zhEl].forEach(el => {
+      el.classList.remove('sel', 'ok', 'bad', 'enter');
+      el.classList.add('done');
+    });
   }
 
   // 绿卡飞向巩固台
   function flyToShelf(ei, zi, enEl, zhEl, w) {
     if (over) return;
 
-    // 目标槽位 = 这个词最终停留的位置。
-    // 台子没满：落在第一个空格；满了：落在最右那格（左移之后它就停在这儿）。
-    const full = shelfItems.length >= SHELF_MAX;
-    const targetIdx = full ? SHELF_MAX - 1 : shelfItems.length;
-    const slotEl = trackEl.children[targetIdx];
-    const dst = slotEl ? localCenter(slotEl) : localCenter(shelfEl);
+    // 落点：台子右侧那格。新槽位是落位时才建的（轨道可以无限往右长），
+    // 所以这里只取台子右端的大致位置 —— 反正飞行途中就淡到 0 了。
+    const sc = localCenter(shelfEl);
+    const dst = { x: sc.x + sc.w / 2 - 58, y: sc.y };
 
     // 两张卡各自做成飞行克隆，一起飞向目标槽位（视觉上就是「合拢」）
     [enEl, zhEl].forEach((srcEl) => {
@@ -680,20 +706,21 @@
 
   // ---------------------------------------------------------------- 巩固台落位
   //
-  // 老实现：满 3 个就整块重绘 —— 三格文字同时换成另外三个词，画面「闪」一下，
-  // 眼睛还得重新读一遍。改成轨道左移：老词从左边滑出去，新词从右边滑进来，
-  // 其余两个只是平移、文字不变，读起来是「一条流水在往前推」。
-  const SHIFT_MS = 300;
+  // 一关只有 20 个词，台子干脆不丢东西：配对成功的词全按顺序排在一条轨道上，
+  // 满了就横着长，用户自己左右滑回去看这关学过的词。
+  // 只有「新词刚进来」时才把轨道推到最右；用户往回翻的时候不去抢他的位置。
   let shelfQueue = [];
   let shelfBusy = false;
+  let shelfPinned = true;        // 轨道停在最右（跟随新词）？
+  let shelfAutoScroll = false;   // 正在被程序滚向最右（此时的 scroll 不算用户操作）
+  let shelfScrollTimer = null;
 
   function enqueueShelf(item) {
     shelfQueue.push(item);
     pumpShelf();
   }
 
-  /// 一次只处理一个落位：左移动画没走完时不插入下一张，
-  /// 否则第二张会在第一张还在平移时算错位置。
+  /// 一次只处理一个落位：两张卡几乎同时到达时，避免两格同时 pop 抢视线
   function pumpShelf() {
     if (shelfBusy) return;
     const item = shelfQueue.shift();
@@ -705,55 +732,45 @@
   function landOnShelf(item, done) {
     if (over) { done(); return; }
 
-    // ---- 还有空格：直接落进去
-    if (shelfItems.length < SHELF_MAX) {
-      const idx = shelfItems.length;
-      shelfItems.push(item);
-      const el = trackEl.children[idx];
-      paintSlot(el, item);
-      el.classList.add('pop');
-      setTimeout(() => el.classList.remove('pop'), 440);
-      updateShelfHint();
-      setTimeout(() => { el.classList.remove('fresh'); item.fresh = false; }, T.fresh);
-      done();
-      return;
-    }
-
-    // ---- 满了：整条左移一格
-    shelfItems.shift();
     shelfItems.push(item);
 
-    const gap = 6;
-    const step = trackEl.children[0].getBoundingClientRect().width + gap;
-
-    // 新词先作为第 4 格挂到轨道尾部（此时它在右边界外，被 .shelf 裁掉）
-    const el = document.createElement('div');
-    el.className = 'slot';
+    // 先填开局那 3 个虚线坑，填满了就往轨道尾部加新格
+    let el = trackEl.querySelector('.slot:not(.filled)');
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'slot';
+      trackEl.appendChild(el);
+    }
     paintSlot(el, item);
-    trackEl.appendChild(el);
+    el.classList.add('pop');
+    setTimeout(() => el.classList.remove('pop'), 440);
+    setTimeout(() => { el.classList.remove('fresh'); item.fresh = false; }, T.fresh);
     updateShelfHint();
-
-    // 用「强制回流」起动画，不用 requestAnimationFrame。
-    // rAF 在后台标签页或虚拟时间下可能被推迟到 300ms 收尾之后执行 ——
-    // 那时轨道已经删卡归位，又被设回终点，就永久卡在左边了。
-    trackEl.style.transition = 'none';
-    trackEl.style.transform = 'translateX(0)';
-    void trackEl.offsetWidth;                 // 提交这一帧，让起点被浏览器记住
-    trackEl.style.transition = 'transform ' + SHIFT_MS + 'ms cubic-bezier(.25,.8,.3,1)';
-    trackEl.style.transform = 'translateX(' + (-step) + 'px)';
-
-    setTimeout(() => {
-      // 动画收尾：把已经滑出左边的那张真正删掉，轨道瞬间归位（不播过渡）
-      trackEl.style.transition = 'none';
-      trackEl.style.transform = 'translateX(0)';
-      const first = trackEl.firstElementChild;
-      if (first && first !== el) first.remove();
-      void trackEl.offsetWidth;          // 强制吃掉这一帧，否则下次左移会从旧位置跳一下
-      trackEl.style.transition = '';
-      setTimeout(() => { el.classList.remove('fresh'); item.fresh = false; }, T.fresh - SHIFT_MS);
-      done();
-    }, SHIFT_MS);
+    followShelf();
+    done();
   }
+
+  /// 只有停在轨道最右（也就是在「跟拍」）时才滚过去。
+  ///
+  /// 滚过去的途中会连续触发 scroll，如果不打标记，中途那几帧会被判成
+  /// 「用户自己往回翻了」，`shelfPinned` 直接变 false，轨道就停在半路不跟了。
+  function followShelf() {
+    if (!shelfPinned) return;
+    shelfAutoScroll = true;
+    shelfEl.scrollTo({ left: shelfEl.scrollWidth, behavior: 'smooth' });
+    clearTimeout(shelfScrollTimer);
+    // 兜底：某些环境里 smooth 被降级成瞬移，scroll 事件可能一次都不来
+    shelfScrollTimer = setTimeout(() => { shelfAutoScroll = false; }, 500);
+  }
+
+  shelfEl.addEventListener('scroll', () => {
+    const atEnd = shelfEl.scrollLeft + shelfEl.clientWidth >= shelfEl.scrollWidth - 24;
+    if (shelfAutoScroll) {
+      if (atEnd) shelfAutoScroll = false;
+      return;
+    }
+    shelfPinned = atEnd || shelfEl.scrollWidth <= shelfEl.clientWidth + 4;
+  });
 
   // 补位规则：英文列固定当锚点，中文列整列重排
   //
@@ -763,11 +780,11 @@
   function refill(ei, zi) {
     const w = queue.shift();
 
-    // ---- 队列空了 = 收尾：这一对直接清掉，剩下的卡片收拢到底部对齐
+    // 走到这儿时词池一定还有词（空了就走「置灰收尾」那条路，不会来补位）。
+    // 万一没有，就当这一格收掉，别把棋盘弄成半张。
     if (!w) {
       en[ei] = null;
       zh[zi] = null;
-      compact();
       checkEnd();
       return;
     }
@@ -776,7 +793,7 @@
     en[ei] = w;
     const e = cellEl('en', ei);
     paint(e, w, true);
-    e.classList.remove('gone', 'ok', 'hop', 'bad', 'sel');
+    e.classList.remove('gone', 'ok', 'bad', 'sel');
     e.style.opacity = '1';
     e.classList.add('enter');
     setTimeout(() => e.classList.remove('enter'), 360);
@@ -786,42 +803,6 @@
     reshuffleZh();
 
     checkEnd();
-  }
-
-  /// 收尾收拢：把剩余卡片往前挤，空位统一留在底部。
-  ///
-  /// 不做这一步的话，左右两列会各剩几个虚线空格、位置还错开
-  /// （左列空第 1 行、右列空第 2 行），看上去像界面出错了。
-  function compact() {
-    if (sel) {
-      const p = cellEl(sel.side, sel.i);
-      if (p) p.classList.remove('sel');
-      sel = null;
-    }
-
-    const eItems = en.filter(Boolean);
-    const zItems = zh.filter(Boolean);
-    // 中文重排到「没有一行左右同词」
-    for (let t = 0; t < 30 && zItems.length > 1; t++) {
-      shuffle(zItems);
-      let bad = false;
-      for (let k = 0; k < eItems.length; k++) {
-        if (eItems[k] && zItems[k] && eItems[k].en === zItems[k].en) { bad = true; break; }
-      }
-      if (!bad) break;
-    }
-    en = eItems.concat(Array(ROWS - eItems.length).fill(null));
-    zh = zItems.concat(Array(ROWS - zItems.length).fill(null));
-
-    for (let i = 0; i < ROWS; i++) {
-      for (const side of ['en', 'zh']) {
-        const el = cellEl(side, i);
-        const w = side === 'en' ? en[i] : zh[i];
-        paint(el, w, side === 'en');
-        el.classList.remove('gone', 'ok', 'hop', 'bad', 'sel', 'enter');
-        el.style.opacity = '1';
-      }
-    }
   }
 
   /// 中文列整列重排：位置全打乱，且保证没有任何一行左右是同一个词。
@@ -853,7 +834,7 @@
     for (const i of idxs) {
       const el = cellEl('zh', i);
       paint(el, zh[i], false);
-      el.classList.remove('gone', 'ok', 'hop', 'bad', 'sel');
+      el.classList.remove('gone', 'ok', 'bad', 'sel', 'done');
       el.style.opacity = '1';
       el.classList.add('enter');
       setTimeout(() => el.classList.remove('enter'), 360);
@@ -892,9 +873,10 @@
 
   function updateShelfHint() {
     const n = shelfItems.filter(Boolean).length;
-    $('#shelfHint').textContent = n
-      ? '最近 ' + n + ' 个'
-      : '配对成功的词会停在这里';
+    if (!n) { $('#shelfHint').textContent = '配对成功的词会停在这里'; return; }
+    // 一屏只露 3 格，超过就提示能滑
+    const more = n > SHELF_SLOTS ? ' · 左右滑动查看' : '';
+    $('#shelfHint').textContent = n + ' / ' + total + ' 对' + more;
   }
 
   /// 全量重建（开局 / 重开）。平时落位走 landOnShelf，不调这个。
@@ -904,15 +886,14 @@
     trackEl.style.transition = 'none';
     trackEl.style.transform = 'translateX(0)';
     trackEl.innerHTML = '';
-    for (let k = 0; k < SHELF_MAX; k++) {
+    for (let k = 0; k < SHELF_SLOTS; k++) {
       const el = document.createElement('div');
       el.className = 'slot';
       el.dataset.slot = k;
       trackEl.appendChild(el);
     }
-    shelfItems.forEach((it, k) => { if (it) paintSlot(trackEl.children[k], it); });
-    void trackEl.offsetWidth;
-    trackEl.style.transition = '';
+    shelfEl.scrollLeft = 0;
+    shelfPinned = true;
     updateShelfHint();
   }
 
@@ -943,17 +924,18 @@
 
   // ---------------------------------------------------------------- 结算
   function checkEnd() {
-    const empty = en.every(x => !x) && zh.every(x => !x);
-    if (!empty || queue.length) return;
-    setTimeout(() => { if (!over) finish(); }, 500);
+    // 收尾那几对是置灰留在盘上的，不再是「盘空了才算完」——按配对数量收
+    if (matched < total) return;
+    setTimeout(() => { if (!over) finish(); }, 600);
   }
 
   function finish() {
     over = true;
     clearInterval(timer);
-    // 棋盘这时候已经全空，只剩一屏虚线格子，露在弹窗后面很脏 —— 整块淡下去
+    // 棋盘这时候是一整盘置灰的词，露在弹窗后面正好当「这关都学完了」的背景
+    // 现在收尾是整盘置灰，不再是一屏虚线空格：淡一点就够，别糊掉
     boardEl.style.transition = 'opacity .45s ease';
-    boardEl.style.opacity = '.18';
+    boardEl.style.opacity = '.55';
     const acc = attempts ? Math.round(firstTry / attempts * 100) : 100;
     $('#ovMatched').textContent = matched;
     $('#ovAcc').textContent = acc + '%';
