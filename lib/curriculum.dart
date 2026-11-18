@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'bank.dart';
 import 'entitlement.dart';
+import 'progress.dart';
 
 /// 一个 CEFR 级别（A1..C1）
 class LvInfo {
@@ -142,9 +143,9 @@ List<ThemeInfo> _deriveThemes(String lv) {
   return [for (final n in names) _theme(n)];
 }
 
-/// 关卡：每 6 关插入 1 关复习
+/// 关卡：每 5 个学习关插入 1 关复习
 class Unit {
-  final String id; // U1..U12
+  final String id; // U1..U27
   final bool review;
   final List<Word> words;
 
@@ -152,6 +153,9 @@ class Unit {
 
   int get total => words.length;
   String get title => review ? '$id 复习关' : '$id 学习关';
+
+  /// 关卡序号（U12 → 12），复习关的序号也占位
+  int get no => int.tryParse(id.substring(1)) ?? 0;
 }
 
 /// 课程进度：级别 / 关卡 / 主题 / 今日目标。
@@ -160,11 +164,14 @@ class Curriculum {
   Curriculum._();
   static final Curriculum I = Curriculum._();
 
-  /// 每关词数
-  static const int perUnit = 50;
+  /// 每关词数。
+  ///
+  /// 50 词一关时，一次要坐三四十分钟，复习关更是 250 词；改成 20 词后
+  /// 一关约 6~8 分钟，正好是一次碎片时间。
+  static const int perUnit = 20;
 
-  /// 每级别关卡数（第 6、12 关为复习关）
-  static const int unitsPerLevel = 12;
+  /// 每几个学习关收一次复习
+  static const int learnPerReview = 5;
 
   // 免费开放几关、几个主题由后台权益决定（Ent），这里不再写死
 
@@ -284,8 +291,8 @@ class Curriculum {
     _demo = true;
     passed['A1:U1'] = true;
     passed['A1:U2'] = true;
-    part['A1:U3'] = 32;
-    themes['A1:t0'] = 18;
+    part['A1:U3'] = 8;
+    themes['A1:t0'] = 12;
     todayWords = 30;
   }
 
@@ -301,32 +308,48 @@ class Curriculum {
 
   // ---------------------------------------------------------------- 课程树
 
+  /// 某级别的关卡表：每 20 词一关，每 5 个学习关后插一关复习
+  /// （复习关把这 5 关的 100 词再过一遍）。
+  ///
+  /// 关数不再是固定 12：A1 452 词 = 23 个学习关 + 4 个复习关 = 27 关。
+  /// 词库热更新后词数变了，这里跟着变，不用改代码。
   List<Unit> unitsOf(String lv) {
     if (_cache.containsKey(lv)) return _cache[lv]!;
     final info = kLevels.firstWhere((l) => l.id == lv, orElse: () => kLevels[0]);
     final pool = WordBank.I.byLevel[info.code] ?? WordBank.I.words;
+    if (pool.isEmpty) return const [];
+
     final out = <Unit>[];
     final learns = <List<Word>>[];
     var cursor = 0;
+    var no = 0;
 
-    for (var i = 1; i <= unitsPerLevel; i++) {
-      if (i % 6 == 0) {
-        // 复习关：把前 5 关的词再过一遍
-        final words = <Word>[for (final u in learns) ...u];
-        out.add(Unit('U$i', true, words));
-      } else {
-        final words = <Word>[];
-        for (var k = 0; k < perUnit; k++) {
-          if (pool.isEmpty) break;
-          words.add(pool[cursor % pool.length]);
-          cursor++;
-        }
-        learns.add(words);
-        out.add(Unit('U$i', false, words));
+    while (cursor < pool.length) {
+      final words = <Word>[
+        for (var k = 0; k < perUnit && cursor < pool.length; k++) pool[cursor++],
+      ];
+      learns.add(words);
+      out.add(Unit('U${++no}', false, words));
+
+      // 满 5 关收一段复习；整个级别学完就不再补复习关
+      if (learns.length % learnPerReview == 0 && cursor < pool.length) {
+        final tail = learns.sublist(learns.length - learnPerReview);
+        out.add(Unit('U${++no}', true, [
+          for (final u in tail) ...u,
+        ]));
       }
     }
-    if (pool.isNotEmpty) _cache[lv] = out;
+    _cache[lv] = out;
     return out;
+  }
+
+  /// 该级别的关卡总数（界面上所有「x / y 关」的分母都用它）
+  int unitCountOf(String lv) => unitsOf(lv).length;
+
+  /// 该级别的词数（下拉面板「已学 x / y 词」的分母）
+  int wordCountOf(String lv) {
+    final info = kLevels.firstWhere((l) => l.id == lv, orElse: () => kLevels[0]);
+    return (WordBank.I.byLevel[info.code] ?? const <Word>[]).length;
   }
 
   Unit unitAt(String lv, int index) {
@@ -390,11 +413,13 @@ class Curriculum {
     }
   }
 
-  /// 结算后累加今日词数（跨天自动清零）
+  /// 结算后累加今日词数（跨天自动清零）。
+  /// 学完词就算今天打过卡 —— 打卡记录按天存，不靠计数器。
   void addToday(int n) {
     _endDemo();
     _rollDay();
     todayWords += n;
+    if (n > 0) Progress.I.markCheckin();
     _touch();
     save();
   }

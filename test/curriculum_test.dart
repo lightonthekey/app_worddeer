@@ -1,4 +1,6 @@
+import 'package:app_worddeer/bank.dart';
 import 'package:app_worddeer/curriculum.dart';
+import 'package:app_worddeer/progress.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -40,5 +42,64 @@ void main() {
         .getString('curriculum_v1');
     expect(raw, isNotNull, reason: '真实进度必须落盘');
     expect(raw, contains('A1:U3'));
+  });
+
+  group('关卡表', () {
+    setUpAll(() async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      await WordBank.I.load();
+    });
+
+    test('每 20 词一关，每 5 个学习关插一关复习', () {
+      final units = Curriculum.I.unitsOf('A1');
+      final words = Curriculum.I.wordCountOf('A1');
+      expect(words, greaterThan(100), reason: 'A1 词库应已加载');
+
+      final learns = units.where((u) => !u.review).toList();
+      final reviews = units.where((u) => u.review).toList();
+
+      expect(learns.length, (words / Curriculum.perUnit).ceil());
+      expect(learns.first.total, Curriculum.perUnit);
+      // 只有最后一关可以不满 20 词
+      for (final u in learns) {
+        expect(u.total, lessThanOrEqualTo(Curriculum.perUnit));
+        expect(u.total, greaterThan(0));
+      }
+      expect(reviews.length, (learns.length - 1) ~/ 5);
+      // 复习关 = 前 5 个学习关的 100 词
+      for (final r in reviews) {
+        expect(r.total, Curriculum.perUnit * 5);
+      }
+      // 最后一关必须是学习关：学完了不该再弹一个空复习关
+      expect(units.last.review, isFalse);
+    });
+
+    test('关卡编号连续，复习关排在第 5、10… 个学习关之后', () {
+      final units = Curriculum.I.unitsOf('A1');
+      for (var i = 0; i < units.length; i++) {
+        expect(units[i].id, 'U${i + 1}');
+      }
+      expect(units[5].review, isTrue, reason: 'U6 应是第 1 段复习');
+      expect(units[11].review, isTrue, reason: 'U12 应是第 2 段复习');
+      expect(units[4].review, isFalse);
+    });
+
+    test('关数按词库动态算，不是写死的 12', () {
+      final n = Curriculum.I.unitCountOf('A1');
+      expect(n, greaterThan(12));
+      expect(n, Curriculum.I.unitsOf('A1').length);
+    });
+  });
+
+  test('学完词就算打卡：addToday 记进 Progress.days', () {
+    Progress.I.days.clear();
+    Progress.I.streak = 0;
+    Progress.I.lastActiveDay = '';
+
+    Curriculum.I.addToday(20);
+
+    expect(Progress.I.checkedToday, isTrue);
+    expect(Progress.I.streak, 1);
+    expect(Progress.I.days, contains(Progress.I.today));
   });
 }

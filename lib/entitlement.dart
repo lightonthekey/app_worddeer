@@ -232,8 +232,16 @@ class Ent {
   /// 该级别是否可学（免费用户通常只有 A1/A2）
   bool canLevel(String lv) => ent.limits.levels.contains(lv);
 
-  /// 第 index 关（0 基）是否在会员额度内；进度锁由 Curriculum 另行判断
-  bool canUnit(int index) => index >= 0 && index < ent.limits.unitsPerLevel;
+  /// 第 index 关（0 基）是否在会员额度内；进度锁由 Curriculum 另行判断。
+  ///
+  /// 会员直接放行：`units_per_level` 这个字段是后台按「每级 12 关」的时代填的，
+  /// 现在一关 20 词、每级 50+ 关，照 12 卡会把会员挡在 U13。
+  /// 后台把这一栏改成足够大的值之后，这段判断也不再产生影响。
+  bool canUnit(int index) {
+    if (index < 0) return false;
+    if (vip) return true;
+    return index < ent.limits.unitsPerLevel;
+  }
 
   /// 第 index 个主题是否解锁
   bool canTheme(int index) => index >= 0 && index < ent.limits.themesPerLevel;

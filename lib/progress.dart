@@ -96,6 +96,11 @@ class Progress {
   int reviewPerDay = 40;
   int streak = 0;
   String lastActiveDay = '';
+
+  /// 打卡过的日期（'2026-11-18'）。打卡页的日历与「最长连胜」都从这里算，
+  /// 不用计数器：计数器跨时区/改系统时间会漂移，而且画不出历史。
+  final Set<String> days = {};
+
   String dayKey = '';
   int todayNew = 0;
   int todayReview = 0;
@@ -135,9 +140,26 @@ class Progress {
       todayRight = p['todayRight'] as int? ?? 0;
       todayWrong = p['todayWrong'] as int? ?? 0;
       updatedAt = (p['ts'] as num?)?.toInt() ?? 0;
+      for (final d in (p['days'] as List?) ?? const []) {
+        if (d is String && d.isNotEmpty) days.add(d);
+      }
+      _seedDaysFromStreak();
     }
     _rollDay();
     await save();
+  }
+
+  /// 老版本只存了连续天数、没存具体日期。升级后日历会是空的，
+  /// 但那几天确实是连着学下来的 —— 按 streak 往回补，让日历和数字对得上。
+  void _seedDaysFromStreak() {
+    if (days.isNotEmpty || streak <= 0 || lastActiveDay.isEmpty) return;
+    final parsed = DateTime.tryParse(lastActiveDay);
+    if (parsed == null) return;
+    var d = parsed;
+    for (var i = 0; i < streak && i < 400; i++) {
+      days.add(_keyOf(d));
+      d = d.subtract(const Duration(days: 1));
+    }
   }
 
   static String _keyOf(DateTime d) =>
@@ -172,6 +194,7 @@ class Progress {
         'todayReview': todayReview,
         'todayRight': todayRight,
         'todayWrong': todayWrong,
+        'days': days.toList()..sort(),
         'ts': updatedAt,
       }),
     );
@@ -183,6 +206,17 @@ class Progress {
     final y = DateTime.now().subtract(const Duration(days: 1));
     streak = (lastActiveDay == _keyOf(y)) ? streak + 1 : 1;
     lastActiveDay = today;
+    days.add(today);
+  }
+
+  /// 今天打过卡了吗
+  bool get checkedToday => days.contains(today);
+
+  /// 记一次打卡：学完任意一关即算（关卡/主题走的都是 [Curriculum.addToday]）
+  void markCheckin() {
+    if (checkedToday) return;
+    _touchStreak();
+    save();
   }
 
   /// 提交一次作答。g: 0=忘记 1=模糊 2=认识
@@ -290,6 +324,7 @@ class Progress {
     states.clear();
     streak = 0;
     lastActiveDay = '';
+    days.clear();
     dayKey = '';
     todayNew = todayReview = todayRight = todayWrong = 0;
     await save();
