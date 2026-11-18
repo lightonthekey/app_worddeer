@@ -296,3 +296,36 @@ Flutter 移植后补自动化测试：巩固台最多 3 个、挤出顺序、补
    第 4 格起往右长，拖动时才露出前面被切掉的格子。
 
 截图已按新样式重出：`shots/g2-start|mid|end|grey|finish.png`。
+
+## 十三、同步到 Flutter（2026-11-18，`lib/pages/match.dart`）
+
+原型三轮调整全部落到 Dart，顺带把「巩固台」这张牌重做了一遍。
+
+| 原型 | Dart |
+|---|---|
+| 配对成功不抖 | 删掉 `_hop` 控制器和 `ok` 的位移曲线，`_T.flyStart` 480 → **40ms** |
+| 巩固台整关留词、可横拖 | `ScrollController` + `ListView.separated`（横向），`_shelf` 不再 `removeAt(0)` |
+| 不出现横向滚动条 | `_NoBarScrollBehavior`（`buildScrollbar` 直接返回 child），桌面端也不会自动加条 |
+| 最后 4 对原地置灰 | `_Card.done` 状态；`_retire` 里 `_queue.isEmpty` 就走置灰分支 |
+| 空态第一格印「巩固台」 | `_shelfSlot(placeholder: ...)`：第一格空着时居中显示 11.5px / w400 / `#ACA6C1` |
+| 收尾按配对数量判结束 | `_checkEnd` 从「盘空了」改成 `_done < _total` 就返回 |
+
+**两个只有真正跑起来才会暴露的坑：**
+
+1. **不能用 `ScrollController.addListener` 判「用户往回翻了」**
+   新词落位后轨道变长，`ScrollPosition` 会因为 `maxScrollExtent` 变化**自己发一次通知**，
+   那一帧 `pixels` 还停在旧的最右，于是被判成「用户手动翻回去了」，
+   `_shelfPinned` 直接变 false —— 从第 4 个词起就再也不跟拍（截图里轨道一直停在最左）。
+   改成监听 `UserScrollNotification`：它只在手指拖 / 惯性滚动时发，程序 `animateTo` 不发。
+
+2. **懒加载列表的 `maxScrollExtent` 是估算值**
+   `ListView` 只量已构建的子项，一次 `animateTo(maxScrollExtent)` 可能只滚到「估算的终点」，
+   滚完发现真实终点又变远了。所以 `_scrollShelfToEnd()` 滚完再比一次，还有差距就补滚
+   （第二次起 120ms，深度上限 3）。
+
+另外：**收尾置灰时要把 `c.ok` 一起清掉**，否则 `done` 分支永远排在 `ok` 后面，
+卡片还是绿的；`_tap` 也要加 `c.done` 判断，不然点灰卡会有水波纹但不响应。
+
+截图（`test/shots/`）：`visual-01-idle`（空态台子）、`visual-02-green`（绿卡那一瞬，160ms）、
+`visual-03-shelf-one`、`visual-04-shelf-full`（4 个词，自动跟到最右）、`visual-05-done`（收尾置灰）。
+测试从 96 条增到 97 条：新增「最后 4 对原地置灰」，重写「巩固台不丢词」「流畅度」两条。

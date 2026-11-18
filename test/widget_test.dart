@@ -52,7 +52,7 @@ void main() {
 
     // 配对棋盘：顶部巩固台 + 4 行卡片
     expect(find.byKey(const ValueKey('shelf')), findsOneWidget);
-    expect(find.text('刚配对'), findsOneWidget);
+    expect(find.text('巩固台'), findsOneWidget);
     expect(find.textContaining('对配对'), findsOneWidget);
   });
 
@@ -76,7 +76,7 @@ void main() {
     expect(find.byType(MatchPage), findsOneWidget);
     expect(find.byType(SessionPage), findsNothing);
     expect(find.byKey(const ValueKey('shelf')), findsOneWidget);
-    expect(find.text('刚配对'), findsOneWidget);
+    expect(find.text('巩固台'), findsOneWidget);
     expect(find.textContaining('对配对'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());

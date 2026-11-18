@@ -80,11 +80,15 @@ Future<void> _advance(WidgetTester t, int ms) async {
   }
 }
 
-Future<void> _playOne(WidgetTester t) async {
+Future<void> _playOne(WidgetTester t, {int settle = 1100}) async {
   var ei = -1, zi = -1;
   for (var i = 0; i < kPairs && ei < 0; i++) {
     final w = _slotWord(t, true, i);
-    if (w < 0 || _slotBg(t, true, i) == const Color(0xFFEAF9EF)) continue;
+    final bg = _slotBg(t, true, i);
+    // 绿卡（已配对、还在停留）和置灰卡（收尾）都不能再点
+    if (w < 0 || bg == const Color(0xFFEAF9EF) || bg == const Color(0xFFF2F1F7)) {
+      continue;
+    }
     for (var j = 0; j < kPairs; j++) {
       if (_slotWord(t, false, j) == w) {
         ei = i;
@@ -106,7 +110,7 @@ Future<void> _playOne(WidgetTester t) async {
     matching: find.text(_words[w].$2),
   ));
   await t.pump();
-  await _advance(t, 1100);
+  await _advance(t, settle);
   await _advance(t, 400);
   await t.pump();
 }
@@ -162,7 +166,8 @@ void main() {
       matching: find.text(_words[w0].$2),
     ));
     await tester.pump();
-    await _advance(tester, 260);
+    // 判定 140ms 后变绿，40ms 后就收走 —— 这里停在绿卡还在的那一瞬
+    await _advance(tester, 160);
 
     await expectLater(
       find.byType(MatchPage),
@@ -176,7 +181,7 @@ void main() {
       matchesGoldenFile('shots/visual-03-shelf-one.png'),
     );
 
-    // 再配三对，巩固台满载
+    // 再配三对：满 3 格之后轨道往右长，自动跟到最右
     await _playOne(tester);
     await _playOne(tester);
     await _playOne(tester);
@@ -185,6 +190,41 @@ void main() {
       matchesGoldenFile('shots/visual-04-shelf-full.png'),
     );
 
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  // 最后 4 对原地置灰：照一张收尾的盘面（结算弹窗弹出前）
+  testWidgets('视觉探针 · 收尾置灰', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    tester.view.devicePixelRatio = 2;
+
+    await tester.pumpWidget(MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(fontFamily: 'Probe', useMaterial3: true),
+      home: MatchPage(
+        words: List.generate(9, _w),
+        title: 'U3 学习关',
+        subtitle: '9 对配对 · 左边英文 · 右边中文',
+      ),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+
+    // 9 词 = 9 次配对：前 5 次正常补位，第 6 次起原地置灰。
+    // 只配 8 次 —— 配满 9 次就结算了，弹窗会盖住盘面
+    for (var k = 0; k < 8; k++) {
+      await _playOne(tester);
+    }
+    await tester.pump();
+
+    await expectLater(
+      find.byType(MatchPage),
+      matchesGoldenFile('shots/visual-05-done.png'),
+    );
+
+    // 收掉结算前那 460ms 的延迟定时器，否则测试报「pending timers」
+    await tester.pump(const Duration(milliseconds: 600));
     await tester.pumpWidget(const SizedBox());
     await tester.binding.setSurfaceSize(null);
   });

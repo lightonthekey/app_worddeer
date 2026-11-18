@@ -11,16 +11,21 @@ import '../confetti.dart';
 ///
 /// 规则（和原型逐条对齐）：
 /// - 左列英文、右列中文，共 4 行；
-/// - 点英文再点中文，判对就变绿 → 绿卡留在原地 → 合拢飞向顶部「巩固台」→
+/// - 点英文再点中文，判对就变绿 → 绿卡一帧后收走 → 两张「飞到」顶部「巩固台」→
 ///   棋盘原地补新词；
 /// - **英文列位置固定**（哪格消失补哪格），**中文列每次都整列重排**，
 ///   且保证没有任何一行左右是同一个词 —— 位置记不住，就没法靠蒙连对；
-/// - 巩固台最多留 3 个词，满了整条左移一格：最旧的滑出、新词从右边滑入；
+/// - 巩固台是一关到底的横滑轨道：配对成功的词全按顺序留着，一屏露 3 格，
+///   新词落位时自动跟到最右，用户往回翻过就不抢位置；
+/// - 词池空了以后的最后几对**原地置灰**（不飞、不补位），收尾是一整盘学完的词；
 /// - 判错只让点的两张红一下再恢复，不换位、也不把正确答案标出来；
-/// - 桌面清空且没有待补的词 → 结算。
+/// - 配对数量够了 → 结算。
 ///
 /// 时间轴见 [_T]。核心约定：**只有 judge 的 140ms 会锁住操作**，
-/// 绿卡停留、飞行、补位、巩固台左移全是背景动画，手快可以一路配下去。
+/// 收卡、飞行、补位、巩固台落位全是背景动画，手快可以一路配下去。
+///
+/// 巩固台不用系统滚动条：`overflow` 那套在桌面端会自动画一条横向滚动条，
+/// 手机应用里很少见这种控件，所以这里用 `_NoBarScrollBehavior` 把它整个关掉。
 
 // ---------------------------------------------------------------- 视觉常量
 
@@ -47,13 +52,14 @@ class _T {
   static const judge = Duration(milliseconds: 140);
 
   /// 绿卡留在原地的时长（从判定算起），之后开始起飞。
-  static const flyStart = Duration(milliseconds: 480);
+  /// 40ms ≈ 绿一帧就收走 —— 原来 480ms 的停顿玩起来很拖。
+  static const flyStart = Duration(milliseconds: 40);
 
   /// 飞向巩固台的时长。
   static const flyDur = Duration(milliseconds: 340);
 
-  /// 巩固台整条左移一格。
-  static const shelfShift = Duration(milliseconds: 300);
+  /// 巩固台跟到最右的时长。
+  static const shelfFollow = Duration(milliseconds: 320);
 
   /// 巩固台新词的绿框高亮停留。
   static const fresh = Duration(milliseconds: 2000);
@@ -61,7 +67,6 @@ class _T {
   /// 配错后红卡恢复的等待。
   static const wrong = Duration(milliseconds: 520);
 
-  static const hop = Duration(milliseconds: 300);
   static const shake = Duration(milliseconds: 420);
 }
 
@@ -104,32 +109,28 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
   final GlobalKey _stackKey = GlobalKey();
   final List<GlobalKey> _enKeys = List.generate(kPairs, (_) => GlobalKey());
   final List<GlobalKey> _zhKeys = List.generate(kPairs, (_) => GlobalKey());
-  final List<GlobalKey> _shelfKeys = List.generate(3, (_) => GlobalKey());
 
-  late final AnimationController _hop =
-      AnimationController(vsync: this, duration: _T.hop);
+  /// 巩固台轨道（量飞行落点用）
+  final GlobalKey _shelfInnerKey = GlobalKey();
+
   late final AnimationController _shake =
       AnimationController(vsync: this, duration: _T.shake);
-  late final AnimationController _shift =
-      AnimationController(vsync: this, duration: _T.shelfShift);
+
+  /// 巩固台横滑：滚到最右才算「跟拍」，用户往回翻过就不再抢位置
+  final ScrollController _shelfCtrl = ScrollController();
+  bool _shelfPinned = true;
 
   final List<_Card> _en = List.generate(kPairs, (_) => _Card(isEn: true));
   final List<_Card> _zh = List.generate(kPairs, (_) => _Card(isEn: false));
   final List<Word> _queue = [];
 
-  /// 巩固台：最多 3 个，左旧右新
+  /// 巩固台：一关的词全按顺序留着，左旧右新
   final List<_ShelfItem> _shelf = [];
-
-  /// 正在滑入的第 4 格（只在左移动画期间存在）
-  _ShelfItem? _incoming;
   int _shelfSeq = 0;
 
   /// 局数。重开时 +1，异步流程（退场、落位）恢复后靠它判断自己是不是上一局的，
   /// 否则上一局还在飞的克隆卡会补到新棋盘、旧定时器会把新巩固台提前灭灯。
   int _round = 0;
-
-  /// 落位串行化：左移动画没走完不插下一张，否则第二张会算错位置
-  Future<void> _shelfChain = Future<void>.value();
 
   /// 巩固台的高亮定时器：dispose 时要一起收掉，否则页面关掉还挂着 timer
   final List<Timer> _shelfTimers = [];
@@ -209,9 +210,8 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
       t.cancel();
     }
     _shelfTimers.clear();
-    _hop.dispose();
     _shake.dispose();
-    _shift.dispose();
+    _shelfCtrl.dispose();
     for (final f in _flights) {
       f.ctrl.dispose();
     }
@@ -234,7 +234,6 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
       f.ctrl.dispose();
     }
     _flights.clear();
-    _shelfChain = Future<void>.value();
 
     _queue
       ..clear()
@@ -247,9 +246,9 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
       c.clear();
     }
     _shelf.clear();
-    _incoming = null;
     _shelfSeq = 0;
-    _shift.value = 0;
+    _shelfPinned = true;
+    if (_shelfCtrl.hasClients) _shelfCtrl.jumpTo(0);
     _wrong.clear();
     _done = _combo = _maxCombo = _firstTry = 0;
     _selEn = _selZh = null;
@@ -295,6 +294,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
     c.bad = false;
     c.sel = false;
     c.gone = false;
+    c.done = false;
     c.stamp++;
   }
 
@@ -303,7 +303,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
   void _tap(bool isEn, int i) {
     if (_lock || _over || _finished) return;
     final c = isEn ? _en[i] : _zh[i];
-    if (c.w == null || c.ok || c.gone) return;
+    if (c.w == null || c.ok || c.gone || c.done) return;
 
     if (isEn) {
       if (_selEn == i) {
@@ -374,7 +374,6 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
       _en[ei].ok = true;
       _zh[zi].ok = true;
     });
-    _hop.forward(from: 0);
 
     // 纸屑从两张卡的连线中点炸一簇：在各自中心炸会正好盖住刚配对的词
     if (pa != null && pb != null) {
@@ -431,6 +430,11 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
   // ------------------------------------------------------------ 退场 / 补位
 
   /// 绿卡先藏起来 → 两张「飞到」巩固台 → 棋盘原地补新词 → 落位。
+  ///
+  /// 词池已经空了的那几对走另一条路：**不飞、不补位，原地置灰**。
+  /// 一关 10 对、一屏 4 对，前 6 对配完刚好把最后一屏补满，
+  /// 之后的每一对都是「最后几对」—— 收尾时盘上是一整盘学完的词，
+  /// 而不是一屏错开的虚线空格（那看着像界面坏了）。
   Future<void> _retire(
     int ei,
     int zi,
@@ -441,6 +445,24 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
   ) async {
     if (!mounted || _over) return;
     final r = _round;
+
+    // 词池空 = 盘上这几对就是最后的
+    if (_queue.isEmpty) {
+      setState(() {
+        _en[ei]
+          ..ok = false
+          ..done = true;
+        _zh[zi]
+          ..ok = false
+          ..done = true;
+      });
+      Future<void>.delayed(const Duration(milliseconds: 240), () {
+        if (!mounted || _over || r != _round) return;
+        _enqueueShelf(w);
+      });
+      _checkEnd();
+      return;
+    }
 
     final target = _shelfTarget();
     if (fromEn != null && fromZh != null && target != null && rect != null) {
@@ -467,13 +489,17 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
   void _refill(int ei, int zi) {
     final next = _queue.isEmpty ? null : _queue.removeAt(0);
 
+    // 兜底：正常走不到（词池空了几率已在 _retire 里分流），
+    // 万一走到就当这一对也置灰，别把棋盘弄成半张。
     if (next == null) {
-      // 队列空了 = 收尾：这一对清掉，剩下的卡片收拢到底部对齐
       setState(() {
-        _en[ei].clear();
-        _zh[zi].clear();
+        _en[ei]
+          ..ok = false
+          ..done = true;
+        _zh[zi]
+          ..ok = false
+          ..done = true;
         _selEn = _selZh = null;
-        _compact();
       });
       _checkEnd();
       return;
@@ -520,42 +546,10 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
     }
   }
 
-  /// 收尾收拢：剩余卡片往前挤，空位统一压到底部。
-  /// 不做的话左右两列会各剩几个虚线空格、位置还错开，看着像界面坏了。
-  void _compact() {
-    final eItems = <Word>[for (final c in _en) if (c.w != null) c.w!];
-    final zItems = <Word>[for (final c in _zh) if (c.w != null) c.w!];
-
-    for (var t = 0; t < 30 && zItems.length > 1; t++) {
-      zItems.shuffle(_rnd);
-      var bad = false;
-      for (var k = 0; k < eItems.length && k < zItems.length; k++) {
-        if (eItems[k].en == zItems[k].en) {
-          bad = true;
-          break;
-        }
-      }
-      if (!bad) break;
-    }
-
-    for (var i = 0; i < kPairs; i++) {
-      if (i < eItems.length) {
-        _paint(_en[i], eItems[i]);
-      } else {
-        _en[i].clear();
-      }
-      if (i < zItems.length) {
-        _paint(_zh[i], zItems[i]);
-      } else {
-        _zh[i].clear();
-      }
-    }
-  }
-
   void _checkEnd() {
-    if (_over) return;
-    if (_queue.isNotEmpty) return;
-    if (_en.any((c) => c.w != null)) return;
+    if (_over || _finished) return;
+    // 收尾那几对是置灰留在盘上的，不再是「盘空了才算完」——按配对数量收
+    if (_done < _total) return;
     _finished = true;
     Future<void>.delayed(const Duration(milliseconds: 460), () {
       if (!mounted || !_finished) return;
@@ -578,51 +572,59 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
 
   // ------------------------------------------------------------ 巩固台
 
+  /// 飞行落点：台子右端（新词总是加在最右边）。
+  /// 飞行途中就淡到 0 了，不需要落得像素级准。
   Offset? _shelfTarget() {
-    final idx = math.min(_shelf.length, 2);
-    return _centerOf(_shelfKeys[idx]);
+    final r = _rectOf(_shelfInnerKey);
+    if (r == null) return null;
+    return Offset(r.right - 30, r.center.dy);
   }
 
-  void _enqueueShelf(Word w) {
-    _shelfChain = _shelfChain.then((_) => _landOnShelf(w));
-  }
+  void _enqueueShelf(Word w) => _landOnShelf(w);
 
-  Future<void> _landOnShelf(Word w) async {
+  void _landOnShelf(Word w) {
     if (!mounted || _over) return;
-    final r = _round;
-
-    // 还有空格：直接落进去（弹一下）
-    if (_shelf.length < 3) {
-      final item = _ShelfItem(w, _shelfSeq++);
-      setState(() => _shelf.add(item));
-      _freshTimer(item);
-      return;
-    }
-
-    // 满了：整条左移一格（新词先挂到轨道尾部，此时在右边界外被裁掉）
-    final item = _ShelfItem(w, _shelfSeq++, slid: true);
-    setState(() => _incoming = item);
-    try {
-      // orCancel：重开时 _shift 会被归零（动画取消），直接 await 原 future
-      // 在取消后永远不完成，会把整条落位队列卡死在这一局。
-      await _shift.forward(from: 0).orCancel;
-    } catch (_) {
-      return;
-    }
-    if (!mounted || _over || r != _round) return;
-
-    // 数据换掉的同时把位移归零：同一帧内完成，不会闪
-    _shift.value = 0;
-    setState(() {
-      _shelf.removeAt(0);
-      _shelf.add(item);
-      _incoming = null;
-    });
-    _freshTimer(item, minus: _T.shelfShift);
+    final item = _ShelfItem(w, _shelfSeq++);
+    setState(() => _shelf.add(item));
+    _freshTimer(item);
+    _followShelf();
   }
 
-  void _freshTimer(_ShelfItem item, {Duration minus = Duration.zero}) {
-    _shelfTimers.add(Timer(_T.fresh - minus, () {
+  /// 贴着最右才跟拍。
+  ///
+  /// 为什么不用 `ScrollController.addListener` 判断：新词进来后轨道变长，
+  /// `ScrollPosition` 会自己发一次通知（maxScrollExtent 变了），
+  /// 那一帧 pixels 还停在旧的最右，会被误判成「用户往回翻了」，
+  /// 于是从第 4 个词起就再也不跟随。改成只认 `UserScrollNotification`——
+  /// 它只在手指拖 / 惯性滚动时发，程序自己滚不发。
+  void _followShelf() {
+    if (!_shelfPinned) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollShelfToEnd(0));
+  }
+
+  /// 一关最多 10 对，补滚两次就到头了（深度限制只是保险）。
+  Future<void> _scrollShelfToEnd(int depth) async {
+    if (!mounted || depth > 3 || !_shelfCtrl.hasClients) return;
+    final p = _shelfCtrl.position;
+    if (!p.hasContentDimensions) return;
+    final target = p.maxScrollExtent;
+    if ((target - p.pixels).abs() < 1) return;
+    await _shelfCtrl.animateTo(
+      target,
+      duration: depth == 0
+          ? _T.shelfFollow
+          : const Duration(milliseconds: 120),
+      curve: Curves.easeOutCubic,
+    );
+    if (!mounted || !_shelfCtrl.hasClients) return;
+    // 懒加载的 ListView 里 maxScrollExtent 是估算值：滚完可能又变长，再补一次
+    if (_shelfCtrl.position.maxScrollExtent - _shelfCtrl.position.pixels > 1) {
+      await _scrollShelfToEnd(depth + 1);
+    }
+  }
+
+  void _freshTimer(_ShelfItem item) {
+    _shelfTimers.add(Timer(_T.fresh, () {
       if (!mounted) return;
       setState(() => item.fresh = false);
     }));
@@ -954,87 +956,64 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
   // ------------------------------------------------------------ 巩固台
 
   Widget _shelfBar() {
-    final n = _shelf.length;
-    final items = [..._shelf, ?_incoming];
+    // 一屏固定 3 格：填满后往右加格，一关 10 对全留着，用户自己拖回去看
+    final count = math.max(3, _shelf.length);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 5, left: 2, right: 2),
-            child: Row(
-              children: [
-                const Text('刚配对',
-                    style: TextStyle(
-                        fontSize: 10.5, color: _ink3, letterSpacing: .3)),
-                const Spacer(),
-                Text(
-                  n == 0 ? '配对成功的词会停在这里' : '最近 $n 个',
-                  style: const TextStyle(
-                      fontSize: 10.5, color: _ink3, letterSpacing: .3),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            key: const ValueKey('shelf'),
-            height: 76,
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: _shelfBg,
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(9),
-              child: LayoutBuilder(
-                builder: (context, box) {
-                  const gap = 6.0;
-                  final w = (box.maxWidth - gap * 2) / 3;
-                  return AnimatedBuilder(
-                    animation: _shift,
-                    builder: (context, _) {
-                      final dx = _shift.value * (w + gap);
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          for (var k = 0; k < 3; k++)
-                            Positioned(
-                              left: k * (w + gap) - dx,
-                              top: 0,
-                              width: w,
-                              height: box.maxHeight,
-                              child: _shelfSlot(
-                                k < items.length ? items[k] : null,
-                                _shelfKeys[k],
-                                pop: k < items.length &&
-                                    items[k].fresh &&
-                                    !items[k].slid,
-                              ),
-                            ),
-                          // 左移时多出来的第 4 格（此刻在右边界外）
-                          if (items.length > 3)
-                            Positioned(
-                              left: 3 * (w + gap) - dx,
-                              top: 0,
-                              width: w,
-                              height: box.maxHeight,
-                              child: _shelfSlot(items[3], null),
-                            ),
-                        ],
-                      );
-                    },
-                  );
+      child: Container(
+        key: const ValueKey('shelf'),
+        height: 76,
+        padding: const EdgeInsets.all(6),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: _shelfBg,
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: LayoutBuilder(
+          builder: (context, box) {
+            const gap = 6.0;
+            // 槽宽跟着台子宽度走：一屏正好 3 格铺满，右边不留灰缝
+            final w = (box.maxWidth - gap * 2) / 3;
+            return ScrollConfiguration(
+              // 桌面端默认会给可滚动区域画滚动条，这里整个关掉
+              behavior: const _NoBarScrollBehavior(),
+              child: NotificationListener<UserScrollNotification>(
+                onNotification: (n) {
+                  final m = n.metrics;
+                  _shelfPinned = m.maxScrollExtent <= 0 ||
+                      m.pixels >= m.maxScrollExtent - 8;
+                  return false;
                 },
+                child: ListView.separated(
+                  key: _shelfInnerKey,
+                  controller: _shelfCtrl,
+                  scrollDirection: Axis.horizontal,
+                  physics: const ClampingScrollPhysics(),
+                  itemCount: count,
+                  separatorBuilder: (_, _) => const SizedBox(width: gap),
+                  itemBuilder: (context, i) {
+                    final it = i < _shelf.length ? _shelf[i] : null;
+                    return SizedBox(
+                      width: w,
+                      child: _shelfSlot(
+                        it,
+                        // 空态第一格上印台子的名字，卡片被词填上就没了
+                        placeholder: i == 0 && _shelf.isEmpty,
+                        pop: it != null && it.fresh,
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _shelfSlot(_ShelfItem? it, Key? key, {bool pop = false}) {
+  Widget _shelfSlot(_ShelfItem? it, {bool placeholder = false, bool pop = false}) {
     final filled = it != null;
     final fresh = it?.fresh ?? false;
 
@@ -1102,7 +1081,6 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
     }
 
     return Stack(
-      key: key,
       fit: StackFit.expand,
       children: [
         AnimatedContainer(
@@ -1126,6 +1104,19 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
           IgnorePointer(
             child: CustomPaint(
               painter: _DashBorder(color: border, radius: 9, width: 1),
+            ),
+          ),
+        // 空态第一格就是台子的名字：字压在背景卡上，不占额外一行
+        if (!filled && placeholder)
+          const Center(
+            child: Text(
+              '巩固台',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w400,
+                letterSpacing: 1.2,
+                color: Color(0xFFACA6C1),
+              ),
             ),
           ),
         if (fresh)
@@ -1177,31 +1168,12 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
 
   Widget _cardView(_Card c, int i, bool isEn) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_hop, _shake]),
+      animation: _shake,
       builder: (context, _) {
         var dy = 0.0;
-        var scale = 1.0;
 
-        if (c.ok) {
-          // 轻轻一抬就停在半空（-3.5），不落回桌面 —— 落回去像「凹进桌子」
-          final k = _hop.value;
-          if (k < .32) {
-            dy = -10 * (k / .32);
-            scale = 1 + .035 * (k / .32);
-          } else if (k < .58) {
-            final u = (k - .32) / .26;
-            dy = -10 + 9 * u;
-            scale = 1.035 - .027 * u;
-          } else if (k < .80) {
-            final u = (k - .58) / .22;
-            dy = -1 - 3.5 * u;
-            scale = 1.008 + .012 * u;
-          } else {
-            final u = (k - .80) / .20;
-            dy = -4.5 + u;
-            scale = 1.020 - .002 * u;
-          }
-        } else if (c.bad) {
+        // 配对成功不再抖：判定完绿一帧就收走，反馈交给纸屑 + 飞向巩固台
+        if (c.bad) {
           const ys = [0.0, -8.0, 7.0, -5.0, 4.0, -2.0, 0.0];
           final p = _shake.value * (ys.length - 1);
           final idx = p.floor().clamp(0, ys.length - 2);
@@ -1211,7 +1183,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
         final lift = c.sel ? -3.0 : 0.0;
         return Transform.translate(
           offset: Offset(0, dy + lift),
-          child: Transform.scale(scale: scale, child: _cardBox(c, i, isEn)),
+          child: _cardBox(c, i, isEn),
         );
       },
     );
@@ -1236,6 +1208,13 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
       bg = Colors.transparent;
       border = const Color(0xFFDEDAF0);
       dashed = true;
+      shadow = const [];
+    } else if (c.done) {
+      // 收尾置灰：这一盘都学完了，词留在原位当背景
+      bg = const Color(0xFFF2F1F7);
+      border = const Color(0xFFE6E3EF);
+      textColor = const Color(0xFFA9A5BB);
+      subColor = const Color(0xFFC0BCCC);
       shadow = const [];
     } else if (c.ok) {
       bg = _ok50;
@@ -1338,6 +1317,14 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                 child: CustomPaint(
                   painter: _DashBorder(color: border, radius: 15, width: borderWidth),
                 ),
+              ),
+            // 收尾置灰的卡右上角一个淡对勾：这一对已经学过、不用再管
+            if (c.done)
+              const Positioned(
+                top: 6,
+                right: 9,
+                child: Text('✓',
+                    style: TextStyle(fontSize: 11, color: Color(0xFFB4AFC6))),
               ),
           ],
         ),
@@ -1519,26 +1506,26 @@ class _Card {
   /// 已退场（原卡隐藏、等补位）：此时不响应点击
   bool gone = false;
 
+  /// 收尾置灰：词留在原位不再动（最后一屏学完的样子）
+  bool done = false;
+
   /// 每次换词 +1，卡片用它重播入场动画
   int stamp = 0;
 
   void clear() {
     w = null;
-    sel = ok = bad = gone = false;
+    sel = ok = bad = gone = done = false;
     stamp++;
   }
 }
 
 class _ShelfItem {
-  _ShelfItem(this.w, this.seq, {this.slid = false});
+  _ShelfItem(this.w, this.seq);
 
   final Word w;
 
   /// 唯一标识（同一个词可能重复出现），用于重播弹入动画
   final int seq;
-
-  /// 是不是「整条左移」滑进来的：滑进来的不用再播弹入动画
-  final bool slid;
   bool fresh = true;
 }
 
@@ -1559,6 +1546,17 @@ class _Flight {
 }
 
 // ---------------------------------------------------------------- 绘制
+
+/// 一列都不画滚动条：巩固台是横滑轨道，手机应用里没人想要那条横条。
+/// 桌面端 Flutter 默认会给可滚动区域自动加 Scrollbar，这里把它整个关掉。
+class _NoBarScrollBehavior extends MaterialScrollBehavior {
+  const _NoBarScrollBehavior();
+
+  @override
+  Widget buildScrollbar(
+          BuildContext context, Widget child, ScrollableDetails details) =>
+      child;
+}
 
 /// 虚线边框（空格用）：Flutter 没有原生 dashed border，沿圆角路径切段画
 class _DashBorder extends CustomPainter {

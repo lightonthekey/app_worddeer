@@ -20,6 +20,9 @@ Word _w(int i) => Word(
 const ok50 = Color(0xFFEAF9EF);
 const bad50 = Color(0xFFFCECEC);
 
+/// 收尾置灰的卡（和 lib 里的 _cardBox 保持一致）
+const doneBg = Color(0xFFF2F1F7);
+
 /// 某一格现在是哪个词（返回序号，空格返回 -1）
 int _slotWord(WidgetTester t, bool en, int slot) {
   for (var k = 0; k < 40; k++) {
@@ -75,8 +78,9 @@ Future<int> _playOne(WidgetTester t, {int settle = 1100}) async {
   for (var i = 0; i < kPairs && ei < 0; i++) {
     final w = _slotWord(t, true, i);
     if (w < 0) continue;
-    // 已经配对、还没退场的绿卡不能再点，换一对
-    if (_slotBg(t, true, i) == ok50) continue;
+    // 已经配对（绿/置灰）的卡不能再点，换一对
+    final bg = _slotBg(t, true, i);
+    if (bg == ok50 || bg == doneBg) continue;
     for (var j = 0; j < kPairs; j++) {
       if (_slotBg(t, false, j) == ok50) continue;
       if (_slotWord(t, false, j) == w) {
@@ -100,9 +104,10 @@ Future<int> _playOne(WidgetTester t, {int settle = 1100}) async {
   ));
   await t.pump();
   await t.pump(Duration(milliseconds: settle));
-  // 巩固台左移靠帧推进，补两帧让它走完
-  await t.pump(const Duration(milliseconds: 400));
-  await t.pump();
+  // 巩固台跟拍靠帧推进，补几帧让它滚到底
+  for (var k = 0; k < 10; k++) {
+    await t.pump(const Duration(milliseconds: 60));
+  }
   return word;
 }
 
@@ -121,8 +126,7 @@ void main() {
     expect(_column(tester, true).where((w) => w >= 0).length, kPairs);
     expect(_column(tester, false).where((w) => w >= 0).length, kPairs);
 
-    expect(find.text('刚配对'), findsOneWidget);
-    expect(find.text('配对成功的词会停在这里'), findsOneWidget);
+    expect(find.text('巩固台'), findsOneWidget, reason: '空态第一张背景卡上印台子名字');
     expect(_shelfWords(tester), isEmpty);
 
     await tester.pumpWidget(const SizedBox());
@@ -170,9 +174,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1000));
     await tester.pump();
 
-    // 巩固台里有这个词
+    // 巩固台里有这个词，台子名字也让位给了词
     expect(_shelfWords(tester), ['w$e0']);
-    expect(find.text('最近 1 个'), findsOneWidget);
+    expect(find.text('巩固台'), findsNothing);
 
     // 英文列位置固定：第 0 格换成了新词，其余 3 格原地不动
     expect(_slotWord(tester, true, 0), isNot(e0));
@@ -220,38 +224,63 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('流畅度：绿卡还在停留就能配下一组，直接连对 2', (tester) async {
+  testWidgets('流畅度：判定完立刻能配下一组，直接连对 2', (tester) async {
     await _mount(tester);
 
-    // 第一对
+    // 第一对（只等判定，不等它落地）
     await _playOne(tester, settle: 200);
-    expect(_slotBg(tester, true, 0), isNot(Colors.white));
 
-    // 立刻配第二对（此刻上一对还在绿卡停留期）
+    // 立刻配第二对（此刻上一对还在飞）
     await _playOne(tester, settle: 200);
     expect(find.text('连对 2！'), findsOneWidget,
-        reason: '前一组的动画没走完也应该能接着配');
+        reason: '上一组的动画没走完也应该能接着配');
 
     await tester.pump(const Duration(milliseconds: 1200));
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('巩固台满 3 个后整体左移：最新在最右，最旧的滑走', (tester) async {
+  testWidgets('巩固台不丢词：一关的词全留着，自动跟到最右', (tester) async {
     await _mount(tester, n: 12);
 
     final got = <int>[];
-    for (var k = 0; k < 4; k++) {
-      got.add(await _playOne(tester, settle: 1200));
+    for (var k = 0; k < 5; k++) {
+      got.add(await _playOne(tester, settle: 900));
     }
 
-    final shelf = _shelfWords(tester);
-    expect(shelf.length, 3, reason: '巩固台最多留 3 个');
-    expect(shelf.map((s) => s.substring(1)).map(int.parse).toList(),
-        got.sublist(1), reason: '第 4 个进来后，最旧那个被挤出去');
+    // 自动跟到最右：一屏 3 格，露出来的是最后三个
+    expect(_shelfWords(tester), ['w${got[2]}', 'w${got[3]}', 'w${got[4]}'],
+        reason: '新词落位后轨道该跟到最右');
 
-    // 最新的那个仍然高亮
-    expect(find.text('最近 3 个'), findsOneWidget);
-    expect(find.text('✓'), findsOneWidget, reason: '只有最新的那个带绿勾');
+    // 往回拖：最早那个还在（没被挤掉），只是滑到视口外了
+    await tester.drag(
+        find.byKey(const ValueKey('shelf')), const Offset(400, 0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(_shelfWords(tester).first, 'w${got[0]}',
+        reason: '往回滑应该还能看到第一个');
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('最后 4 对原地置灰，不消失也不补位', (tester) async {
+    await _mount(tester, n: 8); // 8 词 = 8 次配对，最后一次屏正好是「最后 4 对」
+
+    for (var k = 0; k < 8; k++) {
+      await _playOne(tester, settle: 900);
+    }
+
+    // 8 张卡全留在原位，而且是灰的
+    for (var i = 0; i < kPairs; i++) {
+      expect(_slotWord(tester, true, i), greaterThanOrEqualTo(0),
+          reason: '第 $i 行英文不该消失');
+      expect(_slotWord(tester, false, i), greaterThanOrEqualTo(0),
+          reason: '第 $i 行中文不该消失');
+      expect(_slotBg(tester, true, i), doneBg, reason: '第 $i 行英文该置灰');
+      expect(_slotBg(tester, false, i), doneBg, reason: '第 $i 行中文该置灰');
+    }
+
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('本关完成'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
   });

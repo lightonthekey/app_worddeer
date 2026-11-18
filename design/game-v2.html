@@ -100,9 +100,10 @@
      卡片被词填上时 className 会被重设，这个标记自然消失。 */
   .slot.ph::before {
     content: '巩固台';
-    position: absolute; top: 8px; left: 0; right: 0;
-    text-align: center; font-size: 11px; font-weight: 600;
-    letter-spacing: .8px; color: #A9A3BE;
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11.5px; font-weight: 400;
+    letter-spacing: 1.2px; color: #ACA6C1;
   }
   /* 刚落位的词对：放大字号 + 绿框高亮，停 2 秒 */
   .slot.fresh {
