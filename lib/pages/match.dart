@@ -1110,7 +1110,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
         if (!filled && placeholder)
           const Center(
             child: Text(
-              '巩固台',
+              '巩固区',
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w400,

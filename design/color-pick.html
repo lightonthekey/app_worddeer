@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>词鹿 · 主题色选型</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #F5F5F7; color: #1C1C1E;
+    padding: 34px 30px 46px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .head { max-width: 1420px; margin: 0 auto 26px; }
+  .head h1 { font-size: 21px; font-weight: 700; letter-spacing: -.2px; }
+  .head p {
+    margin-top: 8px; font-size: 12.5px; line-height: 1.75; color: #6C6C70;
+    max-width: 780px;
+  }
+  .head p b { color: #1C1C1E; font-weight: 600; }
+
+  /* ---------------- 卡片 ---------------- */
+  .grid {
+    max-width: 1420px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;
+  }
+  .opt {
+    background: #fff; border-radius: 18px; padding: 14px 14px 14px;
+    border: 1px solid #E6E6EA;
+    box-shadow: 0 2px 10px rgba(20,20,40,.04);
+    display: flex; flex-direction: column;
+  }
+  .opt-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .badge {
+    width: 24px; height: 24px; border-radius: 8px; flex: none;
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 700; color: #fff;
+  }
+  .name { font-size: 13.5px; font-weight: 700; letter-spacing: -.1px; }
+  .desc { font-size: 10.5px; color: #86868B; margin-top: 2px; line-height: 1.4; }
+
+  /* ---------------- 手机预览 ---------------- */
+  .screen {
+    border-radius: 14px; padding: 12px 12px 14px;
+    border: 1px solid;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .bar { display: flex; align-items: center; gap: 6px; }
+  .pill {
+    height: 26px; padding: 0 11px; border-radius: 13px;
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10.5px; font-weight: 600; color: #fff;
+  }
+  .ghost {
+    height: 26px; padding: 0 9px; border-radius: 13px;
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 600;
+    border: 1px solid;
+  }
+  .bar .sp { flex: 1; }
+
+  .prog { height: 5px; border-radius: 3px; overflow: hidden; }
+  .prog i { display: block; height: 100%; border-radius: 3px; }
+
+  /* S 动线 */
+  .map { position: relative; height: 190px; }
+  .map svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .node {
+    position: absolute; width: 30px; height: 30px; border-radius: 10px;
+    transform: translate(-50%, -50%);
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+  }
+  .node.done { font-size: 12px; }
+  .node.cur { color: #fff; }
+  .node.lock { border-style: dashed; border-width: 1.5px; font-size: 10px; }
+  .flag {
+    position: absolute; font-size: 9px; font-weight: 700; padding: 2px 6px;
+    border-radius: 7px; color: #fff; white-space: nowrap;
+    transform: translate(-50%, -50%);
+  }
+
+  /* 巩固台 */
+  .shelflabel { display: flex; justify-content: space-between; font-size: 9.5px; }
+  .shelf { display: flex; gap: 5px; padding: 5px; border-radius: 10px; }
+  .slot {
+    flex: 1; height: 40px; border-radius: 7px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1px; border: 1px solid;
+  }
+  .slot b { font-size: 9.5px; font-weight: 600; line-height: 1; }
+  .slot s { font-size: 8px; text-decoration: none; line-height: 1; }
+  .slot.empty { border-style: dashed; display: grid; place-items: center;
+    font-size: 9.5px; font-weight: 400; }
+
+  /* 配对卡片 */
+  .cards { display: flex; gap: 6px; }
+  .card {
+    flex: 1; height: 46px; border-radius: 9px; padding: 7px 8px;
+    display: flex; flex-direction: column; justify-content: center; gap: 2px;
+    border: 1px solid;
+  }
+  .card b { font-size: 11px; font-weight: 650; letter-spacing: -.1px; line-height: 1.1; }
+  .card s { font-size: 9px; text-decoration: none; line-height: 1.1; }
+
+  /* ---------------- 色板 ---------------- */
+  .chips { display: flex; gap: 5px; margin-top: 12px; }
+  .chips i {
+    flex: 1; height: 20px; border-radius: 6px; border: 1px solid rgba(0,0,0,.05);
+    position: relative;
+  }
+  .hex { margin-top: 7px; font-size: 9.5px; color: #9A9AA0; letter-spacing: .1px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .note { margin-top: 9px; font-size: 10.5px; line-height: 1.55; color: #86868B; }
+  .note b { color: #4A4A50; font-weight: 600; }
+
+  .foot { max-width: 1420px; margin: 24px auto 0; font-size: 11.5px;
+    color: #86868B; line-height: 1.8; }
+  .foot b { color: #1C1C1E; }
+
+  @media (max-width: 1300px) {
+    .grid { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>词鹿 · 主题色选型</h1>
+  <p>
+    五套方案，全部套在真实的界面结构上：顶部级别胶囊 → 进度条 → S 形学习动线 → 巩固台 → 配对卡片。
+    每张卡片里的<b>配对成功绿</b>（<b>#58CC02</b>）保持不动，这样能直接看出主色和它对不对付 —— 绿系方案会撞色，蓝橙系完全不会。
+  </p>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="foot">
+  选好后我会把<b>首页 / 主题 / 打卡 / 游戏</b>四个页面的主色、深色、浅底、描边、标题色一起换掉，并同步 Flutter 的 <b>theme.dart</b> 与各页硬编码的色值。
+</div>
+
+<script>
+const THEMES = [
+  {
+    key: 'A', name: '靛蓝', desc: '冷静专注，蓝系最稳',
+    pri: '#3E63E8', deep: '#2A47B8', soft: '#EDF1FE', bg: '#F4F6FD',
+    line: '#E2E7F5', dash: '#C6D1F2', ink: '#1E2430', muted: '#7C87A3',
+    note: '背单词这类需要长时间盯屏的场景，蓝最不容易看烦；和成功绿的对比也最干净。'
+  },
+  {
+    key: 'B', name: '青绿', desc: '清爽护眼，中间路线',
+    pri: '#109E90', deep: '#0A7A70', soft: '#E5F6F3', bg: '#F0F8F7',
+    line: '#DCEBE8', dash: '#BCE2DC', ink: '#1B2B29', muted: '#6E8A86',
+    note: '比蓝活泼、比绿克制，介于两者之间。和成功绿有几度差，需要把成功绿调深一点才分得开。'
+  },
+  {
+    key: 'C', name: '竹绿', desc: '学习类的老传统',
+    pri: '#4FA845', deep: '#3A7F33', soft: '#EBF6E7', bg: '#F4F9F1',
+    line: '#E1EDDB', dash: '#C4E3BB', ink: '#22301E', muted: '#7B8F74',
+    note: '最「语言学习」的一版，亲和力最强。代价是和配对成功绿几乎同色，成功态得换成更深的青绿。'
+  },
+  {
+    key: 'D', name: '暖橙', desc: '有精神，鼓励连续打卡',
+    pri: '#EE7A2B', deep: '#C75C12', soft: '#FDF0E3', bg: '#FDF7F1',
+    line: '#F2E5D8', dash: '#F5D2B0', ink: '#33261B', muted: '#9C8874',
+    note: '暖色天然带「催你继续」的劲儿，适合打卡类产品；缺点是长时间看比冷色累一些。'
+  },
+  {
+    key: 'E', name: '珊瑚', desc: '少见、记得住',
+    pri: '#E8604C', deep: '#C4432F', soft: '#FDECE9', bg: '#FDF5F3',
+    line: '#F2E0DC', dash: '#F4C9C3', ink: '#33221F', muted: '#9B8078',
+    note: '红调最容易在应用列表里被认出来，但红也容易被读成「错误/危险」，配错反馈要避开红色系。'
+  }
+];
+
+// 配对成功绿（固定，不随主题变）
+const OK = { bg: '#E8F8EE', line: '#58CC02', main: '#237A00', sub: '#3E8F76' };
+
+// S 动线四个节点（相对百分比，和 svg viewBox 同一套坐标）
+const NODES = [
+  { x: 26, y: 18, state: 'done' },
+  { x: 74, y: 43, state: 'done' },
+  { x: 26, y: 68, state: 'cur' },
+  { x: 74, y: 90, state: 'lock' }
+];
+
+function bowPath(a, b) {
+  // 上一块底边 → 下一块顶边，控制点落在两块之间的垂直中点
+  const half = 8;   // 节点 30px 在 190px 高的画布里约 8 个单位
+  const y0 = a.y + half, y1 = b.y - half, ym = (y0 + y1) / 2;
+  return { d: `M${a.x},${y0} C${a.x},${ym} ${b.x},${ym} ${b.x},${y1}`, done: a.state === 'done' };
+}
+
+function screenHTML(t) {
+  const segs = [];
+  for (let i = 0; i < NODES.length - 1; i++) segs.push(bowPath(NODES[i], NODES[i + 1]));
+
+  const solid = segs.filter(s => s.done).map(s => s.d).join(' ');
+  const dash = segs.filter(s => !s.done).map(s => s.d).join(' ');
+
+  const nodes = NODES.map(n => {
+    if (n.state === 'done') {
+      return `<div class="node done" style="left:${n.x}%;top:${n.y}%;
+        background:${t.soft};border:1px solid ${t.line};color:${t.pri}">✓</div>`;
+    }
+    if (n.state === 'cur') {
+      return `<div class="node cur" style="left:${n.x}%;top:${n.y}%;
+        background:linear-gradient(150deg,${t.pri},${t.deep});
+        box-shadow:0 0 0 5px ${t.soft}">8</div>
+        <div class="flag" style="left:${n.x + 33}%;top:${n.y}%;
+          background:${t.deep}">继续</div>`;
+    }
+    return `<div class="node lock" style="left:${n.x}%;top:${n.y}%;
+      background:#EFEEF3;border-color:#DCDAE4;color:#B8B5C4">🔒</div>`;
+  }).join('');
+
+  return `
+  <div class="screen" style="background:${t.bg};border-color:${t.line}">
+    <div class="bar">
+      <div class="pill" style="background:linear-gradient(150deg,${t.pri},${t.deep})">
+        A1 入门 <span style="opacity:.72">·</span> 8/63
+      </div>
+      <div class="sp"></div>
+      <div class="ghost" style="color:${t.pri};border-color:${t.line};background:#fff">
+        🔥 7 天
+      </div>
+    </div>
+
+    <div class="prog" style="background:${t.soft}">
+      <i style="width:38%;background:linear-gradient(90deg,${t.pri},${t.deep})"></i>
+    </div>
+
+    <div class="map">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="${dash}" fill="none" stroke="${t.dash}" stroke-width="1.2"
+              stroke-dasharray="2 2.4" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+        <path d="${solid}" fill="none" stroke="${t.pri}" stroke-width="1.8"
+              stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+      </svg>
+      ${nodes}
+    </div>
+
+    <div>
+      <div class="shelflabel" style="color:${t.muted};margin-bottom:4px">
+        <span>本关已学</span><span>3 / 10 对</span>
+      </div>
+      <div class="shelf" style="background:${t.soft}">
+        <div class="slot" style="background:#fff;border-color:${t.line}">
+          <b style="color:${t.ink}">airport</b><s style="color:${t.muted}">机场</s>
+        </div>
+        <div class="slot" style="background:#fff;border-color:${t.line}">
+          <b style="color:${t.ink}">borrow</b><s style="color:${t.muted}">借入</s>
+        </div>
+        <div class="slot empty" style="border-color:${t.line};color:${t.muted}">巩固台</div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card" style="background:#fff;border-color:${t.line}">
+        <b style="color:${t.ink}">abroad</b><s style="color:${t.muted}">在国外</s>
+      </div>
+      <div class="card" style="background:${OK.bg};border-color:${OK.line}">
+        <b style="color:${OK.main}">abroad</b><s style="color:${OK.sub}">在国外</s>
+      </div>
+    </div>
+  </div>`;
+}
+
+document.getElementById('grid').innerHTML = THEMES.map(t => `
+  <div class="opt">
+    <div class="opt-head">
+      <div class="badge" style="background:linear-gradient(150deg,${t.pri},${t.deep})">${t.key}</div>
+      <div>
+        <div class="name">${t.name}</div>
+        <div class="desc">${t.desc}</div>
+      </div>
+    </div>
+    ${screenHTML(t)}
+    <div class="chips">
+      <i style="background:${t.pri}"></i>
+      <i style="background:${t.deep}"></i>
+      <i style="background:${t.soft}"></i>
+      <i style="background:${t.bg}"></i>
+    </div>
+    <div class="hex">${t.pri} · ${t.deep} · ${t.soft}</div>
+    <div class="note">${t.note}</div>
+  </div>
+`).join('');
+</script>
+</body>
+</html>
