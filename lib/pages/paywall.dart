@@ -6,6 +6,7 @@ import '../auth.dart';
 import '../backend.dart';
 import '../curriculum.dart';
 import '../entitlement.dart';
+import '../legal.dart';
 import '../pay.dart';
 import '../ui.dart';
 
@@ -412,23 +413,59 @@ class _PaywallSheetState extends State<_PaywallSheet> {
     }
   }
 
+  /// 底部说明。Apple 3.1.2 要求付费页内直接呈现：订阅周期与续订规则、
+  /// 取消方式，以及**可点击的**隐私政策与用户协议（EULA）链接——
+  /// 只写「开通即表示同意《会员服务协议》」而对不上任何链接，是常见被拒点。
   Widget _footNote(Entitlement ent) {
     return Column(
       children: [
         Text(
           ent.vip
               ? '到期后自动回到免费版，学习记录不受影响'
-              : '开通即表示同意《会员服务协议》；虚拟商品不支持退款',
+              : '订阅为自动续期：到期前 24 小时内自动扣费，'
+                  '可在「设置 → Apple ID → 订阅」中随时取消，取消后当期仍然有效',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 10.5, color: kN3, height: 1.5),
         ),
-        if (!ent.vip)
+        if (!ent.vip) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _legalLink('隐私政策', kPrivacyUrl),
+              Text(' · ', style: TextStyle(fontSize: 11, color: kN3)),
+              _legalLink('用户协议', kTermsUrl),
+              Text(' · ', style: TextStyle(fontSize: 11, color: kN3)),
+              _legalLink('帮助', kSupportUrl),
+            ],
+          ),
           TextButton(
             onPressed: _busy ? null : () => _restore(),
             child: Text('恢复购买',
                 style: TextStyle(fontSize: 12, color: kMuted)),
           ),
+        ],
       ],
+    );
+  }
+
+  /// 付费页里的法务链接：小字 + 下划线，点开系统浏览器
+  Widget _legalLink(String text, String url) {
+    return GestureDetector(
+      onTap: () async {
+        final ok = await openLegal(url);
+        if (!ok) _toast('链接已复制，可粘贴到浏览器打开');
+      },
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          color: kMuted,
+          decoration: TextDecoration.underline,
+          decorationColor: kN3,
+        ),
+      ),
     );
   }
 }

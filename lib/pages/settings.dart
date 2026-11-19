@@ -10,6 +10,7 @@ import '../backend.dart';
 import '../bank.dart';
 import '../curriculum.dart';
 import '../entitlement.dart';
+import '../legal.dart';
 import '../pay.dart';
 import '../progress.dart';
 import '../progress_sync.dart';
@@ -181,6 +182,24 @@ class _SettingsPageState extends State<SettingsPage> {
                 onTap: _showSrs,
               ),
               _row(
+                icon: Icons.privacy_tip_outlined,
+                label: '隐私政策',
+                value: '',
+                onTap: () => _openLegal(kPrivacyUrl),
+              ),
+              _row(
+                icon: Icons.description_outlined,
+                label: '用户协议',
+                value: '',
+                onTap: () => _openLegal(kTermsUrl),
+              ),
+              _row(
+                icon: Icons.help_outline_rounded,
+                label: '帮助与支持',
+                value: '',
+                onTap: () => _openLegal(kSupportUrl),
+              ),
+              _row(
                 icon: Icons.info_outline_rounded,
                 label: '版本',
                 value: 'v$kAppVersion',
@@ -349,6 +368,13 @@ class _SettingsPageState extends State<SettingsPage> {
     if (text.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: text));
     _toast(tip);
+  }
+
+  /// 打开法务页面。openLegal 打不开时已把地址复制到剪贴板，这里只负责说一声，
+  /// 避免出现「点了没反应」——这也是审核最常挑的体验问题。
+  Future<void> _openLegal(String url) async {
+    final ok = await openLegal(url);
+    if (!ok) _toast('链接已复制，可粘贴到浏览器打开');
   }
 
   /// 改昵称：已登录交给后台（`/auth/profile`），未登录只存本机。

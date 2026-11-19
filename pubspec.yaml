@@ -38,6 +38,7 @@ dependencies:
   audioplayers: ^6.8.1         # 单词发音（在线音频流）
   path_provider: ^2.1.5        # 后台下发的词库落地目录
   crypto: ^3.0.6               # 内容包 md5 校验
+  url_launcher: ^6.3.0         # 隐私政策 / 用户协议 / 帮助页（审核要求 App 内可访问）
 
 dev_dependencies:
   flutter_test:
