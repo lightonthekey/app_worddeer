@@ -64,7 +64,8 @@ flutter:
 
   assets:
     - assets/words.json
-    - assets/words.db
+    # 注意：assets/words.db 曾作为 SQLite 索引打包，但代码里从未引用（也没装 sqflite），
+    # 白占 1.2MB 包体，已移出打包清单。
 
   # To add assets to your application, add an assets section, like this:
   # assets:

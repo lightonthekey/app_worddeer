@@ -4,4 +4,6 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- profile 包也是连本机后台调试，同样允许明文；release 不继承 -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

@@ -1,11 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 词库内容同步需要联网；release 也声明（后台域名上线前为 http，需允许明文） -->
+    <!-- 词库内容同步需要联网 -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- allowBackup=false：本地 prefs 里有登录 token 和学习进度，
+         默认的云备份会把它们传到用户的 Google Drive（隐私政策里没声明这条）。
+         关掉同时也阻止换机直传，账号数据只走 App 自己的云同步。 -->
     <application
         android:label="词鹿英语"
         android:name="${applicationName}"
-        android:usesCleartextTraffic="true"
-        android:icon="@mipmap/ic_launcher">
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:name=".MainActivity"
             android:exported="true"

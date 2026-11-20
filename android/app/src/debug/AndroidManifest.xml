@@ -4,4 +4,7 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 只有 debug/profile 允许明文：本机后台是 http://10.0.2.2:12445。
+         release 不声明 → targetSdk 28+ 默认禁止明文，防止 token 走 http 被嗅探。 -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

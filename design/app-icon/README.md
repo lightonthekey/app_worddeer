@@ -80,10 +80,20 @@ design/app-icon/
 # 指定母版 / 只导某个平台
 ./design/app-icon/tools/export-apple-icons.sh design/app-icon/source/w-mark-1536.png ios
 
+# Android：传统图标 5 个密度 + 自适应图标（108dp 前景 + 背景色）
+"<python>" design/app-icon/tools/export-android-icons.py
+"<python>" design/app-icon/tools/export-android-icons.py --preview   # 先看遮罩裁切效果
+
 # 编译验证
 flutter build ios --release        # 真机安装需签名，Team 45T7T52685 已配
 flutter build macos --debug
+flutter build apk --release
 ```
+
+**Android 与 Apple 的区别**：自适应图标的前景画布是 108dp，系统只保证中间 72dp 的圆形安全区可见。
+母版主体几乎顶到四边，直接铺满会被裁掉鹿耳，所以脚本把主体缩到 0.76 居中、四周填母版底色
+（`#FEF0E3`，采自画面角落，遮罩边缘无接缝）。`--preview` 会输出 0.72/0.76/0.80 三档的圆形裁切对比图，
+0.80 开始裁耳，这是上限。
 
 **图标红线（Apple 要求）**
 
