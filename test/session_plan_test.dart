@@ -1,4 +1,5 @@
 import 'package:app_worddeer/bank.dart';
+import 'package:app_worddeer/entitlement.dart';
 import 'package:app_worddeer/pages/session.dart';
 import 'package:app_worddeer/progress.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +20,8 @@ void main() {
     Progress.I.newPerDay = 10;
     Progress.I.reviewPerDay = 40;
     Progress.I.todayNew = 0;
+    // 每例都从内置免费档起（newPerDayMax=10），避免上一条用例改了 Ent 影响下一条
+    Ent.I.ent = const Entitlement();
   });
 
   tearDown(() {
@@ -65,5 +68,26 @@ void main() {
     final plan = SessionPlan.build();
     expect(plan, hasLength(10));
     expect(plan.every((e) => e.isNew), isTrue);
+  });
+
+  test('用户设的每日新词量超过权益上限时，按上限截断', () {
+    // 会员到期后 prefs 里仍是 40，后台已把他降回免费档（上限 5）
+    Progress.I.newPerDay = 40;
+    Ent.I.ent = const Entitlement(
+      limits: Limits(
+        levels: ['A1'],
+        unitsPerLevel: 2,
+        themesPerLevel: 1,
+        newPerDayMax: 5,
+        reviewPerDayMax: 40,
+        cloudSync: true,
+        offlineAudio: false,
+        wrongBook: true,
+      ),
+    );
+
+    final plan = SessionPlan.build();
+    expect(plan.where((e) => e.isNew).length, 5,
+        reason: '降级后不能继续按 40 词/天学');
   });
 }

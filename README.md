@@ -13,7 +13,7 @@ app_worddeer/
 │  └─ README.md       原型工作流 + 已定稿规则（务必先读）
 ├─ lib/
 │  ├─ main.dart       入口，4 tab 壳（学习/复习/词典/我的）
-│  ├─ bank.dart       词库加载（assets/words.json + words.db）
+│  ├─ bank.dart       词库加载（assets/words.json，远程包优先）
 │  ├─ progress.dart   SRS 间隔重复（7 档，10 分钟→30 天，box≥5 掌握）
 │  ├─ curriculum.dart 课程进度（级别 / 每关 20 词 / 每 5 关复习 / 主题 / 今日目标）
 │  ├─ backend.dart    后台地址单点 + 统一 JSON 请求（{code,message,data}）
@@ -29,8 +29,9 @@ app_worddeer/
 │  ├─ match_probe.dart 配对棋盘截图入口（跑自动演示并导出帧，仅开发用）
 │  └─ pages/          home / match（配对棋盘 v2 + 巩固台）/ session / review / dict / me / login / paywall / checkin
 ├─ windows/           桌面预览工程（430x900 手机比例窗口，仅用于快速看 UI）
-├─ assets/            words.json（7201 词）、words.db（SQLite 索引）
-├─ tools/asset_build/ 词库再生成脚本（build_db.py + TSV 源）
+├─ assets/            words.json（7201 词，8 元组紧凑数组）
+├─ design/app-icon/   图标母版 + 导出脚本（export-apple-icons.sh / export-android-icons.py）
+├─ tools/asset_build/ 词库再生成脚本（TSV 源；build_db.py 是早期 SQLite 方案，App 已不用）
 └─ test/              冒烟测试 + 配对游戏回归（4 行首屏 / 巩固台左移 / 配错不换位 / 整局结算）
 ```
 
@@ -214,8 +215,10 @@ Android Studio 里想用绿色 ▶ 运行，需要先装 Flutter 插件：
 
 ## 已知事项
 
-- 发音源为第三方转发，正式上线前需换授权音频
-- C2 级词库为空；主题覆盖目前只有 A1 的 12 个主题
+- 发音源为第三方转发，正式上线前需换授权音频；音频无缓存，断网时点了没反应（失败静默）
+- C2 级词库为空。主题数两套口径要分清：**内容包下发的是每级 12 个（全校 60）**，
+  而内置词库按 `word.topic` 推导会得到 A1 41 个（全校 131）——首次离线启动、
+  还没同步过内容包时看到的是后者，联网同步后会变 60。改文案别写死数字（用 `themeCount()`）
 - **真实内购尚未接入**：`Pay.purchase` 只在 debug 包造 mock 凭证；
   release 包会直接抛「内购暂未开放」，避免服务端 sandbox 开着时被白拿会员。
   接 IAP 时只改 `Pay.purchase`，把 App 返回的凭证交给 `Pay.verify`，其余流程不变。
@@ -223,6 +226,11 @@ Android Studio 里想用绿色 ▶ 运行，需要先装 Flutter 插件：
   `storeFile` / `storePassword` / `keyAlias` / `keyPassword`），
   `app/build.gradle.kts` 会自动启用 `release` 签名；没有该文件时 release 包
   退回 debug 签名并在构建日志里警告 —— 这种包不能上架。
+- **图标**：iOS 15 个尺寸 + macOS 7 个 + Android 传统 5 个密度 + 自适应图标（`mipmap-anydpi-v26`）
+  都是小鹿脸，母版在 `design/app-icon/source/`，改图后跑两个导出脚本（见该目录 README）。
+- **Android 打包**：`flutter build apk --release` 出的是 3 个 ABI 的通用包（约 52MB），
+  上架请用 `flutter build appbundle`（商店按机器下发，用户实际只下 ~20MB），
+  或 `--split-per-abi` 自出三个包。
 - 设计原型中已定稿的规则（每关 20 词、4 对 4、错词回流、每 5 关复习、主题每级只开第一个…）见 `design/README.md`
 
 ## 健壮性约定（改动时别破坏）
@@ -237,6 +245,9 @@ Android Studio 里想用绿色 ▶ 运行，需要先装 Flutter 插件：
 | `curriculum.dart` | debug 演示数据只留内存（`_demo`），用户真开始学时要 `_endDemo()` 清掉并落盘 |
 | `curriculum.dart` `unitsOf` | 关数按词库算，别写死；复习关取「最近 5 个学习关」，且整个级别学完不再补复习关 |
 | `progress.dart` `days` | 打卡按天存 `Set`，别改回计数器（跨天/改时间会漂移，且画不出日历） |
-| `entitlement.dart` `canUnit` | 会员直接放行：后台 `units_per_level` 还是「每级 12 关」时代的旧值，会把人挡在 U13 |
+| `entitlement.dart` `canUnit` / `canTheme` | 会员一律直接放行；后台额度只用来限制免费档，不能反过来锁会员 |
+| `entitlement.dart` `Limits.fromJson` | `units_per_level` / `themes_per_level` 上限 999（别写回 12：A1 有 63 关、41 个主题，会被静默截断） |
+| `pages/session.dart` `SessionPlan.build` | 每日新词/复习量取 `min(用户设置, 权益上限)`，会员过期后不能继续按旧额度学 |
+| `android/src/main/AndroidManifest.xml` | `allowBackup="false"`（prefs 里有 token）；**不要**加 `usesCleartextTraffic`，明文只允许 debug/profile 包 |
 | 界面文案 | 词数 / 主题数 / 版本号一律从 `bankSummary()` / `themeCount()` / `kAppVersion` 取，不写死 |
 

@@ -102,11 +102,42 @@ void main() {
 
   test('limits 缺字段 / 越界：落到安全默认值', () {
     final l = Limits.fromJson(const {'units_per_level': 99, 'themes_per_level': -3});
-    expect(l.unitsPerLevel, 12, reason: '上限 12 关');
+    // 以前上限写 12（「每级 12 关」时代），A1 现在 63 关，会员档填「全部」会被截成 12，
+    // 所以上限放到 999；99 属于正常配置，原样保留
+    expect(l.unitsPerLevel, 99, reason: '不再被 12 截断');
+    expect(Limits.fromJson(const {'units_per_level': 9999}).unitsPerLevel, 999,
+        reason: '防止脏数据算出天量队列');
     expect(l.themesPerLevel, 1, reason: '下限 1 个主题');
     expect(l.levels, Limits.free.levels, reason: '没给级别用免费档');
     expect(l.newPerDayMax, 10);
     expect(l.cloudSync, isTrue);
+  });
+
+  test('主题解锁：免费按限额，会员直通（后台配小了也不锁付费用户）', () {
+    resetEnt();
+    expect(Ent.I.canTheme(0), isTrue, reason: '免费档第 1 个主题开放');
+    expect(Ent.I.canTheme(1), isFalse, reason: '免费档每级只开 1 个');
+    expect(Ent.I.canTheme(-1), isFalse);
+
+    Ent.I.ent = const Entitlement(
+      tier: 2,
+      tierName: '会员',
+      vip: true,
+      limits: Limits(
+        levels: ['A1', 'A2', 'B1', 'B2', 'C1'],
+        unitsPerLevel: 2,
+        themesPerLevel: 1,
+        newPerDayMax: 40,
+        reviewPerDayMax: 100,
+        cloudSync: true,
+        offlineAudio: false,
+        wrongBook: true,
+      ),
+    );
+    // 与 canUnit 一致：会员不受「每级开放几个」限制，否则运营新增主题就把会员挡在外面
+    expect(Ent.I.canTheme(1), isTrue);
+    expect(Ent.I.canTheme(30), isTrue);
+    expect(Ent.I.canUnit(60), isTrue);
   });
 
   test('解析套餐：价格、周期、角标', () {

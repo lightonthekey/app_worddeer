@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../audio.dart';
 import '../bank.dart';
+import '../entitlement.dart';
 import '../ui.dart';
 import '../progress.dart';
 
@@ -26,12 +27,18 @@ class SessionPlan {
     final rnd = Random();
     final items = <SessionItem>[];
 
-    for (final w in p.dueWords().take(p.reviewPerDay)) {
+    // 用户自己设的每日量（Progress.newPerDay）还要再受权益上限约束：
+    // 会员过期后 prefs 里仍留着 40，不截断的话等于降级了还能按会员量学。
+    final limits = Ent.I.ent.limits;
+    final reviewCap = min(p.reviewPerDay, limits.reviewPerDayMax);
+    final newCap = min(p.newPerDay, limits.newPerDayMax);
+
+    for (final w in p.dueWords().take(reviewCap)) {
       items.add(_reviewItem(w, rnd));
     }
 
     if (!reviewOnly) {
-      final remain = (p.newPerDay - p.todayNew).clamp(0, 100);
+      final remain = (newCap - p.todayNew).clamp(0, 100);
       for (final w in p.newWords(limit: remain)) {
         items.add(SessionItem(w, QType.flash, true, const []));
       }

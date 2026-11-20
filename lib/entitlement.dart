@@ -62,8 +62,10 @@ class Limits {
         const [];
     return Limits(
       levels: levels.isEmpty ? free.levels : levels,
-      unitsPerLevel: asInt(j['units_per_level'], free.unitsPerLevel).clamp(1, 12),
-      themesPerLevel: asInt(j['themes_per_level'], free.themesPerLevel).clamp(1, 12),
+      // 上限不能写 12：现在一关 20 词、A1 就有 63 关，主题也有 40+，
+      // 后台想放开全部内容只能填个很大的数，写成 12 会把「全部关卡」悄悄截成 12 关。
+      unitsPerLevel: asInt(j['units_per_level'], free.unitsPerLevel).clamp(1, 999),
+      themesPerLevel: asInt(j['themes_per_level'], free.themesPerLevel).clamp(1, 999),
       newPerDayMax: asInt(j['new_per_day_max'], free.newPerDayMax).clamp(5, 40),
       reviewPerDayMax: asInt(j['review_per_day_max'], free.reviewPerDayMax).clamp(10, 100),
       cloudSync: asBool(j['cloud_sync'], free.cloudSync),
@@ -243,8 +245,16 @@ class Ent {
     return index < ent.limits.unitsPerLevel;
   }
 
-  /// 第 index 个主题是否解锁
-  bool canTheme(int index) => index >= 0 && index < ent.limits.themesPerLevel;
+  /// 第 index 个主题是否解锁。
+  ///
+  /// 和 [canUnit] 一样：会员直接放行。后台 `themes_per_level` 是「每级免费开放几个」
+  /// 的配置，一旦运营加主题（或把付费档写成具体数字），没有这条的话
+  /// 付了钱的用户反而会被挡在新增主题外面。
+  bool canTheme(int index) {
+    if (index < 0) return false;
+    if (vip) return true;
+    return index < ent.limits.themesPerLevel;
+  }
 
   /// 启动时读缓存（不阻塞首屏、不抛异常）
   Future<void> load() async {

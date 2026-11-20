@@ -30,12 +30,13 @@ App Store 服务器通知（11-19 已设）：生产环境 `https://platform.too
 
 ---
 
-## 0. 提交前必须解决的两个硬阻塞
+## 0. 提交前必须解决的硬阻塞
 
 | # | 阻塞 | 现状 | 怎么办 |
 |---|---|---|---|
 | 1 | **中国大陆区 App 备案**（工信部） | 未办理 | 自 2023-09 起，App 在中国大陆区上架必须提供备案号。在腾讯云/阿里云的「ICP 备案 → App 备案」提交，需营业执照+App 包名+已备案域名。审核约 1–2 周。**没有它只能上其他区，或等备案下来再上中国区** |
-| 2 | **iOS 工程不存在** | 仓库只有 `android/`、`windows/` | `flutter create --platforms=ios .`，且必须在 macOS 上编译上传。没 build 就没有可提交的版本 |
+| 2 | ~~iOS 工程不存在~~ | **已解决**（`e77dce5`） | 工程已生成并改好 Bundle ID / 锁竖屏 / 加密声明，App 图标已换成小鹿脸。仍必须**在 macOS 上 `flutter build ipa` 上传**，本机（Windows）无法编译 iOS |
+| 3 | **真实内购未接入** | 阻塞 | `lib/pay.dart` 的 `purchase()` 在 release 包直接抛「内购暂未开放」。ASC 三个商品已建好（`worddeer.vip.month/year/lifetime`，与服务端 `plan.product_id` 一致），但 App 侧没调 StoreKit → 审核条 2.1 会拒，也收不到钱 |
 
 ⚠️ 另外还需你提供：**运营者法定名称**（个人姓名或公司全称，用于隐私政策、版权栏）、**审核联系人姓名/电话/邮箱**。
 
@@ -211,7 +212,7 @@ App Store 服务器通知（11-19 已设）：生产环境 `https://platform.too
 
 ---
 
-## 8. 法务页面（已在 admin_platform_v2 项目内，待上传）
+## 8. 法务页面（已上线，`admin_platform_v2` 项目内维护）
 
 这些页面属于**网站**，不属于 App 包内——Apple 要求公网可访问的 URL，审核员用浏览器直接打开。
 
@@ -236,6 +237,10 @@ admin_platform_v2/resource/public/legal/
 
 GoFrame 的请求优先级是 `静态文件 > 动态路由 > 静态目录`，`resource/public` 下存在的文件会先于路由直接返回。已在本机实测：服务运行中把那 4 个文件放进去，`/legal/*.html` 立即返回 200，且返回字节数与文件完全一致；同时 `/admin/login` 仍为 200、未登录访问 `/admin` 仍 302，说明没有抢占后台路由。
 
+> **2026-11-19 已上线并逐个验证**：`/legal/`、`/legal/privacy.html`、`/legal/terms.html`、`/legal/support.html`
+> 线上均返回 200，字节数与本地文件一致；App 内三个链接常量实测同一条 URL。页脚 ICP 备案号已填
+> `粤ICP备20073089号`，联系邮箱 `worddeer@gmail.com`（待确认能真实收信）。
+
 ```bash
 # 服务器上执行（目标目录 = 该项目的静态根）
 mkdir -p /www/wwwroot/platform.tooldeer.com/resource/public/legal
@@ -243,7 +248,7 @@ mkdir -p /www/wwwroot/platform.tooldeer.com/resource/public/legal
 chown -R www:www /www/wwwroot/platform.tooldeer.com/resource/public/legal
 ```
 
-⚠️ 上传后仅剩一处待确认：**页脚 ICP 备案号**（如域名已备案，取消页脚注释并填入 `粤ICP备…号`）。联系邮箱已统一为 `worddeer@gmail.com`，请确认该邮箱真实可收信——App Review 有时会真的发信测试。
+⚠️ 仅剩一处待确认：**`worddeer@gmail.com` 是否真实可收信**——App Review 有时会真的发信测试。
 
 ---
 
