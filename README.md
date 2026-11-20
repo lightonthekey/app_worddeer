@@ -23,6 +23,7 @@ app_worddeer/
 │  ├─ entitlement.dart 会员权益（付费墙唯一数据源）
 │  ├─ pay.dart        支付（下单/凭证校验/恢复购买/删号，沙箱 mock 占位扣款）
 │  ├─ audio.dart      发音（先读本地缓存，未命中下载落盘；默认跟随后台域名，--dart-define=AUDIO_BASE 可覆盖）
+│  ├─ crash.dart      崩溃上报（Sentry；--dart-define=SENTRY_DSN 注入，未配置时只打日志）
 │  ├─ confetti.dart   配对成功的纸屑粒子（Canvas + Ticker，固定 1/60 步长）
 │  ├─ ui.dart         主题/配色
 │  ├─ preview.dart    无需首页直达各玩法（--dart-define 或路由 ?q=flash|choice|spell|listen）
@@ -197,6 +198,10 @@ flutter test                    # 冒烟测试（注意先清掉代理环境变�
 flutter run -d windows          # 桌面预览（快，改 UI 用这个）
 flutter run -d emulator-5554    # 安卓模拟器
 flutter build apk --release     # 出包（build/app/outputs/flutter-apk/）
+
+# 带崩溃上报出包（DSN 从 Sentry 项目设置里拿，不要写进仓库）
+flutter build appbundle --release \
+  --dart-define=SENTRY_DSN=https://<key>@o<org>.ingest.sentry.io/<project>
 ```
 
 **最省事：双击脚本**
@@ -238,7 +243,14 @@ Android Studio 里想用绿色 ▶ 运行，需要先装 Flutter 插件：
   退回 debug 签名并在构建日志里警告 —— 这种包不能上架。
 - **图标**：iOS 15 个尺寸 + macOS 7 个 + Android 传统 5 个密度 + 自适应图标（`mipmap-anydpi-v26`）
   都是小鹿脸，母版在 `design/app-icon/source/`，改图后跑两个导出脚本（见该目录 README）。
-- **Android 打包**：`flutter build apk --release` 出的是 3 个 ABI 的通用包（约 52MB），
+- **崩溃上报**：`lib/crash.dart`，用 Sentry 而不是 Firebase —— Crashlytics 走 Google Play
+  服务，中国大陆的安卓机基本没装 GMS，崩溃发不出去。DSN 用 `--dart-define=SENTRY_DSN=...`
+  注入，**没注入时 SDK 完全不启动**，只装一个打日志的兜底 handler，本地/内测包不受影响。
+  只收崩溃（`tracesSampleRate = 0`、会话统计关闭、不自动带 IP），登录后只挂账号数字 id，
+  不发用户名。`_boot` 里单模块初始化失败会作为非致命事件上报（tag `where=boot.xxx`）。
+  Dart 崩溃要看到函数名，出包时加 `--obfuscate --split-debug-info=build/symbols`，
+  并把 `build/symbols` 用 `sentry-cli debug-files upload` 传到同一个项目（不上传就只有地址）。
+- **Android 打包**：`flutter build apk --release` 出的是 3 个 ABI 的通用包（约 59MB，含 Sentry 原生库），
   上架请用 `flutter build appbundle`（商店按机器下发，用户实际只下 ~20MB），
   或 `--split-per-abi` 自出三个包。
 - 设计原型中已定稿的规则（每关 20 词、4 对 4、错词回流、每 5 关复习、主题每级只开第一个…）见 `design/README.md`
@@ -247,7 +259,8 @@ Android Studio 里想用绿色 ▶ 运行，需要先装 Flutter 插件：
 
 | 位置 | 约定 |
 |---|---|
-| `main.dart` `_boot()` | 每个模块单独 try/catch。以前串行 await，词库包结构不对就永久白屏 |
+| `main.dart` `_boot()` | 每个模块单独 try/catch。以前串行 await，词库包结构不对就永久白屏；失败要 `Crash.report(where: 'boot.xxx')` |
+| `crash.dart` | 所有网络/存储类新模块的首次初始化失败都走 `Crash.report`，别只 `debugPrint` —— 用户看不到的失败只能靠上报发现 |
 | `bank.dart` `applyRaw` | 逐行容错 + 跳过坏行；一条有效词都没有时**保留现有词库** |
 | `bank.dart` `load()` | 远程包读不出来 / 解析不出词条，都要回退内置 `assets/words.json` |
 | `auth.dart` `UserInfo` | 昵称是选填的，界面一律用 `displayName` / `initial`，不要直接 `.characters.first` |

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'backend.dart';
+import 'crash.dart';
 
 /// 账号体系：用户名+密码登录，token 持久化，退出可撤销。
 ///
@@ -42,6 +43,7 @@ class Auth {
       final cached = prefs.getString(_kUserKey);
       if (cached != null) {
         user = UserInfo.fromJson(jsonDecode(cached) as Map<String, dynamic>);
+        Crash.setUser(user!.id);
       }
       if (_token.isEmpty) return;
       Map<String, dynamic>? data;
@@ -139,12 +141,14 @@ class Auth {
     user = UserInfo.fromJson((data['user'] as Map).cast<String, dynamic>());
     await prefs.setString(_kTokenKey, _token);
     await prefs.setString(_kUserKey, jsonEncode(user!.toJson()));
+    Crash.setUser(user!.id);
     _changes.add(user);
   }
 
   Future<void> _clear(SharedPreferences prefs) async {
     _token = '';
     user = null;
+    Crash.setUser(null);
     await prefs.remove(_kTokenKey);
     await prefs.remove(_kUserKey);
   }

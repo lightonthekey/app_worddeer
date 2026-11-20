@@ -8,6 +8,7 @@ import 'audio.dart';
 import 'auth.dart';
 import 'bank.dart';
 import 'content_sync.dart';
+import 'crash.dart';
 import 'curriculum.dart';
 import 'entitlement.dart';
 import 'pages/dict.dart';
@@ -21,6 +22,9 @@ import 'ui.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 最早期就把上报装好：_boot 里任一模块抛异常、首帧渲染出错都能收走。
+  // 没配 SENTRY_DSN 时它只是装个打日志的兜底 handler，不影响启动。
+  await Crash.init();
   await _boot();
   runApp(const EngApp());
   // 内容检查与会话恢复都放后台跑：不阻塞首屏，失败静默降级。
@@ -65,6 +69,8 @@ Future<void> _boot() async {
       await e.value();
     } catch (err, st) {
       debugPrint('[boot] ${e.key}初始化失败：$err\n$st');
+      // 单模块失败用户无感，但连续失败往往意味着发版事故，要能看见
+      unawaited(Crash.report(err, st, where: 'boot.${e.key}'));
     }
   }
 }

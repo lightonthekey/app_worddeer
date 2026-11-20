@@ -39,6 +39,7 @@ dependencies:
   path_provider: ^2.1.5        # 后台下发的词库落地目录
   crypto: ^3.0.6               # 内容包 md5 校验
   url_launcher: ^6.3.0         # 隐私政策 / 用户协议 / 帮助页（审核要求 App 内可访问）
+  sentry_flutter: ^10.6.0      # 崩溃上报（DSN 走 --dart-define，不进仓库）
 
 dev_dependencies:
   flutter_test:
