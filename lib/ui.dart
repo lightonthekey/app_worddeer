@@ -33,6 +33,18 @@ Color get kN3 => pal.n3;
 Color get kN4 => pal.n4;
 Color get kN5 => pal.n5;
 
+/// 卡片 / 弹层 / 输入框的「面」。亮色纯白，暗色是把底色抬一档的深灰。
+/// 页面里凡是「白底」当容器用的地方都用它，别直接写 Colors.white ——
+/// 那在深色模式下会变成一块刺眼的白板。
+Color get kCard => pal.card;
+Color get kCardAlt => pal.cardAlt;
+
+/// 阴影色：暗色下要加深才看得出层次
+Color get kShadow => pal.shadow;
+
+/// 当前是否深色（少量地方需要按亮度微调，比如给图片加一层暗化）
+bool get isDarkUI => pal.isDark;
+
 /// 带透明度的主题色：`ta(kPrimary, 0x3D)` 等价于 CSS 的 rgba(主色, 24%)
 Color ta(Color c, int alpha) => c.withValues(alpha: alpha / 255);
 
@@ -41,8 +53,10 @@ const kGreen = Color(0xFF2E9E63);
 const kRed = Color(0xFFD9534F);
 const kAmber = Color(0xFFE0A020);
 const kFlame = Color(0xFFE8674A);
-const kGreen50 = Color(0xFFEAF7F0);
-const kAmber50 = Color(0xFFFDF3E6);
+/// 语义色的浅底：深色下要换成「主色的暗雾」，否则会变成一块发光的小白板。
+/// 注意这几个是 getter，不能写进 const 构造。
+Color get kGreen50 => isDarkUI ? const Color(0xFF122A1C) : const Color(0xFFEAF7F0);
+Color get kAmber50 => isDarkUI ? const Color(0xFF2A1F0E) : const Color(0xFFFDF3E6);
 
 /// 会话结束后通知首页/复习页刷新
 final ValueNotifier<int> appTick = ValueNotifier<int>(0);
@@ -61,14 +75,42 @@ String greet() {
 
 ThemeData buildTheme([AppPalette? p]) {
   final t = p ?? pal;
+  final brightness = t.isDark ? Brightness.dark : Brightness.light;
   return ThemeData(
     useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(seedColor: t.pri).copyWith(
+    brightness: brightness,
+    colorScheme: ColorScheme.fromSeed(seedColor: t.pri, brightness: brightness)
+        .copyWith(
       primary: t.pri,
-      surface: Colors.white,
+      onPrimary: Colors.white,
+      surface: t.card,
       onSurface: t.ink,
+      outline: t.line,
     ),
     scaffoldBackgroundColor: t.bg,
-    textSelectionTheme: TextSelectionThemeData(cursorColor: t.pri),
+    canvasColor: t.card,
+    cardColor: t.card,
+    dividerColor: t.line,
+    dialogTheme: DialogThemeData(backgroundColor: t.card, surfaceTintColor: Colors.transparent),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: t.card,
+      surfaceTintColor: Colors.transparent,
+    ),
+    appBarTheme: AppBarTheme(
+      backgroundColor: t.bg,
+      foregroundColor: t.ink,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: t.isDark ? t.cardAlt : t.ink,
+      contentTextStyle: TextStyle(color: t.isDark ? t.ink : Colors.white),
+    ),
+    textSelectionTheme: TextSelectionThemeData(
+      cursorColor: t.pri,
+      selectionColor: t.pri.withValues(alpha: .28),
+      selectionHandleColor: t.pri,
+    ),
   );
 }

@@ -59,7 +59,10 @@ void main() {
     _seedProgress();
   });
 
-  tearDown(() => AppTheme.I.set('indigo'));
+  tearDown(() {
+    AppTheme.I.set('indigo');
+    AppTheme.I.setMode(AppThemeMode.light);
+  });
 
   Future<void> shot(WidgetTester tester, String name, Widget page) async {
     tester.view.physicalSize = const Size(390 * 2, 844 * 2);
@@ -149,6 +152,82 @@ void main() {
       await expectLater(
         find.byType(MatchPage),
         matchesGoldenFile('shots/theme-match-$key.png'),
+      );
+    });
+  }
+
+  // ---- 深色：同样的页面，检查有没有漏掉的白底 / 白字 ----
+  for (final key in ['indigo', 'teal', 'orange', 'purple']) {
+    testWidgets('深色 · 我的页 · $key', (tester) async {
+      AppTheme.I.set(key);
+      AppTheme.I.setMode(AppThemeMode.dark);
+      await shot(tester, 'dark-me-$key', const MePage());
+    });
+  }
+
+  testWidgets('深色 · 设置页 · indigo', (tester) async {
+    AppTheme.I.setMode(AppThemeMode.dark);
+    await shot(tester, 'dark-settings', const SettingsPage());
+  });
+
+  for (final key in ['indigo', 'teal']) {
+    testWidgets('深色 · 关卡页 · $key', (tester) async {      AppTheme.I.set(key);
+      AppTheme.I.setMode(AppThemeMode.dark);
+      tester.view.physicalSize = const Size(390 * 2, 844 * 2);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      final base = buildTheme(AppTheme.I.pal);
+      await tester.pumpWidget(MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: base.copyWith(
+          textTheme: base.textTheme.apply(
+              fontFamily: 'Probe', fontFamilyFallback: const ['ProbeEmoji']),
+        ),
+        home: const HomePage(),
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+      await expectLater(
+        find.byType(HomePage),
+        matchesGoldenFile('shots/dark-home-$key.png'),
+      );
+    });
+
+    testWidgets('深色 · 配对页 · $key', (tester) async {
+      AppTheme.I.set(key);
+      AppTheme.I.setMode(AppThemeMode.dark);
+      tester.view.physicalSize = const Size(390 * 2, 844 * 2);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      final base = buildTheme(AppTheme.I.pal);
+      await tester.pumpWidget(MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: base.copyWith(
+          textTheme: base.textTheme.apply(
+              fontFamily: 'Probe', fontFamilyFallback: const ['ProbeEmoji']),
+        ),
+        home: MatchPage(
+          words: [
+            for (var i = 0; i < 8; i++)
+              Word(
+                en: ['hello', 'sleep', 'milk', 'sugar'][i % 4] + (i > 3 ? '2' : ''),
+                zh: ['你好', '睡觉', '牛奶', '糖'][i % 4] + (i > 3 ? '2' : ''),
+                detail: 'n. 释义',
+                phUs: '[heˈloʊ]',
+                phUk: '',
+                lv: 1,
+                cefr: const [],
+                topic: const [],
+              ),
+          ],
+          title: 'U3 学习关',
+        ),
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
+      await expectLater(
+        find.byType(MatchPage),
+        matchesGoldenFile('shots/dark-match-$key.png'),
       );
     });
   }

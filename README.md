@@ -22,7 +22,7 @@ app_worddeer/
 │  ├─ progress_sync.dart 学习进度云同步（本地优先 + 异步增量）
 │  ├─ entitlement.dart 会员权益（付费墙唯一数据源）
 │  ├─ pay.dart        支付（下单/凭证校验/恢复购买/删号，沙箱 mock 占位扣款）
-│  ├─ audio.dart      发音（默认 https://tooldeer.com，--dart-define=AUDIO_BASE 可覆盖）
+│  ├─ audio.dart      发音（先读本地缓存，未命中下载落盘；默认跟随后台域名，--dart-define=AUDIO_BASE 可覆盖）
 │  ├─ confetti.dart   配对成功的纸屑粒子（Canvas + Ticker，固定 1/60 步长）
 │  ├─ ui.dart         主题/配色
 │  ├─ preview.dart    无需首页直达各玩法（--dart-define 或路由 ?q=flash|choice|spell|listen）
@@ -215,7 +215,17 @@ Android Studio 里想用绿色 ▶ 运行，需要先装 Flutter 插件：
 
 ## 已知事项
 
-- 发音源为第三方转发，正式上线前需换授权音频；音频无缓存，断网时点了没反应（失败静默）
+- **发音**：音频已从 tooldeer 主站迁到 platform_meta 的 `resource/public/audio/eng`
+  （7201 词 × 美/英，约 324MB，不入 git），App 走 `/api/v1/worddeer/audio`，
+  命中即回一年强缓存。客户端第一次播放会下载并落到 `getApplicationCacheDirectory()/audio`，
+  一关开场顺手预取 20 词，之后重听/复习不再走网络；缓存超过 50MB 按最久未播清理到 35MB。
+  三步（本地→下载→流式）都失败才弹一次「发音加载失败」，3 秒内不重复弹。
+  文件名规则三处必须一致：`audio.dart` `cacheName` / `audio.go` `audioSafeName` /
+  `tools/fetch_eng_audio.py` `safe_name`——任何一处改了都会变成「服务器有文件、App 一直下载失败」
+- **深色模式**：6 套色板各有一份暗色版（`kDarkPalettes`），「我的 → 外观主题」里选
+  跟随系统 / 浅色 / 深色，写盘键 `ui.themeMode`。页面里所有「白底容器」必须用 `kCard`
+  （= 亮色纯白 / 暗色抬高一档的深灰），**不要写 `Colors.white`**——那是深色下变成白板的第一来源；
+  语义色浅底（`kGreen50` / `kAmber50`）是 getter，会跟着亮度换，所以不能放进 `const` 构造
 - C2 级词库为空。主题数两套口径要分清：**内容包下发的是每级 12 个（全校 60）**，
   而内置词库按 `word.topic` 推导会得到 A1 41 个（全校 131）——首次离线启动、
   还没同步过内容包时看到的是后者，联网同步后会变 60。改文案别写死数字（用 `themeCount()`）
@@ -250,4 +260,7 @@ Android Studio 里想用绿色 ▶ 运行，需要先装 Flutter 插件：
 | `pages/session.dart` `SessionPlan.build` | 每日新词/复习量取 `min(用户设置, 权益上限)`，会员过期后不能继续按旧额度学 |
 | `android/src/main/AndroidManifest.xml` | `allowBackup="false"`（prefs 里有 token）；**不要**加 `usesCleartextTraffic`，明文只允许 debug/profile 包 |
 | 界面文案 | 词数 / 主题数 / 版本号一律从 `bankSummary()` / `themeCount()` / `kAppVersion` 取，不写死 |
+| 容器底色 | 一律 `kCard` / `kCardAlt` / `kBg`，`Colors.white` 只用于「压在彩色上的文字和图标」 |
+| 语义色浅底 | `kGreen50` / `kAmber50` 是 getter（随亮暗切换），不能写进 `const` |
+| 无障碍 | 纯颜色表达状态的地方（关卡节点、主题卡、答题选项）都要带 `Semantics` 的 label/selected，图标按钮带 `tooltip` |
 

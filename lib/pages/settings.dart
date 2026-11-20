@@ -71,6 +71,7 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
+                  tooltip: '返回',
                   icon: Icon(Icons.chevron_left_rounded, color: kInk, size: 26),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
@@ -215,7 +216,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: kRed,
                     side: BorderSide(color: kLine),
-                    backgroundColor: Colors.white,
+                    backgroundColor: kCard,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14)),
                   ),
@@ -264,7 +265,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _card(List<Widget> rows) => Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCard,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: kLine),
         ),

@@ -37,7 +37,7 @@ class _CheckinPageState extends State<CheckinPage> {
     final now = DateTime.now();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: kBg,
       body: SafeArea(
         child: Column(
           children: [
@@ -159,7 +159,7 @@ class _CheckinPageState extends State<CheckinPage> {
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: kLine),
       ),
@@ -184,7 +184,7 @@ class _CheckinPageState extends State<CheckinPage> {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCard,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: kLine),
       ),

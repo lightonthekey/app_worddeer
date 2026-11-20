@@ -68,8 +68,8 @@ class _PaywallSheetState extends State<_PaywallSheet> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.88,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: kCard,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
@@ -233,7 +233,7 @@ class _PaywallSheetState extends State<_PaywallSheet> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         decoration: BoxDecoration(
-          color: on ? kPrimary50 : Colors.white,
+          color: on ? kPrimary50 : kCard,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: on ? kPrimary : kLine, width: on ? 1.6 : 1),
         ),

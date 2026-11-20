@@ -37,7 +37,7 @@ class ReviewPage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCard,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: kLine),
             ),
@@ -102,7 +102,7 @@ class ReviewPage extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(vertical: 26),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: kCard,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: kLine),
               ),
@@ -153,7 +153,7 @@ class ReviewPage extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCard,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: kLine),
       ),
@@ -196,6 +196,7 @@ class ReviewPage extends StatelessWidget {
             ),
           IconButton(
             onPressed: () => Voice.say(w.en),
+            tooltip: '播放「${w.en}」发音',
             icon: Icon(Icons.volume_up_rounded, size: 18, color: kPrimary),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 34, minHeight: 34),

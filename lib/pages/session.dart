@@ -138,6 +138,9 @@ class _SessionPageState extends State<SessionPage> {
   void initState() {
     super.initState();
     _start = DateTime.now();
+    // 开局顺手把这关的词都取到本地（20 词约 1MB），之后重听/复习不再走网络。
+    // 不 await：下载不该拖慢开局。
+    Voice.prefetch(widget.items.map((e) => e.w.en));
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybePlay());
   }
 
@@ -329,7 +332,7 @@ class _SessionPageState extends State<SessionPage> {
       constraints: BoxConstraints(minHeight: minH),
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCard,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: kLine),
       ),
@@ -423,7 +426,10 @@ class _SessionPageState extends State<SessionPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              GestureDetector(
+              Semantics(
+                button: true,
+                label: '播放发音',
+                child: GestureDetector(
                 onTap: () => Voice.say(_item.w.en),
                 child: Container(
                   width: 76,
@@ -435,6 +441,7 @@ class _SessionPageState extends State<SessionPage> {
                   child: Icon(Icons.volume_up_rounded,
                       size: 36, color: kPrimary),
                 ),
+              ),
               ),
               const SizedBox(height: 10),
               Text('点击重听',
@@ -450,7 +457,7 @@ class _SessionPageState extends State<SessionPage> {
 
   Widget _optionTile(String text, bool isAnswer) {
     Color border = kLine;
-    Color bg = Colors.white;
+    Color bg = kCard;
     Color fg = kInk;
     if (_revealed) {
       if (isAnswer) {
@@ -465,7 +472,15 @@ class _SessionPageState extends State<SessionPage> {
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
+      child: Semantics(
+        button: true,
+        enabled: !_revealed,
+        selected: _picked == text,
+        // 答完后要能听出「哪个是对的、我选了哪个」，否则只能靠颜色
+        label: _revealed
+            ? (isAnswer ? '正确答案：$text' : (_picked == text ? '你选的：$text，不对' : text))
+            : null,
+        child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: _revealed
             ? null
@@ -483,6 +498,7 @@ class _SessionPageState extends State<SessionPage> {
           child: Text(text,
               style: TextStyle(fontSize: 15, color: fg, height: 1.3)),
         ),
+      ),
       ),
     );
   }
@@ -516,6 +532,7 @@ class _SessionPageState extends State<SessionPage> {
                 children: [
                   IconButton(
                     onPressed: () => Voice.say(w.en),
+                    tooltip: '播放发音',
                     icon: Icon(Icons.volume_up_rounded,
                         size: 20, color: kPrimary),
                   ),
@@ -549,7 +566,7 @@ class _SessionPageState extends State<SessionPage> {
             hintStyle: TextStyle(
                 fontSize: 16, letterSpacing: 0, color: kN3),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: kCard,
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
@@ -621,11 +638,16 @@ class _SessionPageState extends State<SessionPage> {
                 Text(w.phUs,
                     style: TextStyle(fontSize: 12, color: kMuted)),
               const SizedBox(width: 4),
-              InkWell(
-                onTap: () => Voice.say(w.en),
-                child: Padding(
-                  padding: EdgeInsets.all(4),
-                  child: Icon(Icons.volume_up_rounded, size: 16, color: kPrimary),
+              Semantics(
+                button: true,
+                label: '播放 ${w.en} 的发音',
+                child: InkWell(
+                  onTap: () => Voice.say(w.en),
+                  child: Padding(
+                    padding: EdgeInsets.all(4),
+                    child:
+                        Icon(Icons.volume_up_rounded, size: 16, color: kPrimary),
+                  ),
                 ),
               ),
             ],
@@ -750,7 +772,7 @@ class _SessionPageState extends State<SessionPage> {
             Container(
               padding: const EdgeInsets.symmetric(vertical: 20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: kCard,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: kLine),
               ),

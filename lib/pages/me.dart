@@ -53,7 +53,7 @@ class _MePageState extends State<MePage> {
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: kCard,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: kLine),
                   ),
@@ -76,7 +76,7 @@ class _MePageState extends State<MePage> {
                 Container(
                   padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: kCard,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: kLine),
                   ),
@@ -132,7 +132,7 @@ class _MePageState extends State<MePage> {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCard,
           shape: BoxShape.circle,
           border: Border.all(color: kLine),
         ),
@@ -147,7 +147,7 @@ class _MePageState extends State<MePage> {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCard,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: kLine),
       ),
@@ -191,8 +191,56 @@ class _MePageState extends State<MePage> {
               ],
             );
           }),
+          const SizedBox(height: 12),
+          _modeChips(),
         ],
       ),
+    );
+  }
+
+  /// 亮/暗模式：跟随系统 / 一直浅色 / 一直深色
+  Widget _modeChips() {
+    const labels = {
+      AppThemeMode.system: '跟随系统',
+      AppThemeMode.light: '浅色',
+      AppThemeMode.dark: '深色',
+    };
+    final cur = AppTheme.I.mode;
+    return Row(
+      children: [
+        for (final e in labels.entries) ...[
+          if (e.key != labels.keys.first) const SizedBox(width: 6),
+          Expanded(
+            child: Semantics(
+              button: true,
+              selected: cur == e.key,
+              label: '外观模式：${e.value}',
+              child: GestureDetector(
+                onTap: () => AppTheme.I.setMode(e.key),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: cur == e.key ? kPrimary50 : kCardAlt,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: cur == e.key ? kPrimary : kLine,
+                      width: cur == e.key ? 1.4 : 1,
+                    ),
+                  ),
+                  child: Text(e.value,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight:
+                            cur == e.key ? FontWeight.w700 : FontWeight.w500,
+                        color: cur == e.key ? kPrimary : kN4,
+                      )),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -204,7 +252,7 @@ class _MePageState extends State<MePage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCard,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: kLine),
       ),
@@ -493,7 +541,7 @@ class _ThemeTile extends StatelessWidget {
         width: width,
         padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
         decoration: BoxDecoration(
-          color: selected ? kPrimary50 : Colors.white,
+          color: selected ? kPrimary50 : kCard,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? kPrimary : kLine,

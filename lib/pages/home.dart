@@ -111,14 +111,17 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _levelPill(LvInfo lv) {
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      label: '当前级别 ${lv.id} ${lv.name}，点开切换',
+      child: GestureDetector(
       onTap: _toggleDrop,
       child: Container(
         padding: const EdgeInsets.fromLTRB(7, 6, 12, 6),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .9),
+          color: kCard.withValues(alpha: .92),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: Colors.white),
+          border: Border.all(color: kCard),
           boxShadow: [
             BoxShadow(
                 color: ta(kPrimaryDeep, 0x3D),
@@ -163,16 +166,20 @@ class _HomePageState extends State<HomePage>
           ],
         ),
       ),
+      ),
     );
   }
 
   Widget _streakChip() {
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      label: '连续学习 ${Progress.I.streak} 天，点开打卡',
+      child: GestureDetector(
       onTap: _openCheckin,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .86),
+          color: kCard.withValues(alpha: .92),
           borderRadius: BorderRadius.circular(999),
           boxShadow: [
             BoxShadow(
@@ -194,6 +201,7 @@ class _HomePageState extends State<HomePage>
                     color: kFlame)),
           ],
         ),
+      ),
       ),
     );
   }
@@ -227,7 +235,12 @@ class _HomePageState extends State<HomePage>
 
   Widget _tab(String label, int i) {
     final on = _mode == i;
-    return GestureDetector(
+    // 读屏用户听到的是「关卡，标签页，已选中」而不是只有一个词
+    return Semantics(
+      button: true,
+      selected: on,
+      label: '$label标签页',
+      child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => setState(() => _mode = i),
       child: Padding(
@@ -252,6 +265,7 @@ class _HomePageState extends State<HomePage>
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -307,7 +321,7 @@ class _HomePageState extends State<HomePage>
       height: bottom - top,
       child: Container(
         decoration: BoxDecoration(
-          color: s.isOdd ? kPrimary50 : Colors.white,
+          color: s.isOdd ? kPrimary50 : kCard,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: ta(kPrimary, 0x12)),
           boxShadow: [
@@ -388,12 +402,13 @@ class _HomePageState extends State<HomePage>
     } else if (u.review) {
       grad = null;
       bg = kAmber50;
-      border = const Color(0xFFEFC97E);
-      fg = const Color(0xFFB26A0B);
+      // 亮色是「浅金底 + 深金字」，暗色要翻过来，否则字贴在暗底上看不见
+      border = isDarkUI ? const Color(0xFF6B4E1E) : const Color(0xFFEFC97E);
+      fg = isDarkUI ? const Color(0xFFF0B65A) : const Color(0xFFB26A0B);
       shadow = kLine;
     } else {
       grad = null;
-      bg = Colors.white;
+      bg = kCard;
       border = kN2;
       fg = kN3;
       shadow = kLine;
@@ -417,7 +432,13 @@ class _HomePageState extends State<HomePage>
         top: geo.y(i) - size / 2,
         width: size,
         height: size,
-        child: GestureDetector(
+        child: Semantics(
+          button: true,
+          enabled: open,
+          label: '第 ${i + 1} 关 ${u.id}，'
+              '${done ? '已完成' : (open ? (isCur ? '当前关，' : '') : '未解锁，')}'
+              '${u.review ? '复习关' : '新词关'}',
+          child: GestureDetector(
           onTap: () {
             if (byPlan) {
               showPaywall(context, reason: '解锁 $lv 的 ${u.id} 及后续关卡');
@@ -473,6 +494,7 @@ class _HomePageState extends State<HomePage>
                 ),
             ],
           ),
+        ),
         ),
       ),
       if (isCur) _bubble(geo, i, done, size),
@@ -615,7 +637,7 @@ class _HomePageState extends State<HomePage>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: kCard,
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(color: kLine),
               ),
@@ -710,7 +732,14 @@ class _HomePageState extends State<HomePage>
         ? Colors.white.withValues(alpha: .85)
         : (done ? kN4 : kMuted);
 
-    return GestureDetector(
+    // 状态全靠颜色/图标表达，读屏只能靠这句 label
+    final stateText = locked
+        ? '未解锁'
+        : (done ? '已学完' : (isCur ? '进行中，$sub' : '未开始，$sub'));
+    return Semantics(
+      button: true,
+      label: '主题 ${i + 1}/${c.curThemes.length}：${t.name}，$stateText',
+      child: GestureDetector(
       onTap: () => locked
           ? showPaywall(context, reason: '解锁「${t.name}」及全部主题')
           : _openTheme(i),
@@ -816,6 +845,7 @@ class _HomePageState extends State<HomePage>
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -854,7 +884,7 @@ class _HomePageState extends State<HomePage>
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCard,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: kLine),
           ),
@@ -947,7 +977,7 @@ class _HomePageState extends State<HomePage>
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCard,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
         boxShadow: [
           BoxShadow(
@@ -1073,7 +1103,7 @@ class _HomePageState extends State<HomePage>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
         decoration: BoxDecoration(
-          color: on ? kPrimary50 : (locked ? kBg : Colors.white),
+          color: on ? kPrimary50 : (locked ? kBg : kCard),
           borderRadius: BorderRadius.circular(13),
           border: Border.all(
               color: on ? kPrimary : kLine, width: on ? 1.5 : 1),
@@ -1606,7 +1636,7 @@ class _RoundFab extends StatelessWidget {
           height: 44,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .94),
+            color: kCard.withValues(alpha: .94),
             shape: BoxShape.circle,
             border: Border.all(color: kLine),
             boxShadow: [
@@ -1646,7 +1676,7 @@ class _EmptyCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCard,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: kLine),
       ),

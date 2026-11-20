@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_settings.dart';
+import 'audio.dart';
 import 'auth.dart';
 import 'bank.dart';
 import 'content_sync.dart';
@@ -46,6 +48,9 @@ void main() async {
 /// prefs 读写异常，都会在 `runApp` 之前抛出，用户看到的是**永久白屏**。
 /// 现在最坏情况是某个模块没数据（词库为空 → 首页显示空态），但 App 打得开。
 Future<void> _boot() async {
+  // 先把系统亮暗记下来，否则「跟随系统」的设备首帧会闪一下亮色
+  AppTheme.I.setSystemBrightness(
+      WidgetsBinding.instance.platformDispatcher.platformBrightness);
   final steps = <String, Future<void> Function()>{
     '词库': WordBank.I.load,
     '学习进度': Progress.I.load,
@@ -75,7 +80,11 @@ class EngApp extends StatelessWidget {
       builder: (_, _) => MaterialApp(
         title: '词鹿英语',
         debugShowCheckedModeBanner: false,
-        theme: buildTheme(AppTheme.I.pal),
+        // 亮/暗两套色板都交给 MaterialApp：跟随系统时由 Flutter 自己切，
+        // 我们用 themeMode 表达「跟随/强制亮/强制暗」。
+        theme: buildTheme(AppTheme.I.lightPal),
+        darkTheme: buildTheme(AppTheme.I.darkPal),
+        themeMode: AppTheme.I.flutterThemeMode,
         home: const Shell(),
       ),
     );
@@ -106,11 +115,31 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // 发音失败统一在这里提示一次：各页面调用点只管调 Voice.say，
+    // 弱网/无声时用户至少知道是加载失败，不是 App 卡住。
+    Voice.failTick.addListener(_onVoiceFail);
   }
   @override
   void dispose() {
+    Voice.failTick.removeListener(_onVoiceFail);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _onVoiceFail() {
+    if (!mounted) return;
+    final w = Voice.lastFailWord;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(w.isEmpty ? '发音加载失败，请检查网络后重试' : '「$w」发音加载失败，请检查网络'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        action: w.isEmpty
+            ? null
+            : SnackBarAction(label: '重试', onPressed: () => Voice.say(w)),
+      ));
   }
 
   /// 切后台前补一次同步：手机上用户很少主动 "退出"，
@@ -118,6 +147,13 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) ProgressSync.I.syncNow();
+  }
+
+  /// 系统切深/浅色：AppTheme 只在「跟随系统」时通知重建
+  @override
+  void didChangePlatformBrightness() {
+    AppTheme.I
+        .setSystemBrightness(WidgetsBinding.instance.platformDispatcher.platformBrightness);
   }
 
   @override
@@ -129,7 +165,12 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
   }
 
   Widget _scaffold(BuildContext context) {
-    return Scaffold(
+    // 没有 AppBar，状态栏图标要自己声明亮/暗，否则深色模式下顶上是黑字贴黑底
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: AppTheme.I.isDark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
+      child: Scaffold(
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -140,7 +181,8 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _idx,
         onDestinationSelected: (i) => setState(() => _idx = i),
-        backgroundColor: Colors.white,
+        backgroundColor: kCard,
+        surfaceTintColor: Colors.transparent,
         indicatorColor: kPrimary.withValues(alpha: 0.12),
         height: 62,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -166,6 +208,7 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
             label: '我的',
           ),
         ],
+      ),
       ),
     );
   }

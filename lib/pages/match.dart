@@ -42,11 +42,14 @@ Color get _ink => kInk;
 Color get _ink2 => kN4;
 Color get _ink3 => kN4;
 const _okColor = Color(0xFF58CC02);
-const _ok50 = Color(0xFFEAF9EF);
-const _okInk = Color(0xFF237A00);
-const _okInk2 = Color(0xFF3E8F76);
+// 深色下这三个必须换：浅绿底 + 深绿字放到暗色主题里就是一块白斑
+Color get _ok50 => pal.isDark ? const Color(0xFF12291A) : const Color(0xFFEAF9EF);
+Color get _okInk => pal.isDark ? const Color(0xFF7BE8A8) : const Color(0xFF237A00);
+Color get _okInk2 => pal.isDark ? const Color(0xFF8FD3BE) : const Color(0xFF3E8F76);
 Color get _badColor => kRed;
-const _bad50 = Color(0xFFFCECEC);
+Color get _bad50 => pal.isDark ? const Color(0xFF2C1516) : const Color(0xFFFCECEC);
+/// 错词卡上的字：暗色底要用亮红，否则 #A32D2D 贴在 #2C1516 上几乎看不见
+Color get _badInk => pal.isDark ? const Color(0xFFFF8A80) : const Color(0xFFA32D2D);
 Color get _shelfBg => kN1;
 
 class _T {
@@ -782,7 +785,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                 f.word.en,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: _okInk,
@@ -843,7 +846,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                   height: 34,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: kCard,
                     shape: BoxShape.circle,
                     border: Border.all(color: _line, width: 1),
                   ),
@@ -881,7 +884,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 11, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: kCard,
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: _line, width: 1),
                 ),
@@ -1023,7 +1026,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
         ? Colors.transparent
         : fresh
             ? _ok50
-            : Colors.white;
+            : kCard;
     final Color border = !filled
         ? kN2
         : fresh
@@ -1195,7 +1198,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
     final word = c.w;
     final blank = word == null;
 
-    Color bg = Colors.white;
+    Color bg = kCard;
     Color border = _line;
     Color textColor = _ink;
     Color subColor = _ink3;
@@ -1234,8 +1237,8 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
     } else if (c.bad) {
       bg = _bad50;
       border = _badColor;
-      textColor = Color(0xFFA32D2D);
-      subColor = Color(0xFFA32D2D);
+      textColor = _badInk;
+      subColor = _badInk;
     } else if (c.sel) {
       bg = _primary50;
       border = _primary;
@@ -1266,7 +1269,13 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
           fit: StackFit.expand,
           children: [
             if (!blank)
-              Material(
+              Semantics(
+                button: true,
+                selected: c.sel,
+                // 置灰的牌不能再点，读屏也不该把它报成可操作
+                enabled: !c.gone,
+                label: isEn ? '英文 $main' : '中文 $main',
+                child: Material(
                 color: Colors.transparent,
                 borderRadius: BorderRadius.circular(15),
                 child: InkWell(
@@ -1312,6 +1321,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
+                ),
                 ),
               ),
             if (dashed)
@@ -1406,7 +1416,7 @@ class _MatchPageState extends State<MatchPage> with TickerProviderStateMixin {
             constraints: const BoxConstraints(maxWidth: 340),
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCard,
               borderRadius: BorderRadius.circular(20),
               boxShadow: const [
                 BoxShadow(color: Color(0x33000000), blurRadius: 30, offset: Offset(0, 12)),

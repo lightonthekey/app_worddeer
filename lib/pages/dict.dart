@@ -69,7 +69,7 @@ class _DictPageState extends State<DictPage> {
                         },
                       ),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: kCard,
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -145,7 +145,7 @@ class _DictPageState extends State<DictPage> {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCard,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: kLine),
         ),
@@ -188,6 +188,7 @@ class _DictPageState extends State<DictPage> {
             ),
             IconButton(
               onPressed: () => Voice.say(w.en),
+              tooltip: '播放「${w.en}」发音',
               icon: Icon(Icons.volume_up_rounded,
                   size: 18, color: kPrimary),
               padding: EdgeInsets.zero,
@@ -204,7 +205,7 @@ class _DictPageState extends State<DictPage> {
     final st = Progress.I.states[w.en];
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: kCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -228,6 +229,7 @@ class _DictPageState extends State<DictPage> {
                 const Spacer(),
                 IconButton(
                   onPressed: () => Voice.say(w.en),
+                  tooltip: '播放「${w.en}」发音',
                   icon: Icon(Icons.volume_up_rounded, color: kPrimary),
                 ),
               ],
